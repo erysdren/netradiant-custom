@@ -1,17 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 project(radiant LANGUAGES C CXX)
 
-# external deps
-include(FetchContent)
-
-FetchContent_Declare(
-	quickhull
-	GIT_REPOSITORY https://github.com/akuukka/quickhull
-	GIT_TAG origin/master
-)
-
-FetchContent_MakeAvailable(quickhull)
-
 # packages
 
 find_package(PkgConfig REQUIRED)
@@ -75,6 +64,29 @@ add_library(l_net STATIC
 target_include_directories(l_net PRIVATE
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_SOURCE_DIR}/libs
+)
+
+# xmllib
+
+add_library(xmllib STATIC
+	${PROJECT_SOURCE_DIR}/libs/xml/ixml.cpp
+	${PROJECT_SOURCE_DIR}/libs/xml/xmlelement.cpp
+	${PROJECT_SOURCE_DIR}/libs/xml/xmlparser.cpp
+	${PROJECT_SOURCE_DIR}/libs/xml/xmltextags.cpp
+	${PROJECT_SOURCE_DIR}/libs/xml/xmlwriter.cpp
+)
+
+target_include_directories(xmllib PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_SOURCE_DIR}/libs
+)
+
+target_link_libraries(xmllib PRIVATE LibXml2::LibXml2)
+
+# quickhull
+
+add_library(quickhull STATIC
+	${PROJECT_SOURCE_DIR}/libs/quickhull/QuickHull.cpp
 )
 
 # radiant
@@ -183,9 +195,9 @@ target_link_libraries(radiant PRIVATE LibXml2::LibXml2)
 target_link_libraries(radiant PRIVATE ${GLIB2_LIBRARIES})
 target_include_directories(radiant PRIVATE ${GLIB2_INCLUDE_DIRS})
 
-target_link_libraries(radiant PRIVATE commandlib gtkutil l_net)
+target_link_libraries(radiant PRIVATE commandlib gtkutil l_net xmllib quickhull)
 
-set_target_properties(radiant commandlib gtkutil PROPERTIES CXX_STANDARD_REQUIRED ON CXX_STANDARD 20)
+set_target_properties(radiant commandlib gtkutil xmllib PROPERTIES CXX_STANDARD_REQUIRED ON CXX_STANDARD 20)
 
 target_compile_options(radiant PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
 target_compile_options(radiant PRIVATE -Wreorder -fno-exceptions -fno-rtti)
@@ -195,11 +207,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	target_compile_definitions(commandlib PRIVATE WIN32)
 	target_compile_definitions(gtkutil PRIVATE WIN32)
 	target_compile_definitions(l_net PRIVATE WIN32)
+	target_compile_definitions(xmllib PRIVATE WIN32)
 	target_compile_definitions(radiant PRIVATE RADIANT_EXECUTABLE=\"exe\")
 else()
 	target_compile_definitions(radiant PRIVATE POSIX)
 	target_compile_definitions(commandlib PRIVATE POSIX)
 	target_compile_definitions(gtkutil PRIVATE POSIX)
 	target_compile_definitions(l_net PRIVATE POSIX)
+	target_compile_definitions(xmllib PRIVATE POSIX)
 	target_compile_definitions(radiant PRIVATE RADIANT_EXECUTABLE=\"${CMAKE_SYSTEM_PROCESSOR}\")
 endif()
