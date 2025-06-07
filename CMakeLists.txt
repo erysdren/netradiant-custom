@@ -107,6 +107,54 @@ add_library(quickhull STATIC
 	${PROJECT_SOURCE_DIR}/libs/quickhull/QuickHull.cpp
 )
 
+# filematch
+
+add_library(filematch STATIC
+	${PROJECT_SOURCE_DIR}/libs/filematch.c
+)
+
+target_include_directories(filematch PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_SOURCE_DIR}/libs
+)
+
+# mathlib
+
+add_library(mathlib STATIC
+	${PROJECT_SOURCE_DIR}/libs/mathlib/bbox.c
+	${PROJECT_SOURCE_DIR}/libs/mathlib/line.c
+	${PROJECT_SOURCE_DIR}/libs/mathlib/m4x4.c
+	${PROJECT_SOURCE_DIR}/libs/mathlib/mathlib.c
+	${PROJECT_SOURCE_DIR}/libs/mathlib/ray.c
+)
+
+target_include_directories(mathlib PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_SOURCE_DIR}/libs
+)
+
+# ddslib
+
+add_library(ddslib STATIC
+	${PROJECT_SOURCE_DIR}/libs/ddslib/ddslib.c
+)
+
+target_include_directories(ddslib PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_SOURCE_DIR}/libs
+)
+
+# etclib
+
+add_library(etclib STATIC
+	${PROJECT_SOURCE_DIR}/libs/etclib.c
+)
+
+target_include_directories(etclib PRIVATE
+	${PROJECT_SOURCE_DIR}/include
+	${PROJECT_SOURCE_DIR}/libs
+)
+
 # radiant
 
 add_executable(radiant
@@ -334,6 +382,7 @@ add_module(image
 		${PROJECT_SOURCE_DIR}/plugins/image/pcx.cpp
 		${PROJECT_SOURCE_DIR}/plugins/image/tga.cpp
 )
+target_link_libraries(image PRIVATE ddslib etclib)
 
 add_module(imagehl
 	SOURCES
@@ -397,4 +446,5 @@ add_module(vfspk3
 )
 target_link_libraries(vfspk3 PRIVATE LibXml2::LibXml2)
 target_link_libraries(vfspk3 PRIVATE ${GLIB2_LIBRARIES})
+target_link_libraries(vfspk3 PRIVATE filematch)
 target_include_directories(vfspk3 PRIVATE ${GLIB2_INCLUDE_DIRS})
