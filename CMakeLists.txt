@@ -325,6 +325,13 @@ function(add_module name)
 		${PROJECT_SOURCE_DIR}/include
 		${PROJECT_SOURCE_DIR}/libs
 	)
+	target_compile_definitions(${name} PRIVATE QT_NO_KEYWORDS)
+	target_compile_definitions(${name} PRIVATE
+		RADIANT_VERSION=\"${RADIANT_VERSION}\"
+		RADIANT_MAJOR_VERSION=\"${RADIANT_MAJOR_VERSION}\"
+		RADIANT_MINOR_VERSION=\"${RADIANT_MINOR_VERSION}\"
+		RADIANT_ABOUTMSG=\"${RADIANT_ABOUTMSG}\"
+	)
 endfunction()
 
 add_module(archivepak
@@ -455,3 +462,123 @@ target_link_libraries(vfspk3 PRIVATE LibXml2::LibXml2)
 target_link_libraries(vfspk3 PRIVATE ${GLIB2_LIBRARIES})
 target_link_libraries(vfspk3 PRIVATE filematch)
 target_include_directories(vfspk3 PRIVATE ${GLIB2_INCLUDE_DIRS})
+
+# plugins
+
+function(add_plugin name)
+	cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "SOURCES")
+	add_library(${name} SHARED ${ARG_SOURCES})
+	set_target_properties(${name}
+		PROPERTIES
+			CXX_STANDARD_REQUIRED ON
+			CXX_STANDARD 20
+			LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/plugins
+			RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/plugins
+			PREFIX ""
+	)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		target_compile_definitions(${name} PRIVATE WIN32)
+	else()
+		target_compile_definitions(${name} PRIVATE POSIX XWINDOWS)
+	endif()
+	target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
+	target_compile_options(${name} PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+	target_include_directories(${name} PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_SOURCE_DIR}/libs
+	)
+	target_compile_definitions(${name} PRIVATE QT_NO_KEYWORDS)
+	target_compile_definitions(${name} PRIVATE
+		RADIANT_VERSION=\"${RADIANT_VERSION}\"
+		RADIANT_MAJOR_VERSION=\"${RADIANT_MAJOR_VERSION}\"
+		RADIANT_MINOR_VERSION=\"${RADIANT_MINOR_VERSION}\"
+		RADIANT_ABOUTMSG=\"${RADIANT_ABOUTMSG}\"
+	)
+endfunction()
+
+add_plugin(bobtoolz
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/bobToolz-GTK.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/bsploader.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/cportals.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DBobView.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DBrush.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DEntity.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DEPair.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/dialogs/dialogs-gtk.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DMap.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DPatch.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DPlane.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DPoint.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DShape.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DTrainDrawer.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DTreePlanter.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DVisDrawer.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/DWinding.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/funchandlers-GTK.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/lists.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/misc.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/ScriptParser.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/shapes.cpp
+		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/visfind.cpp
+)
+target_link_libraries(bobtoolz PRIVATE commandlib mathlib)
+target_link_libraries(bobtoolz PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+
+add_plugin(brushexport
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/callbacks.cpp
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/export.cpp
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/interface.cpp
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/plugin.cpp
+)
+target_link_libraries(brushexport PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+
+add_plugin(prtview
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/prtview/AboutDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/ConfigDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/LoadPortalFileDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/portals.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/prtview.cpp
+)
+target_link_libraries(prtview PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+
+add_plugin(shaderplug
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/shaderplug/shaderplug.cpp
+)
+target_link_libraries(shaderplug PRIVATE LibXml2::LibXml2)
+
+add_plugin(sunplug
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/sunplug/sunplug.cpp
+)
+target_link_libraries(sunplug PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+
+add_plugin(ufoaiplug
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/ufoaiplug/ufoai_filters.cpp
+		${PROJECT_SOURCE_DIR}/contrib/ufoaiplug/ufoai_gtk.cpp
+		${PROJECT_SOURCE_DIR}/contrib/ufoaiplug/ufoai_level.cpp
+		${PROJECT_SOURCE_DIR}/contrib/ufoaiplug/ufoai.cpp
+)
+target_link_libraries(ufoaiplug PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+
+add_plugin(meshtex
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/GeneralFunctionDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/GenericDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/GenericMainMenu.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/GenericPluginUI.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/GetInfoDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/MainMenu.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/MeshEntity.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/MeshVisitor.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/PluginModule.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/PluginRegistration.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/PluginUI.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/RefCounted.cpp
+		${PROJECT_SOURCE_DIR}/contrib/meshtex/SetScaleDialog.cpp
+)
+target_link_libraries(meshtex PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
