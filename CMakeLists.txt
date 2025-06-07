@@ -1,6 +1,23 @@
 cmake_minimum_required(VERSION 3.21)
 project(radiant LANGUAGES C CXX)
 
+# external dependencies
+
+include(FetchContent)
+
+FetchContent_Declare(
+	assimp
+	GIT_REPOSITORY https://github.com/assimp/assimp.git
+	GIT_TAG "v6.0.1"
+	EXCLUDE_FROM_ALL
+)
+
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INJECT_DEBUG_POSTFIX OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(assimp)
+
 # packages
 
 find_package(PkgConfig REQUIRED)
@@ -232,3 +249,156 @@ else()
 		target_compile_definitions(radiant PRIVATE RADIANT_EXECUTABLE=\"unknown\")
 	endif()
 endif()
+
+# modules
+
+function(add_module name)
+	cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "SOURCES")
+	add_library(${name} SHARED ${ARG_SOURCES})
+	set_target_properties(${name}
+		PROPERTIES
+			CXX_STANDARD_REQUIRED ON
+			CXX_STANDARD 20
+			LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/modules
+			RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/modules
+			PREFIX ""
+	)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		target_compile_definitions(${name} PRIVATE WIN32)
+	else()
+		target_compile_definitions(${name} PRIVATE POSIX XWINDOWS)
+	endif()
+	target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
+	target_compile_options(${name} PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+	target_include_directories(${name} PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_SOURCE_DIR}/libs
+	)
+endfunction()
+
+add_module(archivepak
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/archivepak/archive.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivepak/pak.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivepak/plugin.cpp
+)
+
+add_module(archivewad
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/archivewad/archive.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivewad/plugin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivewad/wad.cpp
+)
+
+add_module(archivezip
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/archivezip/archive.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivezip/pkzip.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivezip/plugin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivezip/zlibstream.cpp
+)
+
+add_module(entity
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/entity/angle.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/angles.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/colour.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/doom3group.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/eclassmodel.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/entity.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/filters.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/generic.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/group.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/light.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/miscmodel.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/model.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/modelskinkey.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/namedentity.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/origin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/plugin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/rotation.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/scale.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/skincache.cpp
+		${PROJECT_SOURCE_DIR}/plugins/entity/targetable.cpp
+)
+target_link_libraries(entity PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+
+add_module(image
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/image/bmp.cpp
+		${PROJECT_SOURCE_DIR}/plugins/image/dds.cpp
+		${PROJECT_SOURCE_DIR}/plugins/image/image.cpp
+		${PROJECT_SOURCE_DIR}/plugins/image/jpeg.cpp
+		${PROJECT_SOURCE_DIR}/plugins/image/ktx.cpp
+		${PROJECT_SOURCE_DIR}/plugins/image/pcx.cpp
+		${PROJECT_SOURCE_DIR}/plugins/image/tga.cpp
+)
+
+add_module(imagehl
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/imagehl/hlw.cpp
+		${PROJECT_SOURCE_DIR}/plugins/imagehl/imagehl.cpp
+		${PROJECT_SOURCE_DIR}/plugins/imagehl/mip.cpp
+		${PROJECT_SOURCE_DIR}/plugins/imagehl/sprite.cpp
+)
+
+add_module(imagepng
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/imagepng/plugin.cpp
+)
+
+add_module(imageq2
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/imageq2/imageq2.cpp
+		${PROJECT_SOURCE_DIR}/plugins/imageq2/wal32.cpp
+		${PROJECT_SOURCE_DIR}/plugins/imageq2/wal.cpp
+)
+
+add_module(mapq3
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/mapq3/parse.cpp
+		${PROJECT_SOURCE_DIR}/plugins/mapq3/plugin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/mapq3/write.cpp
+)
+
+add_module(mapxml
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/mapxml/plugin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/mapxml/xmlparse.cpp
+		${PROJECT_SOURCE_DIR}/plugins/mapxml/xmlwrite.cpp
+)
+target_link_libraries(mapxml PRIVATE LibXml2::LibXml2)
+
+add_module(assmodel
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/assmodel/mdlimage.cpp
+		${PROJECT_SOURCE_DIR}/plugins/assmodel/model.cpp
+		${PROJECT_SOURCE_DIR}/plugins/assmodel/plugin.cpp
+)
+target_link_libraries(assmodel PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(assmodel PRIVATE assimp)
+set_target_properties(assimp
+	PROPERTIES
+		LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
+		RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
+)
+
+add_module(shaders
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/shaders/plugin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/shaders/shaders.cpp
+)
+target_link_libraries(shaders PRIVATE commandlib)
+target_link_libraries(shaders PRIVATE LibXml2::LibXml2)
+target_link_libraries(shaders PRIVATE ${GLIB2_LIBRARIES})
+target_include_directories(shaders PRIVATE ${GLIB2_INCLUDE_DIRS})
+
+add_module(vfspk3
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/vfspk3/archive.cpp
+		${PROJECT_SOURCE_DIR}/plugins/vfspk3/vfs.cpp
+		${PROJECT_SOURCE_DIR}/plugins/vfspk3/vfspk3.cpp
+)
+target_link_libraries(vfspk3 PRIVATE LibXml2::LibXml2)
+target_link_libraries(vfspk3 PRIVATE ${GLIB2_LIBRARIES})
+target_include_directories(vfspk3 PRIVATE ${GLIB2_INCLUDE_DIRS})
