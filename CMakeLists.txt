@@ -202,6 +202,15 @@ set_target_properties(radiant commandlib gtkutil xmllib PROPERTIES CXX_STANDARD_
 target_compile_options(radiant PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
 target_compile_options(radiant PRIVATE -Wreorder -fno-exceptions -fno-rtti)
 
+set_target_properties(radiant
+	PROPERTIES
+		LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
+		RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
+)
+
+file(WRITE ${PROJECT_SOURCE_DIR}/install/RADIANT_MINOR ${RADIANT_MINOR_VERSION})
+file(WRITE ${PROJECT_SOURCE_DIR}/install/RADIANT_MAJOR ${RADIANT_MAJOR_VERSION})
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	target_compile_definitions(radiant PRIVATE WIN32)
 	target_compile_definitions(commandlib PRIVATE WIN32)
