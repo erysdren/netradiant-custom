@@ -277,6 +277,9 @@ set_target_properties(radiant
 file(WRITE ${PROJECT_SOURCE_DIR}/install/RADIANT_MINOR ${RADIANT_MINOR_VERSION})
 file(WRITE ${PROJECT_SOURCE_DIR}/install/RADIANT_MAJOR ${RADIANT_MAJOR_VERSION})
 
+file(GLOB RADIANT_DATA_FILES "${PROJECT_SOURCE_DIR}/setup/data/tools/*")
+file(COPY ${RADIANT_DATA_FILES} DESTINATION ${PROJECT_SOURCE_DIR}/install/)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	target_compile_definitions(radiant PRIVATE WIN32)
 	target_compile_definitions(commandlib PRIVATE WIN32)
