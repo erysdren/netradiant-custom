@@ -12,6 +12,7 @@ FetchContent_Declare(
 	EXCLUDE_FROM_ALL
 )
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INJECT_DEBUG_POSTFIX OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
@@ -377,11 +378,6 @@ add_module(assmodel
 )
 target_link_libraries(assmodel PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
 target_link_libraries(assmodel PRIVATE assimp)
-set_target_properties(assimp
-	PROPERTIES
-		LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
-		RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
-)
 
 add_module(shaders
 	SOURCES
