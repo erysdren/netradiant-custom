@@ -24,7 +24,7 @@ find_package(PkgConfig REQUIRED)
 pkg_search_module(GLIB2 REQUIRED glib-2.0)
 pkg_search_module(LIBPNG REQUIRED libpng)
 pkg_search_module(LIBJPEG REQUIRED libjpeg)
-find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
+find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Svg REQUIRED)
 find_package(LibXml2 REQUIRED)
 
 # options
@@ -41,7 +41,7 @@ add_library(commandlib STATIC
 	${PROJECT_SOURCE_DIR}/libs/commandlib.cpp
 )
 
-target_link_libraries(commandlib PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(commandlib PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_include_directories(commandlib PRIVATE
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_SOURCE_DIR}/libs
@@ -68,7 +68,7 @@ add_library(gtkutil STATIC
 	${PROJECT_SOURCE_DIR}/libs/gtkutil/xorrectangle.cpp
 )
 
-target_link_libraries(gtkutil PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(gtkutil PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_include_directories(gtkutil PRIVATE
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_SOURCE_DIR}/libs
@@ -198,6 +198,7 @@ add_executable(radiant
 	${PROJECT_SOURCE_DIR}/radiant/gtkmisc.cpp
 	${PROJECT_SOURCE_DIR}/radiant/help.cpp
 	${PROJECT_SOURCE_DIR}/radiant/image.cpp
+	${PROJECT_SOURCE_DIR}/radiant/layerswindow.cpp
 	${PROJECT_SOURCE_DIR}/radiant/mainframe.cpp
 	${PROJECT_SOURCE_DIR}/radiant/main.cpp
 	${PROJECT_SOURCE_DIR}/radiant/map.cpp
@@ -258,7 +259,7 @@ target_include_directories(radiant PRIVATE
 	${PROJECT_SOURCE_DIR}/libs
 )
 
-target_link_libraries(radiant PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(radiant PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(radiant PRIVATE LibXml2::LibXml2)
 target_link_libraries(radiant PRIVATE ${GLIB2_LIBRARIES})
 target_include_directories(radiant PRIVATE ${GLIB2_INCLUDE_DIRS})
@@ -474,7 +475,7 @@ add_module(entity
 		${PROJECT_SOURCE_DIR}/plugins/entity/skincache.cpp
 		${PROJECT_SOURCE_DIR}/plugins/entity/targetable.cpp
 )
-target_link_libraries(entity PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(entity PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
 add_module(image
 	SOURCES
@@ -529,7 +530,7 @@ add_module(assmodel
 		${PROJECT_SOURCE_DIR}/plugins/assmodel/model.cpp
 		${PROJECT_SOURCE_DIR}/plugins/assmodel/plugin.cpp
 )
-target_link_libraries(assmodel PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(assmodel PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(assmodel PRIVATE assimp)
 set_target_properties(assimp
 	PROPERTIES
@@ -618,7 +619,7 @@ add_plugin(bobtoolz
 		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/visfind.cpp
 )
 target_link_libraries(bobtoolz PRIVATE commandlib mathlib)
-target_link_libraries(bobtoolz PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(bobtoolz PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
 add_plugin(brushexport
 	SOURCES
@@ -627,7 +628,7 @@ add_plugin(brushexport
 		${PROJECT_SOURCE_DIR}/contrib/brushexport/interface.cpp
 		${PROJECT_SOURCE_DIR}/contrib/brushexport/plugin.cpp
 )
-target_link_libraries(brushexport PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(brushexport PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
 add_plugin(prtview
 	SOURCES
@@ -637,7 +638,7 @@ add_plugin(prtview
 		${PROJECT_SOURCE_DIR}/contrib/prtview/portals.cpp
 		${PROJECT_SOURCE_DIR}/contrib/prtview/prtview.cpp
 )
-target_link_libraries(prtview PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(prtview PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
 add_plugin(shaderplug
 	SOURCES
@@ -649,7 +650,7 @@ add_plugin(sunplug
 	SOURCES
 		${PROJECT_SOURCE_DIR}/contrib/sunplug/sunplug.cpp
 )
-target_link_libraries(sunplug PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(sunplug PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
 add_plugin(ufoaiplug
 	SOURCES
@@ -658,7 +659,7 @@ add_plugin(ufoaiplug
 		${PROJECT_SOURCE_DIR}/contrib/ufoaiplug/ufoai_level.cpp
 		${PROJECT_SOURCE_DIR}/contrib/ufoaiplug/ufoai.cpp
 )
-target_link_libraries(ufoaiplug PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(ufoaiplug PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
 add_plugin(meshtex
 	SOURCES
@@ -676,4 +677,4 @@ add_plugin(meshtex
 		${PROJECT_SOURCE_DIR}/contrib/meshtex/RefCounted.cpp
 		${PROJECT_SOURCE_DIR}/contrib/meshtex/SetScaleDialog.cpp
 )
-target_link_libraries(meshtex PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(meshtex PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
