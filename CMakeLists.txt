@@ -3,7 +3,16 @@ project(radiant LANGUAGES C CXX)
 
 # external dependencies
 
+cmake_policy(SET CMP0077 NEW)
+
 include(FetchContent)
+
+FetchContent_Declare(
+	sourcepp
+	GIT_REPOSITORY https://github.com/craftablescience/sourcepp.git
+	GIT_TAG v2025.11.05
+	EXCLUDE_FROM_ALL
+)
 
 FetchContent_Declare(
 	assimp
@@ -12,11 +21,20 @@ FetchContent_Declare(
 	EXCLUDE_FROM_ALL
 )
 
+set(SOURCEPP_LIBS_START_ENABLED OFF CACHE BOOL "" FORCE)
+set(SOURCEPP_USE_KVPP ON CACHE BOOL "" FORCE) # for VMTs
+set(SOURCEPP_USE_MDLPP ON CACHE BOOL "" FORCE) # for MDLs
+set(SOURCEPP_USE_VPKPP ON CACHE BOOL "" FORCE) # for VPKs
+set(SOURCEPP_USE_VTFPP ON CACHE BOOL "" FORCE) # for VTFs
+set(SOURCEPP_VTFPP_SUPPORT_EXR OFF CACHE BOOL "" FORCE)
+set(SOURCEPP_VTFPP_SUPPORT_QOI OFF CACHE BOOL "" FORCE)
+set(SOURCEPP_VTFPP_SUPPORT_WEBP OFF CACHE BOOL "" FORCE)
+
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INJECT_DEBUG_POSTFIX OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(assimp)
+FetchContent_MakeAvailable(sourcepp assimp)
 
 # packages
 
@@ -416,7 +434,7 @@ function(add_module name)
 		target_compile_definitions(${name} PRIVATE POSIX XWINDOWS)
 	endif()
 	target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
-	target_compile_options(${name} PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+	target_compile_options(${name} PRIVATE -Wreorder -fno-rtti)
 	target_include_directories(${name} PRIVATE
 		${PROJECT_SOURCE_DIR}/include
 		${PROJECT_SOURCE_DIR}/libs
@@ -451,6 +469,13 @@ add_module(archivezip
 		${PROJECT_SOURCE_DIR}/plugins/archivezip/plugin.cpp
 		${PROJECT_SOURCE_DIR}/plugins/archivezip/zlibstream.cpp
 )
+
+add_module(archivevpk
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/archivepak/archive.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivepak/plugin.cpp
+)
+target_link_libraries(archivevpk PRIVATE sourcepp::vpkpp)
 
 add_module(entity
 	SOURCES
