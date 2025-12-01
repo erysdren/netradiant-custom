@@ -472,8 +472,8 @@ add_module(archivezip
 
 add_module(archivevpk
 	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/archivepak/archive.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivepak/plugin.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivevpk/archive.cpp
+		${PROJECT_SOURCE_DIR}/plugins/archivevpk/plugin.cpp
 )
 target_link_libraries(archivevpk PRIVATE sourcepp::vpkpp)
 

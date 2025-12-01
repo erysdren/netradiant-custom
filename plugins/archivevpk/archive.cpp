@@ -41,17 +41,16 @@
 
 class VpkArchive final : public Archive
 {
-	std::unique_ptr<vpkpp::VPK> m_vpk;
+	std::unique_ptr<vpkpp::PackFile> m_vpk;
+	CopiedString m_name;
 
 public:
 
-	VpkArchive( const char* name ) {
+	VpkArchive( const char* name ) : m_name( name ) {
 		m_vpk = vpkpp::VPK::open(name);
 	}
 
-	~VpkArchive() {
-		delete m_vpk;
-	}
+	~VpkArchive() { }
 
 	void release() override {
 		delete this;
@@ -61,7 +60,7 @@ public:
 		if ( m_vpk ) {
 			auto entry = m_vpk->findEntry( name );
 			if ( entry ) {
-				return StoredArchiveFile::create( name, m_name.c_str(), entry.offset, entry.length, entry.length );
+				return StoredArchiveFile::create( name, m_name.c_str(), entry.value().offset, entry.value().length, entry.value().length );
 			}
 		}
 		return 0;
@@ -70,7 +69,7 @@ public:
 		if ( m_vpk ) {
 			auto entry = m_vpk->findEntry( name );
 			if ( entry ) {
-				return StoredArchiveTextFile::create( name, m_name.c_str(), entry.offset, entry.length );
+				return StoredArchiveTextFile::create( name, m_name.c_str(), entry.value().offset, entry.value().length );
 			}
 		}
 		return 0;
@@ -85,7 +84,11 @@ public:
 		return false;
 	}
 	void forEachFile( VisitorFunc visitor, const char* root ) override {
-		m_filesystem.traverse( visitor, root );
+		if ( m_vpk ) {
+			m_vpk->runForAllEntries(root, [&visitor](const std::string& path, const vpkpp::Entry& entry) {
+				visitor.file( path.c_str() );
+			});
+		}
 	}
 };
 
