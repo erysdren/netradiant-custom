@@ -53,7 +53,7 @@ public:
 };
 
 
-class RadiantUndoSystem : public UndoSystem
+class RadiantUndoSystem final : public UndoSystem
 {
 	INTEGER_CONSTANT( MAX_UNDO_LEVELS, 4096 );
 
@@ -92,15 +92,15 @@ class RadiantUndoSystem : public UndoSystem
 			m_states.push_front( StateApplicator( undoable, undoable->exportState() ) );
 		}
 		void restore(){
-			for ( states_t::iterator i = m_states.begin(); i != m_states.end(); ++i )
+			for ( auto& stateApplicator : m_states )
 			{
-				( *i ).restore();
+				stateApplicator.restore();
 			}
 		}
 		void release(){
-			for ( states_t::iterator i = m_states.begin(); i != m_states.end(); ++i )
+			for ( auto& stateApplicator : m_states )
 			{
-				( *i ).release();
+				stateApplicator.release();
 			}
 		}
 	};
@@ -161,9 +161,9 @@ class RadiantUndoSystem : public UndoSystem
 		}
 		void clear(){
 			if ( !m_stack.empty() ) {
-				for ( Operations::iterator i = m_stack.begin(); i != m_stack.end(); ++i )
+				for ( auto *operation : m_stack )
 				{
-					delete *i;
+					delete operation;
 				}
 				m_stack.clear();
 			}
@@ -199,7 +199,7 @@ class RadiantUndoSystem : public UndoSystem
 	UndoStack m_undo_stack;
 	UndoStack m_redo_stack;
 
-	class UndoStackFiller : public UndoObserver
+	class UndoStackFiller final : public UndoObserver
 	{
 		UndoStack* m_stack;
 	public:
@@ -207,7 +207,7 @@ class RadiantUndoSystem : public UndoSystem
 		UndoStackFiller()
 			: m_stack( 0 ){
 		}
-		void save( Undoable* undoable ){
+		void save( Undoable* undoable ) override {
 			ASSERT_NOTNULL( undoable );
 
 			if ( m_stack != 0 ) {
@@ -224,9 +224,9 @@ class RadiantUndoSystem : public UndoSystem
 	undoables_t m_undoables;
 
 	void mark_undoables( UndoStack* stack ){
-		for ( undoables_t::iterator i = m_undoables.begin(); i != m_undoables.end(); ++i )
+		for ( auto& u : m_undoables )
 		{
-			( *i ).second.setStack( stack );
+			u.second.setStack( stack );
 		}
 	}
 
@@ -241,12 +241,12 @@ public:
 	~RadiantUndoSystem(){
 		clear();
 	}
-	UndoObserver* observer( Undoable* undoable ){
+	UndoObserver* observer( Undoable* undoable ) override {
 		ASSERT_NOTNULL( undoable );
 
 		return &m_undoables[undoable];
 	}
-	void release( Undoable* undoable ){
+	void release( Undoable* undoable ) override {
 		ASSERT_NOTNULL( undoable );
 
 		m_undoables.erase( undoable );
@@ -265,7 +265,7 @@ public:
 	std::size_t getLevels() const {
 		return m_undo_levels;
 	}
-	std::size_t size() const {
+	std::size_t size() const override {
 		return m_undo_stack.size();
 	}
 	void startUndo(){
@@ -286,7 +286,7 @@ public:
 		mark_undoables( 0 );
 		return changed;
 	}
-	void start(){
+	void start() override {
 		m_redo_stack.clear();
 		if ( m_undo_stack.size() == m_undo_levels ) {
 			m_undo_stack.pop_front();
@@ -294,12 +294,12 @@ public:
 		startUndo();
 		trackersBegin();
 	}
-	void finish( const char* command ){
+	void finish( const char* command ) override {
 		if ( finishUndo( command ) ) {
 			globalOutputStream() << command << '\n';
 		}
 	}
-	void undo(){
+	void undo() override {
 		if ( m_undo_stack.empty() ) {
 			globalOutputStream() << "Undo: no undo available\n";
 		}
@@ -315,7 +315,7 @@ public:
 			m_undo_stack.pop_back();
 		}
 	}
-	void redo(){
+	void redo() override {
 		if ( m_redo_stack.empty() ) {
 			globalOutputStream() << "Redo: no redo available\n";
 		}
@@ -331,42 +331,42 @@ public:
 			m_redo_stack.pop_back();
 		}
 	}
-	void clear(){
+	void clear() override {
 		mark_undoables( 0 );
 		m_undo_stack.clear();
 		m_redo_stack.clear();
 		trackersClear();
 	}
-	void trackerAttach( UndoTracker& tracker ){
+	void trackerAttach( UndoTracker& tracker ) override {
 		const bool inserted = m_trackers.insert( &tracker ).second;
 		ASSERT_MESSAGE( inserted, "undo tracker already attached" );
 	}
-	void trackerDetach( UndoTracker& tracker ){
+	void trackerDetach( UndoTracker& tracker ) override {
 		const bool erased = m_trackers.erase( &tracker );
 		ASSERT_MESSAGE( erased, "undo tracker cannot be detached" );
 	}
 	void trackersClear() const {
-		for ( Trackers::const_iterator i = m_trackers.begin(); i != m_trackers.end(); ++i )
+		for ( auto *tr : m_trackers )
 		{
-			( *i )->clear();
+			tr->clear();
 		}
 	}
 	void trackersBegin() const {
-		for ( Trackers::const_iterator i = m_trackers.begin(); i != m_trackers.end(); ++i )
+		for ( auto *tr : m_trackers )
 		{
-			( *i )->begin();
+			tr->begin();
 		}
 	}
 	void trackersUndo() const {
-		for ( Trackers::const_iterator i = m_trackers.begin(); i != m_trackers.end(); ++i )
+		for ( auto *tr : m_trackers )
 		{
-			( *i )->undo();
+			tr->undo();
 		}
 	}
 	void trackersRedo() const {
-		for ( Trackers::const_iterator i = m_trackers.begin(); i != m_trackers.end(); ++i )
+		for ( auto *tr : m_trackers )
 		{
-			( *i )->redo();
+			tr->redo();
 		}
 	}
 };

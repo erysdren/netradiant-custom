@@ -38,9 +38,9 @@ public:
 	}
 
 	void update(){
-		for ( ImportCallbacks::iterator i = m_importCallbacks.begin(); i != m_importCallbacks.end(); ++i )
+		for ( const auto& cb : m_importCallbacks )
 		{
-			m_exportCallback( *i );
+			m_exportCallback( cb );
 		}
 	}
 
@@ -97,7 +97,7 @@ protected:
 		if( event->type() == QEvent::Close ) {
 			m_shownDeferred = false;
 			/* HACK */ //.  because widget isVisible() at this point
-			const auto tmp = std::exchange( m_widget, nullptr );
+			auto *tmp = std::exchange( m_widget, nullptr );
 			update();
 			m_widget = tmp;
 		}

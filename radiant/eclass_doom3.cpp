@@ -34,7 +34,6 @@
 #include "string/string.h"
 #include "eclasslib.h"
 #include "os/path.h"
-#include "os/dir.h"
 #include "stream/stringstream.h"
 #include "moduleobservers.h"
 #include "stringio.h"
@@ -60,9 +59,9 @@ EntityClass *g_EntityClassDoom3_bad = 0;
 
 
 void EntityClassDoom3_clear(){
-	for ( EntityClasses::iterator i = g_EntityClassDoom3_classes.begin(); i != g_EntityClassDoom3_classes.end(); ++i )
+	for ( auto& [ name, eclass ] : g_EntityClassDoom3_classes )
 	{
-		( *i ).second->free( ( *i ).second );
+		eclass->free( eclass );
 	}
 	g_EntityClassDoom3_classes.clear();
 }
@@ -74,9 +73,9 @@ EntityClass* EntityClassDoom3_insertUnique( EntityClass* entityClass ){
 }
 
 void EntityClassDoom3_forEach( EntityClassVisitor& visitor ){
-	for ( EntityClasses::iterator i = g_EntityClassDoom3_classes.begin(); i != g_EntityClassDoom3_classes.end(); ++i )
+	for ( auto& [ name, eclass ] : g_EntityClassDoom3_classes )
 	{
-		visitor.visit( ( *i ).second );
+		visitor.visit( eclass );
 	}
 }
 
@@ -85,7 +84,7 @@ inline void printParseError( const char* message ){
 }
 
 //#define PARSE_RETURN_FALSE_IF_FAIL( expression ) if ( !( expression ) ) { printParseError( FILE_LINE "\nparse failed: " # expression "\n" ); return false; } else
-#define PARSE_RETURN_FALSE_IF_FAIL( expression ) do{ if ( !( expression ) ) { printParseError( FILE_LINE "\nparse failed: " # expression "\n" ); return false; } }while( 0 )
+#define PARSE_RETURN_FALSE_IF_FAIL( expression ) do{ if ( !( expression ) ) { printParseError( FILE_LINE "\nparse failed: " # expression "\n" ); return false; } }while( false )
 
 bool EntityClassDoom3_parseToken( Tokeniser& tokeniser ){
 	const char* token = tokeniser.getToken();
@@ -124,7 +123,7 @@ bool EntityClassDoom3_parseUnknown( Tokeniser& tokeniser ){
 	//const char* name =
 	PARSE_RETURN_FALSE_IF_FAIL( EntityClassDoom3_parseToken( tokeniser ) );
 
-	//globalOutputStream() << "parsing unknown block " << makeQuoted( name ) << '\n';
+	//globalOutputStream() << "parsing unknown block " << Quoted( name ) << '\n';
 
 	PARSE_RETURN_FALSE_IF_FAIL( EntityClassDoom3_parseToken( tokeniser, "{" ) );
 	tokeniser.nextLine();
@@ -276,7 +275,7 @@ bool EntityClassDoom3_parseModel( Tokeniser& tokeniser ){
 		}
 		else
 		{
-			globalErrorStream() << "unknown model parameter: " << makeQuoted( parameter ) << '\n';
+			globalErrorStream() << "unknown model parameter: " << Quoted( parameter ) << '\n';
 			return false;
 		}
 		tokeniser.nextLine();
@@ -503,16 +502,16 @@ static bool EntityClass_parse( EntityClass& entityClass, Tokeniser& tokeniser ){
 		else
 		{
 			CopiedString tmp( key );
-			//ASSERT_MESSAGE( !string_equal_n( key, "editor_", 7 ), "unsupported editor key: " << makeQuoted( key ) );
+			//ASSERT_MESSAGE( !string_equal_n( key, "editor_", 7 ), "unsupported editor key: " << Quoted( key ) );
 			if ( string_equal_n( key, "editor_", 7 ) ) {
-				globalErrorStream() << "unsupported editor key " << makeQuoted( key );
+				globalErrorStream() << "unsupported editor key " << Quoted( key );
 			}
 			EntityClassAttribute& attribute = EntityClass_insertAttribute( entityClass, key ).second;
 			attribute.m_type = "string";
 			const char* value;
 			PARSE_RETURN_FALSE_IF_FAIL( EntityClassDoom3_parseString( tokeniser, value ) );
 			if ( string_equal( value, "}" ) ) { // hack for quake4 powerups.def bug
-				globalErrorStream() << "entityDef " << makeQuoted( entityClass.name() ) << " key " << makeQuoted( tmp ) << " has no value\n";
+				globalErrorStream() << "entityDef " << Quoted( entityClass.name() ) << " key " << Quoted( tmp ) << " has no value\n";
 				break;
 			}
 			else
@@ -614,7 +613,7 @@ bool EntityClassDoom3_parse( TextInputStream& inputStream, const char* filename 
 
 
 void EntityClassDoom3_loadFile( const char* filename ){
-	globalOutputStream() << "parsing entity classes from " << makeQuoted( filename ) << '\n';
+	globalOutputStream() << "parsing entity classes from " << Quoted( filename ) << '\n';
 
 	const auto fullname = StringStream( "def/", filename );
 
@@ -655,7 +654,7 @@ void EntityClass_resolveInheritance( EntityClass* derivedClass ){
 		derivedClass->inheritanceResolved = true;
 		EntityClasses::iterator i = g_EntityClassDoom3_classes.find( derivedClass->m_parent.front().c_str() );
 		if ( i == g_EntityClassDoom3_classes.end() ) {
-			globalErrorStream() << "failed to find entityDef " << makeQuoted( derivedClass->m_parent.front() ) << " inherited by "  << makeQuoted( derivedClass->name() ) << '\n';
+			globalErrorStream() << "failed to find entityDef " << Quoted( derivedClass->m_parent.front() ) << " inherited by "  << Quoted( derivedClass->name() ) << '\n';
 		}
 		else
 		{
@@ -672,9 +671,9 @@ void EntityClass_resolveInheritance( EntityClass* derivedClass ){
 				derivedClass->fixedsize = parentClass->fixedsize;
 			}
 
-			for ( EntityClassAttributes::iterator j = parentClass->m_attributes.begin(); j != parentClass->m_attributes.end(); ++j )
+			for ( const auto& [ name, attr ] : parentClass->m_attributes )
 			{
-				EntityClass_insertAttribute( *derivedClass, ( *j ).first.c_str(), ( *j ).second );
+				EntityClass_insertAttribute( *derivedClass, name.c_str(), attr );
 			}
 		}
 	}
@@ -687,57 +686,57 @@ class EntityClassDoom3 : public ModuleObserver
 public:
 	EntityClassDoom3() : m_unrealised( 2 ){
 	}
-	void realise(){
+	void realise() override {
 		if ( --m_unrealised == 0 ) {
-			globalOutputStream() << "searching vfs directory " << makeQuoted( "def" ) << " for *.def\n";
+			globalOutputStream() << "searching vfs directory " << Quoted( "def" ) << " for *.def\n";
 			GlobalFileSystem().forEachFile( "def/", "def", makeCallbackF( EntityClassDoom3_loadFile ) );
 
 			{
-				for ( Models::iterator i = g_models.begin(); i != g_models.end(); ++i )
+				for ( auto& [ name, model ] : g_models )
 				{
-					Model_resolveInheritance( ( *i ).first.c_str(), ( *i ).second );
+					Model_resolveInheritance( name.c_str(), model );
 				}
 			}
 			{
-				for ( EntityClasses::iterator i = g_EntityClassDoom3_classes.begin(); i != g_EntityClassDoom3_classes.end(); ++i )
+				for ( auto& [ name, eclass ] : g_EntityClassDoom3_classes )
 				{
-					EntityClass_resolveInheritance( ( *i ).second );
-					if ( !( *i ).second->m_modelpath.empty() ) {
-						Models::iterator j = g_models.find( ( *i ).second->m_modelpath );
+					EntityClass_resolveInheritance( eclass );
+					if ( !eclass->m_modelpath.empty() ) {
+						Models::iterator j = g_models.find( eclass->m_modelpath );
 						if ( j != g_models.end() ) {
-							( *i ).second->m_modelpath = ( *j ).second.m_mesh;
-							( *i ).second->m_skin = ( *j ).second.m_skin;
+							eclass->m_modelpath = ( *j ).second.m_mesh;
+							eclass->m_skin = ( *j ).second.m_skin;
 						}
 					}
-					eclass_capture_state( ( *i ).second );
+					eclass_capture_state( eclass );
 
 					StringOutputStream usage( 256 );
 
 					usage << "-------- NOTES --------\n";
 
-					if ( !( *i ).second->m_comments.empty() ) {
-						usage << ( *i ).second->m_comments << '\n';
+					if ( !eclass->m_comments.empty() ) {
+						usage << eclass->m_comments << '\n';
 					}
 
 					usage << "\n-------- KEYS --------\n";
 
-					for ( EntityClassAttributes::iterator j = ( *i ).second->m_attributes.begin(); j != ( *i ).second->m_attributes.end(); ++j )
+					for ( const auto& pair : eclass->m_attributes )
 					{
-						const char* name = EntityClassAttributePair_getName( *j );
-						const char* description = EntityClassAttributePair_getDescription( *j );
+						const char* name = EntityClassAttributePair_getName( pair );
+						const char* description = EntityClassAttributePair_getDescription( pair );
 						if ( !string_equal( name, description ) ) {
-							usage << EntityClassAttributePair_getName( *j ) << " : " << EntityClassAttributePair_getDescription( *j ) << '\n';
+							usage << name << " : " << description << '\n';
 						}
 					}
 
-					( *i ).second->m_comments = usage;
+					eclass->m_comments = usage;
 				}
 			}
 
 			m_observers.realise();
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		if ( ++m_unrealised == 1 ) {
 			m_observers.unrealise();
 			EntityClassDoom3_clear();

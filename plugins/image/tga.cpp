@@ -282,7 +282,7 @@ inline void targa_header_read_istream( TargaHeader& targa_header, PointerInputSt
 
 template<typename Flip>
 Image* Targa_decodeImageData( const TargaHeader& targa_header, PointerInputStream& istream, const Flip& flip ){
-	RGBAImage* image = new RGBAImage( targa_header.width, targa_header.height );
+	auto *image = new RGBAImage( targa_header.width, targa_header.height );
 
 	if ( targa_header.image_type == 2 || targa_header.image_type == 3 ) {
 		switch ( targa_header.pixel_size )
@@ -298,7 +298,7 @@ Image* Targa_decodeImageData( const TargaHeader& targa_header, PointerInputStrea
 			image_fix_fully_transparent_alpha( *image );
 			break;
 		default:
-			globalErrorStream() << "LoadTGA: illegal pixel_size '" << targa_header.pixel_size << "'\n";
+			globalErrorStream() << "LoadTGA: illegal pixel_size " << SingleQuoted( targa_header.pixel_size ) << '\n';
 			image->release();
 			return 0;
 		}
@@ -317,7 +317,7 @@ Image* Targa_decodeImageData( const TargaHeader& targa_header, PointerInputStrea
 			image_fix_fully_transparent_alpha( *image );
 			break;
 		default:
-			globalErrorStream() << "LoadTGA: illegal pixel_size '" << targa_header.pixel_size << "'\n";
+			globalErrorStream() << "LoadTGA: illegal pixel_size " << SingleQuoted( targa_header.pixel_size ) << '\n';
 			image->release();
 			return 0;
 		}
@@ -333,7 +333,7 @@ Image* Targa_decodeImageData( const TargaHeader& targa_header, PointerInputStrea
 			image_fix_fully_transparent_alpha( *image );
 			break;
 		default:
-			globalErrorStream() << "LoadTGA: illegal colormap_size '" << targa_header.colormap_size << "'\n";
+			globalErrorStream() << "LoadTGA: illegal colormap_size " << SingleQuoted( targa_header.colormap_size ) << '\n';
 			image->release();
 			return 0;
 		}
@@ -349,7 +349,7 @@ Image* Targa_decodeImageData( const TargaHeader& targa_header, PointerInputStrea
 			image_fix_fully_transparent_alpha( *image );
 			break;
 		default:
-			globalErrorStream() << "LoadTGA: illegal colormap_size '" << targa_header.colormap_size << "'\n";
+			globalErrorStream() << "LoadTGA: illegal colormap_size " << SingleQuoted( targa_header.colormap_size ) << '\n';
 			image->release();
 			return 0;
 		}

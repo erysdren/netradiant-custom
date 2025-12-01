@@ -35,7 +35,7 @@
 /// \brief Returns true if \p self is equal to other \p other within \p epsilon.
 template<typename Element, typename OtherElement>
 inline bool float_equal_epsilon( const Element& self, const OtherElement& other, const Element& epsilon ){
-	return fabs( other - self ) < epsilon;
+	return std::fabs( other - self ) < epsilon;
 }
 
 /// \brief Returns the value midway between \p self and \p other.
@@ -58,6 +58,12 @@ inline Element float_snapped( const Element& f, const OtherElement& snap ){
 		return f;
 	}
 	return Element( std::llrint( f / snap ) * snap ); // llrint has more significant bits
+}
+
+/// \brief Returns \p f rounded to zero if less than \p snap.
+template<typename Element, typename OtherElement>
+inline Element float_snapped_to_zero( const Element& f, const OtherElement& snap ){
+	return std::fabs( f ) < snap? 0 : f;
 }
 
 /// \brief Returns true if \p f has no decimal fraction part.
@@ -524,25 +530,37 @@ template<typename Element, typename OtherElement>
 inline void vector3_snap( BasicVector3<Element>& self, const OtherElement& snap ){
 	self = vector3_snapped( self, snap );
 }
+template<typename Element, typename OtherElement>
+inline BasicVector3<Element> vector3_snapped_to_zero( const BasicVector3<Element>& self, const OtherElement& snap ){
+	return BasicVector3<Element>(
+	           Element( float_snapped_to_zero( self.x(), snap ) ),
+	           Element( float_snapped_to_zero( self.y(), snap ) ),
+	           Element( float_snapped_to_zero( self.z(), snap ) )
+	       );
+}
+template<typename Element, typename OtherElement>
+inline void vector3_snap_to_zero( BasicVector3<Element>& self, const OtherElement& snap ){
+	self = vector3_snapped_to_zero( self, snap );
+}
 
 inline Vector3 vector3_for_spherical( double theta, double phi ){
 	return Vector3(
-	           static_cast<float>( cos( theta ) * cos( phi ) ),
-	           static_cast<float>( sin( theta ) * cos( phi ) ),
-	           static_cast<float>( sin( phi ) )
+	           cos( theta ) * cos( phi ),
+	           sin( theta ) * cos( phi ),
+	           sin( phi )
 	       );
 }
 
 template<typename Element>
 inline std::size_t vector3_max_abs_component_index( const BasicVector3<Element>& self ){
-	const std::size_t maxi = ( fabs( self[1] ) > fabs( self[0] ) )? 1 : 0;
-	return ( fabs( self[2] ) > fabs( self[maxi] ) )? 2 : maxi;;
+	const std::size_t maxi = ( std::fabs( self[1] ) > std::fabs( self[0] ) )? 1 : 0;
+	return ( std::fabs( self[2] ) > std::fabs( self[maxi] ) )? 2 : maxi;;
 }
 
 template<typename Element>
 inline std::size_t vector3_min_abs_component_index( const BasicVector3<Element>& self ){
-	const std::size_t mini = ( fabs( self[1] ) < fabs( self[0] ) )? 1 : 0;
-	return ( fabs( self[2] ) < fabs( self[mini] ) )? 2 : mini;
+	const std::size_t mini = ( std::fabs( self[1] ) < std::fabs( self[0] ) )? 1 : 0;
+	return ( std::fabs( self[2] ) < std::fabs( self[mini] ) )? 2 : mini;
 }
 
 template<typename Element>

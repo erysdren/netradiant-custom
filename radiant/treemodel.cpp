@@ -23,8 +23,6 @@
 
 #include "debugging/debugging.h"
 
-#include <map>
-
 #include <QAbstractItemModel>
 #include <QBrush>
 #include <QApplication>
@@ -209,7 +207,6 @@ public:
 			}
 		}
 		return QVariant();
-
 	}
 	Qt::ItemFlags flags( const QModelIndex &index ) const override {
 		if ( !index.isValid() )

@@ -107,11 +107,11 @@ public:
 
 template<typename ReadPixel>
 void ReadBMP( PointerInputStream& inputStream, byte* bmpRGBA, int rows, int columns, ReadPixel readPixel ){
-	for ( int row = rows - 1; row >= 0; row-- )
+	for ( int row = rows - 1; row >= 0; --row )
 	{
 		byte* pixbuf = bmpRGBA + row * columns * 4;
 
-		for ( int column = 0; column < columns; column++ )
+		for ( int column = 0; column < columns; ++column )
 		{
 			readPixel( inputStream, pixbuf );
 		}
@@ -164,7 +164,7 @@ Image* LoadBMPBuff( PointerInputStream& inputStream, std::size_t length ){
 		rows = -rows;
 	}
 
-	RGBAImage* image = new RGBAImage( columns, rows );
+	auto *image = new RGBAImage( columns, rows );
 
 	switch ( bmpHeader.bitsPerPixel )
 	{
@@ -181,7 +181,7 @@ Image* LoadBMPBuff( PointerInputStream& inputStream, std::size_t length ){
 		ReadBMP( inputStream, image->getRGBAPixels(), rows, columns, ReadPixel32() );
 		break;
 	default:
-		globalErrorStream() << "LoadBMP: illegal pixel_size '" << bmpHeader.bitsPerPixel << "'\n";
+		globalErrorStream() << "LoadBMP: illegal pixel_size " << SingleQuoted( bmpHeader.bitsPerPixel ) << '\n';
 		image->release();
 		return 0;
 	}

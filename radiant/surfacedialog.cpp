@@ -45,7 +45,6 @@
 #include <QCheckBox>
 
 #include "signal/isignal.h"
-#include "generic/object.h"
 #include "math/vector.h"
 #include "texturelib.h"
 #include "shaderlib.h"
@@ -56,7 +55,6 @@
 #include "gtkutil/dialog.h"
 #include "gtkutil/entry.h"
 #include "gtkutil/nonmodal.h"
-#include "gtkutil/glwidget.h"           //Shamus: For Textool
 #include "gtkutil/guisettings.h"
 #include "gtkutil/spinbox.h"
 #include "map.h"
@@ -68,9 +66,8 @@
 #include "brush_primit.h"
 #include "xywindow.h"
 #include "mainframe.h"
-#include "gtkdlgs.h"
 #include "dialog.h"
-#include "brush.h"              //Shamus: for Textool
+#include "brush.h"
 #include "patch.h"
 #include "commands.h"
 #include "stream/stringstream.h"
@@ -308,8 +305,8 @@ si_globals_t g_si_globals;
 // For regular it's 0.5f (128 pixels cover 64 world units), for BP it's simply 1.0f
 // see fenris #2810
 void DoSnapTToGrid( float hscale, float vscale ){
-	g_si_globals.shift[0] = static_cast<float>( float_to_integer( static_cast<float>( GetGridSize() ) / hscale ) );
-	g_si_globals.shift[1] = static_cast<float>( float_to_integer( static_cast<float>( GetGridSize() ) / vscale ) );
+	g_si_globals.shift[0] = float_to_integer( GetGridSize() / hscale );
+	g_si_globals.shift[1] = float_to_integer( GetGridSize() / vscale );
 	getSurfaceInspector().queueDraw();
 }
 
@@ -329,7 +326,7 @@ static void OnBtnMatchGrid(){
 	const float hscale = getSurfaceInspector().m_hscaleIncrement.m_spin->value();
 	const float vscale = getSurfaceInspector().m_vscaleIncrement.m_spin->value();
 
-	if ( hscale == 0.0f || vscale == 0.0f ) {
+	if ( hscale == 0 || vscale == 0 ) {
 		globalErrorStream() << "ERROR: unexpected scale == 0.0f\n";
 		return;
 	}
@@ -473,7 +470,7 @@ class : public QObject
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick ){
-			QMouseEvent *mouseEvent = static_cast<QMouseEvent *>( event );
+			auto *mouseEvent = static_cast<QMouseEvent *>( event );
 			if( mouseEvent->button() == Qt::MouseButton::RightButton ){
 				SurfaceInspector_FaceFitWidthOnly();
 				return true;
@@ -489,7 +486,7 @@ class : public QObject
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick ){
-			QMouseEvent *mouseEvent = static_cast<QMouseEvent *>( event );
+			auto *mouseEvent = static_cast<QMouseEvent *>( event );
 			if( mouseEvent->button() == Qt::MouseButton::RightButton ){
 				SurfaceInspector_FaceFitHeightOnly();
 				return true;
@@ -600,7 +597,7 @@ protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		// QEvent::KeyPress & return true: override QDialog keyPressEvent also
 		if( event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress ) {
-			QKeyEvent *keyEvent = static_cast<QKeyEvent *>( event );
+			auto *keyEvent = static_cast<QKeyEvent *>( event );
 			if( keyEvent->key() == Qt::Key_Return
 			 || keyEvent->key() == Qt::Key_Enter
 			 || keyEvent->key() == Qt::Key_Escape
@@ -680,19 +677,19 @@ void SurfaceInspector::BuildDialog(){
 				GridRowAdder adder{ grid, 0, 2 };
 				adder.m_grid->setColumnStretch( adder.m_colField, 1 );
 				{
-					auto spin = new NonModalSpinner( -8192, 8192, 0, 2, 2 );
+					auto *spin = new NonModalSpinner( -8192, 8192, 0, 2, 2 );
 					spin->setCallbacks( ApplyTexdef_HShiftCaller( *this ), UpdateCaller( *this ) );
 					m_hshiftIncrement.m_spin = spin;
 					adder.addRow( new SpinBoxLabel( "Horizontal shift", spin ), spin );
 				}
 				{
-					auto spin = new NonModalSpinner( -8192, 8192, 0, 2, 2 );
+					auto *spin = new NonModalSpinner( -8192, 8192, 0, 2, 2 );
 					spin->setCallbacks( ApplyTexdef_VShiftCaller( *this ), UpdateCaller( *this ) );
 					m_vshiftIncrement.m_spin = spin;
 					adder.addRow( new SpinBoxLabel( "Vertical shift", spin ), spin );
 				}
 				{
-					auto spin = new NonModalSpinner( -8192, 8192, .5, 5, .5 );
+					auto *spin = new NonModalSpinner( -8192, 8192, .5, 5, .5 );
 					spin->setCallbacks( ApplyTexdef_HScaleCaller( *this ), UpdateCaller( *this ) );
 					m_hscaleIncrement.m_spin = spin;
 					adder.addRow( new SpinBoxLabel( "Horizontal stretch", spin ), spin );
@@ -703,7 +700,7 @@ void SurfaceInspector::BuildDialog(){
 					QObject::connect( b, &QAbstractButton::clicked, SurfaceInspector_InvertTextureHorizontally );
 				}
 				{
-					auto spin = new NonModalSpinner( -8192, 8192, .5, 5, .5 );
+					auto *spin = new NonModalSpinner( -8192, 8192, .5, 5, .5 );
 					spin->setCallbacks( ApplyTexdef_VScaleCaller( *this ), UpdateCaller( *this ) );
 					m_vscaleIncrement.m_spin = spin;
 					adder.addRow( new SpinBoxLabel( "Vertical stretch", spin ), spin );
@@ -714,7 +711,7 @@ void SurfaceInspector::BuildDialog(){
 					QObject::connect( b, &QAbstractButton::clicked, SurfaceInspector_InvertTextureVertically );
 				}
 				{
-					auto spin = new NonModalSpinner( -360, 360, 0, 2, 45, true );
+					auto *spin = new NonModalSpinner( -360, 360, 0, 2, 45, true );
 					spin->setCallbacks( ApplyTexdef_RotationCaller( *this ), UpdateCaller( *this ) );
 					m_rotateIncrement.m_spin = spin;
 					adder.addRow( new SpinBoxLabel( "Rotate", spin ), spin );
@@ -723,27 +720,27 @@ void SurfaceInspector::BuildDialog(){
 			{
 				GridRowAdder adder{ grid, 3, 4 };
 				{
-					auto entry = new NonModalEntry( Increment::ApplyCaller( m_hshiftIncrement ), Increment::CancelCaller( m_hshiftIncrement ) );
+					auto *entry = new NonModalEntry( Increment::ApplyCaller( m_hshiftIncrement ), Increment::CancelCaller( m_hshiftIncrement ) );
 					m_hshiftIncrement.m_entry = entry;
 					adder.addRow( "Step", entry );
 				}
 				{
-					auto entry = new NonModalEntry( Increment::ApplyCaller( m_vshiftIncrement ), Increment::CancelCaller( m_vshiftIncrement ) );
+					auto *entry = new NonModalEntry( Increment::ApplyCaller( m_vshiftIncrement ), Increment::CancelCaller( m_vshiftIncrement ) );
 					m_vshiftIncrement.m_entry = entry;
 					adder.addRow( "Step", entry );
 				}
 				{
-					auto entry = new NonModalEntry( Increment::ApplyCaller( m_hscaleIncrement ), Increment::CancelCaller( m_hscaleIncrement ) );
+					auto *entry = new NonModalEntry( Increment::ApplyCaller( m_hscaleIncrement ), Increment::CancelCaller( m_hscaleIncrement ) );
 					m_hscaleIncrement.m_entry = entry;
 					adder.addRow( "Step", entry );
 				}
 				{
-					auto entry = new NonModalEntry( Increment::ApplyCaller( m_vscaleIncrement ), Increment::CancelCaller( m_vscaleIncrement ) );
+					auto *entry = new NonModalEntry( Increment::ApplyCaller( m_vscaleIncrement ), Increment::CancelCaller( m_vscaleIncrement ) );
 					m_vscaleIncrement.m_entry = entry;
 					adder.addRow( "Step", entry );
 				}
 				{
-					auto entry = new NonModalEntry( Increment::ApplyCaller( m_rotateIncrement ), Increment::CancelCaller( m_rotateIncrement ) );
+					auto *entry = new NonModalEntry( Increment::ApplyCaller( m_rotateIncrement ), Increment::CancelCaller( m_rotateIncrement ) );
 					m_rotateIncrement.m_entry = entry;
 					adder.addRow( "Step", entry );
 				}
@@ -1016,7 +1013,7 @@ void SurfaceInspector::ApplyShader(){
 
 	// TTimo: detect and refuse invalid texture names (at least the ones with spaces)
 	if ( !texdef_name_valid( name ) ) {
-		globalErrorStream() << "invalid texture name '" << name << "'\n";
+		globalErrorStream() << "invalid texture name " << SingleQuoted( name ) << '\n';
 		SurfaceInspector_queueDraw();
 		return;
 	}
@@ -1075,7 +1072,7 @@ void SurfaceInspector::ApplyTexdef_VScale(){
 
 void SurfaceInspector::ApplyTexdef_Rotation(){
 	const float value = m_rotateIncrement.m_spin->value();
-	const auto command = StringStream<64>( "textureProjectionSetSelected -rotation ", static_cast<float>( float_to_integer( value * 100.f ) ) / 100.f );
+	const auto command = StringStream<64>( "textureProjectionSetSelected -rotation ", float_to_integer( value * 100.f ) / 100.f );
 	UndoableCommand undo( command );
 	Select_SetTexdef( 0, 0, 0, 0, &value );
 	Patch_SetTexdef( 0, 0, 0, 0, &value );
@@ -1287,7 +1284,7 @@ static std::vector<const PatchControl*> Patch_getClosestTriangle( const PatchDat
 	*/
 
 	const auto triangle_ok = []( const PatchControl& p0, const PatchControl& p1, const PatchControl& p2 ){
-		return vector3_length_squared( vector3_cross( p1.m_vertex - p0.m_vertex, p2.m_vertex - p0.m_vertex ) ) > 1.0;
+		return vector3_length_squared( vector3_cross( p1.m_vertex - p0.m_vertex, p2.m_vertex - p0.m_vertex ) ) > 1;
 	};
 
 	const double eps = .25;
@@ -1295,7 +1292,7 @@ static std::vector<const PatchControl*> Patch_getClosestTriangle( const PatchDat
 	std::vector<const PatchControl*> ret;
 
 	const auto find_triangle = [&ret, &patch, triangle_ok, eps]( const auto& check_func ){
-		for( auto& iter : {
+		for( const auto& iter : {
 			PatchEdgeIter( patch, PatchEdgeIter::eRowBack, 0 ),
 			PatchEdgeIter( patch, PatchEdgeIter::eRowForward, patch.getHeight() - 1 ),
 			PatchEdgeIter( patch, PatchEdgeIter::eColBack, patch.getWidth() - 1 ),
@@ -1409,7 +1406,7 @@ void Face_setTexture( Face& face, const char* shader, const FaceTexture& clipboa
 			// todo in patch->brush, brush->patch shall we apply texture, if alignment part fails?
 			if( pc.empty() )
 				return;
-			DoubleVector3 vertices[3]{ pc[0]->m_vertex, pc[1]->m_vertex, pc[2]->m_vertex };
+			PlanePoints vertices{ pc[0]->m_vertex, pc[1]->m_vertex, pc[2]->m_vertex };
 			const DoubleVector3 sts[3]{ DoubleVector3( pc[0]->m_texcoord ),
 		                                DoubleVector3( pc[1]->m_texcoord ),
 		                                DoubleVector3( pc[2]->m_texcoord ) };
@@ -1432,7 +1429,6 @@ void Face_setTexture( Face& face, const char* shader, const FaceTexture& clipboa
 			CopiedString dummy;
 			Face_getTexture( face, dummy, g_faceTextureClipboard );
 		}
-
 	}
 }
 typedef Function<void(Face&, const char*, const FaceTexture&, EPasteMode, bool), Face_setTexture> FaceSetTexture;
@@ -1466,7 +1462,7 @@ void Patch_setTexture( Patch& patch, const char* shader, const FaceTexture& clip
 		if( pc.empty() )
 			return;
 
-		DoubleVector3 vertices[3]{ pc[0]->m_vertex, pc[1]->m_vertex, pc[2]->m_vertex };
+		PlanePoints vertices{ pc[0]->m_vertex, pc[1]->m_vertex, pc[2]->m_vertex };
 		const DoubleVector3 sts[3]{ DoubleVector3( pc[0]->m_texcoord ),
 		                            DoubleVector3( pc[1]->m_texcoord ),
 		                            DoubleVector3( pc[2]->m_texcoord ) };
@@ -1574,11 +1570,11 @@ public:
 	OccludeSelector( SelectionIntersection& bestIntersection, bool& occluded ) : m_bestIntersection( bestIntersection ), m_occluded( occluded ){
 		m_occluded = false;
 	}
-	void pushSelectable( Selectable& selectable ){
+	void pushSelectable( Selectable& selectable ) override {
 	}
-	void popSelectable(){
+	void popSelectable() override {
 	}
-	void addIntersection( const SelectionIntersection& intersection ){
+	void addIntersection( const SelectionIntersection& intersection ) override {
 		if ( SelectionIntersection_closer( intersection, m_bestIntersection ) ) {
 			m_bestIntersection = intersection;
 			m_occluded = true;
@@ -1594,16 +1590,16 @@ class BrushGetClosestFaceVisibleWalker : public scene::Graph::Walker
 public:
 	BrushGetClosestFaceVisibleWalker( SelectionTest& test, Texturable& texturable ) : m_test( test ), m_texturable( texturable ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( !path.top().get().visible() )
 			return false;
 		BrushInstance* brush = Instance_getBrush( instance );
 		if ( brush != 0 ) {
 			m_test.BeginMesh( brush->localToWorld() );
 
-			for ( Brush::const_iterator i = brush->getBrush().begin(); i != brush->getBrush().end(); ++i )
+			for ( const auto& face : brush->getBrush() )
 			{
-				Face_getClosest( *( *i ), m_test, m_bestIntersection, m_texturable );
+				Face_getClosest( *face, m_test, m_bestIntersection, m_texturable );
 			}
 		}
 		else

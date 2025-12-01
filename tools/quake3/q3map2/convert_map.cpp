@@ -39,16 +39,16 @@
    exports a map brush
  */
 
-inline float Det3x3( float a00, float a01, float a02,
-                     float a10, float a11, float a12,
-                     float a20, float a21, float a22 ){
+inline double Det3x3( double a00, double a01, double a02,
+                      double a10, double a11, double a12,
+                      double a20, double a21, double a22 ){
 	return
 	        a00 * ( a11 * a22 - a12 * a21 )
 	    -   a01 * ( a10 * a22 - a12 * a20 )
 	    +   a02 * ( a10 * a21 - a11 * a20 );
 }
 
-static TriRef GetBestSurfaceTriangleMatchForBrushside( const side_t& buildSide ){
+static TriRef GetBestSurfaceTriangleMatchForBrushside( const side_t& buildSide, const bspModel_t& model ){
 	float best = 0;
 	float thisarea;
 	const plane_t& buildPlane = mapplanes[buildSide.planenum];
@@ -57,8 +57,8 @@ static TriRef GetBestSurfaceTriangleMatchForBrushside( const side_t& buildSide )
 	// first, start out with NULLs
 	TriRef bestVert{ nullptr };
 
-	// brute force through all surfaces
-	for ( const bspDrawSurface_t& s : bspDrawSurfaces )
+	// brute force through all bmodel surfaces
+	for ( const bspDrawSurface_t& s : Span( &bspDrawSurfaces[ model.firstBSPSurface ], model.numBSPSurfaces ) )
 	{
 		if ( s.surfaceType != MST_PLANAR && s.surfaceType != MST_TRIANGLE_SOUP ) {
 			continue;
@@ -131,9 +131,12 @@ exwinding:
 }
 
 #define FRAC( x ) ( ( x ) - floor( x ) )
-static void ConvertOriginBrush( FILE *f, int num, const Vector3& origin, bool brushPrimitives ){
-	int originSize = 256;
-
+static void ConvertOriginBrush( FILE *f, int num, const Vector3& origin, EBrushType brushType ){
+	const int ext = 8; // extent, box size is 2x
+	const int size = ext * 2;
+	const int texSize = 64; // can find out from shader
+	const float texScale = float( size ) / texSize;
+	// 6: +Z +Y +X -Z -Y -X
 	char pattern[6][7][4] = {
 		{ "+++", "+-+", "-++", "-  ", " + ", " - ", "-  " },
 		{ "+++", "-++", "++-", "-  ", "  +", "+  ", "  +" },
@@ -147,44 +150,54 @@ static void ConvertOriginBrush( FILE *f, int num, const Vector3& origin, bool br
 	/* start brush */
 	fprintf( f, "\t// brush %d\n", num );
 	fprintf( f, "\t{\n" );
-	if ( brushPrimitives ) {
+	if ( brushType == EBrushType::Bp ) {
 		fprintf( f, "\tbrushDef\n" );
 		fprintf( f, "\t{\n" );
 	}
 	/* print brush side */
-	/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) common/caulk 0 48 0 0.500000 0.500000 0 0 0 */
+	/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) common/caulk         0            48      90 0.5 0.5 0 0 0 */
+	/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) common/caulk [ 1 0 0 0 ] [ 0 -1 0 48 ]    90 0.5 0.5 0 0 0 */
+	/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) ( ( 0 0.03125 0 ) ( -0.03125 0 0.75 ) ) common/caulk 0 0 0 */
 
 	for ( int i = 0; i < 6; ++i )
 	{
-		if ( brushPrimitives ) {
-			fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s %d 0 0\n",
-			         origin[0] + 8 * S( i, 0, 0 ), origin[1] + 8 * S( i, 0, 1 ), origin[2] + 8 * S( i, 0, 2 ),
-			         origin[0] + 8 * S( i, 1, 0 ), origin[1] + 8 * S( i, 1, 1 ), origin[2] + 8 * S( i, 1, 2 ),
-			         origin[0] + 8 * S( i, 2, 0 ), origin[1] + 8 * S( i, 2, 1 ), origin[2] + 8 * S( i, 2, 2 ),
-			         1.0f / 16.0f, 0.0f, FRAC( ( S( i, 5, 0 ) * origin[0] + S( i, 5, 1 ) * origin[1] + S( i, 5, 2 ) * origin[2] ) / 16.0 + 0.5 ),
-			         0.0f, 1.0f / 16.0f, FRAC( ( S( i, 6, 0 ) * origin[0] + S( i, 6, 1 ) * origin[1] + S( i, 6, 2 ) * origin[2] ) / 16.0 + 0.5 ),
+		fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ",
+		         origin[0] + ext * S( i, 0, 0 ), origin[1] + ext * S( i, 0, 1 ), origin[2] + ext * S( i, 0, 2 ),
+		         origin[0] + ext * S( i, 1, 0 ), origin[1] + ext * S( i, 1, 1 ), origin[2] + ext * S( i, 1, 2 ),
+		         origin[0] + ext * S( i, 2, 0 ), origin[1] + ext * S( i, 2, 1 ), origin[2] + ext * S( i, 2, 2 )
+		       );
+		if ( brushType == EBrushType::Quake ){
+			fprintf( f, "%s %.8f %.8f 0 %.8f %.8f 0 0 0\n",
 			         "common/origin",
-			         0
+			         FRAC( ( S( i, 3, 0 ) * origin[0] + S( i, 3, 1 ) * origin[1] + S( i, 3, 2 ) * origin[2] ) / size + 0.5 ) * texSize,
+			         FRAC( ( S( i, 4, 0 ) * origin[0] + S( i, 4, 1 ) * origin[1] + S( i, 4, 2 ) * origin[2] ) / size + 0.5 ) * texSize,
+			         texScale, texScale
 			       );
 		}
-		else
-		{
-			fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) %s %.8f %.8f %.8f %.8f %.8f %d 0 0\n",
-			         origin[0] + 8 * S( i, 0, 0 ), origin[1] + 8 * S( i, 0, 1 ), origin[2] + 8 * S( i, 0, 2 ),
-			         origin[0] + 8 * S( i, 1, 0 ), origin[1] + 8 * S( i, 1, 1 ), origin[2] + 8 * S( i, 1, 2 ),
-			         origin[0] + 8 * S( i, 2, 0 ), origin[1] + 8 * S( i, 2, 1 ), origin[2] + 8 * S( i, 2, 2 ),
+		else if ( brushType == EBrushType::Valve220 ){
+			const Vector3 texX( S( i, 3, 0 ), S( i, 3, 1 ), S( i, 3, 2 ) );
+			const Vector3 texY( S( i, 4, 0 ), S( i, 4, 1 ), S( i, 4, 2 ) );
+			fprintf( f, "%s [ %.8f %.8f %.8f %.8f ] [ %.8f %.8f %.8f %.8f ] 0 %.8f %.8f 0 0 0\n",
 			         "common/origin",
-			         FRAC( ( S( i, 3, 0 ) * origin[0] + S( i, 3, 1 ) * origin[1] + S( i, 3, 2 ) * origin[2] ) / 16.0 + 0.5 ) * originSize,
-			         FRAC( ( S( i, 4, 0 ) * origin[0] + S( i, 4, 1 ) * origin[1] + S( i, 4, 2 ) * origin[2] ) / 16.0 + 0.5 ) * originSize,
-			         0.0f, 16.0 / originSize, 16.0 / originSize,
-			         0
+			         texX.x(), texX.y(), texX.z(),
+			         FRAC( ( S( i, 3, 0 ) * origin[0] + S( i, 3, 1 ) * origin[1] + S( i, 3, 2 ) * origin[2] ) / size + 0.5 ) * texSize,
+			         texY.x(), texY.y(), texY.z(),
+			         FRAC( ( S( i, 4, 0 ) * origin[0] + S( i, 4, 1 ) * origin[1] + S( i, 4, 2 ) * origin[2] ) / size + 0.5 ) * texSize,
+			         texScale, texScale
+			       );
+		}
+		else if ( brushType == EBrushType::Bp ) {
+			fprintf( f, "( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s 0 0 0\n",
+			         1.0f / size, 0.0f, FRAC( ( S( i, 5, 0 ) * origin[0] + S( i, 5, 1 ) * origin[1] + S( i, 5, 2 ) * origin[2] ) / size + 0.5 ),
+			         0.0f, 1.0f / size, FRAC( ( S( i, 6, 0 ) * origin[0] + S( i, 6, 1 ) * origin[1] + S( i, 6, 2 ) * origin[2] ) / size + 0.5 ),
+			         "common/origin"
 			       );
 		}
 	}
 #undef S
 
 	/* end brush */
-	if ( brushPrimitives ) {
+	if ( brushType == EBrushType::Bp ) {
 		fprintf( f, "\t}\n" );
 	}
 	fprintf( f, "\t}\n\n" );
@@ -195,15 +208,12 @@ static void bspBrush_to_buildBrush( const bspBrush_t& brush ){
 	buildBrush.sides.clear();
 
 	bool modelclip = false;
-	/* try to guess if thats model clip */
-	if ( force ){
+	/* try to guess if this is model clip */
+	if ( g_decompile_modelClip ){
 		int notNoShader = 0;
 		modelclip = true;
-		for ( int i = 0; i < brush.numSides; i++ )
+		for ( const bspBrushSide_t& side : Span( &bspBrushSides[ brush.firstSide ], brush.numSides ) )
 		{
-			/* get side */
-			const bspBrushSide_t& side = bspBrushSides[ brush.firstSide + i ];
-
 			/* get shader */
 			if ( side.shaderNum < 0 || side.shaderNum >= int( bspShaders.size() ) ) {
 				continue;
@@ -221,11 +231,8 @@ static void bspBrush_to_buildBrush( const bspBrush_t& brush ){
 	}
 
 	/* iterate through bsp brush sides */
-	for ( int i = 0; i < brush.numSides; i++ )
+	for ( const bspBrushSide_t& side : Span( &bspBrushSides[ brush.firstSide ], brush.numSides ) )
 	{
-		/* get side */
-		const bspBrushSide_t& side = bspBrushSides[ brush.firstSide + i ];
-
 		/* get shader */
 		if ( side.shaderNum < 0 || side.shaderNum >= int( bspShaders.size() ) ) {
 			continue;
@@ -239,12 +246,12 @@ static void bspBrush_to_buildBrush( const bspBrush_t& brush ){
 		buildBrush.sides.emplace_back();
 
 		/* tag it */
-		buildBrush.sides.back().shaderInfo = ShaderInfoForShader( shader.shader );
+		buildBrush.sides.back().shaderInfo = &ShaderInfoForShader( shader.shader );
 		buildBrush.sides.back().planenum = side.planeNum;
 	}
 }
 
-static void ConvertBrushFast( FILE *f, int bspBrushNum, const Vector3& origin, bool brushPrimitives ){
+static void ConvertBrushFast( FILE *f, const bspModel_t& model, int bspBrushNum, const Vector3& origin, EBrushType brushType ){
 
 	bspBrush_to_buildBrush( bspBrushes[bspBrushNum] );
 
@@ -256,7 +263,7 @@ static void ConvertBrushFast( FILE *f, int bspBrushNum, const Vector3& origin, b
 	/* start brush */
 	fprintf( f, "\t// brush %d\n", bspBrushNum );
 	fprintf( f, "\t{\n" );
-	if ( brushPrimitives ) {
+	if ( brushType == EBrushType::Bp ) {
 		fprintf( f, "\tbrushDef\n" );
 		fprintf( f, "\t{\n" );
 	}
@@ -268,7 +275,7 @@ static void ConvertBrushFast( FILE *f, int bspBrushNum, const Vector3& origin, b
 		const plane_t& buildPlane = mapplanes[ buildSide.planenum ];
 
 		/* dummy check */
-		if ( buildSide.shaderInfo == NULL || buildSide.winding.empty() ) {
+		if ( buildSide.shaderInfo == nullptr || buildSide.winding.empty() ) {
 			continue;
 		}
 
@@ -287,39 +294,44 @@ static void ConvertBrushFast( FILE *f, int bspBrushNum, const Vector3& origin, b
 		}
 
 		{
-			if ( brushPrimitives ) {
-				fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s %d 0 0\n",
-				         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
-				         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
-				         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ],
-				         1.0f / 32.0f, 0.0f, 0.0f,
-				         0.0f, 1.0f / 32.0f, 0.0f,
+			fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ",
+			         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
+			         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
+			         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ]
+			       );
+			if ( brushType == EBrushType::Quake ) {
+				fprintf( f, "%s %.8f %.8f %.8f %.8f %.8f 0 0 0\n",
 				         texture,
-				         0
+				         0.0f, 0.0f, 0.0f, 0.5f, 0.5f
 				       );
 			}
-			else
-			{
-				fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) %s %.8f %.8f %.8f %.8f %.8f %d 0 0\n",
-				         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
-				         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
-				         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ],
+			else if ( brushType == EBrushType::Valve220 ) {
+				Vector3 texX, texY;
+				ComputeAxisBase( buildPlane.normal(), texX, texY );
+				fprintf( f, "%s [ %.8f %.8f %.8f %.8f ] [ %.8f %.8f %.8f %.8f ] 0 0.5 0.5 0 0 0\n",
 				         texture,
-				         0.0f, 0.0f, 0.0f, 0.5f, 0.5f,
-				         0
+				         texX.x(), texX.y(), texX.z(), 0.f,
+				         texY.x(), texY.y(), texY.z(), 0.f
+				       );
+			}
+			else if ( brushType == EBrushType::Bp ) {
+				fprintf( f, "( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s 0 0 0\n",
+				         1.0f / 32.0f, 0.0f, 0.0f,
+				         0.0f, 1.0f / 32.0f, 0.0f,
+				         texture
 				       );
 			}
 		}
 	}
 
 	/* end brush */
-	if ( brushPrimitives ) {
+	if ( brushType == EBrushType::Bp ) {
 		fprintf( f, "\t}\n" );
 	}
 	fprintf( f, "\t}\n\n" );
 }
 
-static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool brushPrimitives ){
+static void ConvertBrush( FILE *f, const bspModel_t& model, int bspBrushNum, const Vector3& origin, EBrushType brushType ){
 
 	bspBrush_to_buildBrush( bspBrushes[bspBrushNum] );
 
@@ -332,7 +344,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 	/* start brush */
 	fprintf( f, "\t// brush %d\n", bspBrushNum );
 	fprintf( f, "\t{\n" );
-	if ( brushPrimitives ) {
+	if ( brushType == EBrushType::Bp ) {
 		fprintf( f, "\tbrushDef\n" );
 		fprintf( f, "\t{\n" );
 	}
@@ -341,9 +353,9 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 	int contentFlag = 0;
 	if( !( bspShaders[bspBrushes[bspBrushNum].shaderNum].contentFlags & GetRequiredSurfaceParm<"structural">().contentFlags ) ){ // sort out structural transparent brushes, e.g. hints
 		for( const auto& leaf : bspLeafs ){
-			if( leaf.cluster >= 0 )
-				for( auto id = bspLeafBrushes.cbegin() + leaf.firstBSPLeafBrush, end = id + leaf.numBSPLeafBrushes; id != end; ++id ){
-					if( *id == bspBrushNum ){
+			if( leaf.cluster > CLUSTER_OPAQUE )
+				for( const int id : Span( &bspLeafBrushes[ leaf.firstBSPLeafBrush ], leaf.numBSPLeafBrushes ) ){
+					if( id == bspBrushNum ){
 						contentFlag = C_DETAIL;
 						break;
 					}
@@ -360,7 +372,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 		const plane_t& buildPlane = mapplanes[ buildSide.planenum ];
 
 		/* dummy check */
-		if ( buildSide.shaderInfo == NULL || buildSide.winding.empty() ) {
+		if ( buildSide.shaderInfo == nullptr || buildSide.winding.empty() ) {
 			continue;
 		}
 
@@ -374,7 +386,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 		//   - meshverts point in pairs of three into verts
 		//   - (triangles)
 		//   - find the triangle that has most in common with our
-		const TriRef vert = GetBestSurfaceTriangleMatchForBrushside( buildSide );
+		const TriRef vert = GetBestSurfaceTriangleMatchForBrushside( buildSide, model );
 
 		/* get texture name */
 		const char *texture = striEqualPrefix( buildSide.shaderInfo->shader, "textures/" )
@@ -385,7 +397,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 		/* recheck and fix winding points, fails occur somehow */
 		int match = 0;
 		for ( const Vector3& p : buildSide.winding ){
-			if ( fabs( plane3_distance_to_point( buildPlane.plane, p ) ) < distanceEpsilon ) {
+			if ( std::fabs( plane3_distance_to_point( buildPlane.plane, p ) ) < distanceEpsilon ) {
 				pts[ match ] = p;
 				match++;
 				/* got 3 fine points? */
@@ -423,26 +435,35 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 			pts[ 2 ] = pts[ 0 ] + vecs[ 1 ] * 256.0f;
 			//Sys_Printf( "not\n" );
 		}
+		/* print planepoints */
+		fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ",
+		         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
+		         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
+		         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ]
+		       );
 
 		if ( vert[0] != nullptr && vert[1] != nullptr && vert[2] != nullptr ) {
-			if ( brushPrimitives ) {
-				int i;
-				Vector3 texX, texY;
-				Vector2 xyI, xyJ, xyK;
-				Vector2 stI, stJ, stK;
-				float D, D0, D1, D2;
+			const Vector3 verts[3] = { vert[0]->xyz + origin,
+			                           vert[1]->xyz + origin,
+			                           vert[2]->xyz + origin };
+			const Vector2 sts[3] = { vert[0]->st, vert[1]->st, vert[2]->st };
 
+			if ( brushType == EBrushType::Bp || brushType == EBrushType::Valve220 ) {
+				BasicVector2<double> xyI, xyJ, xyK;
+				BasicVector2<double> stI, stJ, stK;
+				double D, D0, D1, D2;
+				DoubleVector3 texX, texY;
 				ComputeAxisBase( buildPlane.normal(), texX, texY );
 
-				xyI[0] = vector3_dot( vert[0]->xyz, texX );
-				xyI[1] = vector3_dot( vert[0]->xyz, texY );
-				xyJ[0] = vector3_dot( vert[1]->xyz, texX );
-				xyJ[1] = vector3_dot( vert[1]->xyz, texY );
-				xyK[0] = vector3_dot( vert[2]->xyz, texX );
-				xyK[1] = vector3_dot( vert[2]->xyz, texY );
-				stI = vert[0]->st;
-				stJ = vert[1]->st;
-				stK = vert[2]->st;
+				xyI[0] = vector3_dot( verts[0], texX );
+				xyI[1] = vector3_dot( verts[0], texY );
+				xyJ[0] = vector3_dot( verts[1], texX );
+				xyJ[1] = vector3_dot( verts[1], texY );
+				xyK[0] = vector3_dot( verts[2], texX );
+				xyK[1] = vector3_dot( verts[2], texY );
+				stI = sts[0];
+				stJ = sts[1];
+				stK = sts[2];
 
 				//   - solve linear equations:
 				//     - (x, y) := xyz . (texX, texY)
@@ -454,7 +475,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 				        xyK[0], xyK[1], 1
 				    );
 				if ( D != 0 ) {
-					for ( i = 0; i < 2; ++i )
+					for ( int i = 0; i < 2; ++i )
 					{
 						D0 = Det3x3(
 						         stI[i], xyI[1], 1,
@@ -471,7 +492,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 						         xyJ[0], xyJ[1], stJ[i],
 						         xyK[0], xyK[1], stK[i]
 						     );
-						buildSide.texMat[i] = { D0 / D, D1 / D, D2 / D };
+						buildSide.texMat[i] = Vector3( D0 / D, D1 / D, D2 / D );
 					}
 				}
 				else{
@@ -486,86 +507,88 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 				}
 
 				/* print brush side */
-				/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) common/caulk 0 48 0 0.500000 0.500000 0 0 0 */
-				fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s %d 0 0\n",
-				         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
-				         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
-				         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ],
-				         buildSide.texMat[0][0], buildSide.texMat[0][1], FRAC( buildSide.texMat[0][2] ),
-				         buildSide.texMat[1][0], buildSide.texMat[1][1], FRAC( buildSide.texMat[1][2] ),
-				         texture,
-				         contentFlag
-				       );
+				if( brushType == EBrushType::Bp ){
+					/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) ( ( 0 0.03125 0 ) ( -0.03125 0 0.75 ) ) common/caulk 0 0 0 */
+					fprintf( f, "( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s %d 0 0\n",
+					         buildSide.texMat[0][0], buildSide.texMat[0][1], FRAC( buildSide.texMat[0][2] ),
+					         buildSide.texMat[1][0], buildSide.texMat[1][1], FRAC( buildSide.texMat[1][2] ),
+					         texture,
+					         contentFlag
+					       );
+				}
+				else if( brushType == EBrushType::Valve220 ){
+					// brush_primit.cpp Valve220_from_BP()
+					const double scale[2]{ 1.0 / ( vector2_length( buildSide.texMat[0].vec2() ) * buildSide.shaderInfo->shaderWidth ),
+					                       1.0 / ( vector2_length( buildSide.texMat[1].vec2() ) * buildSide.shaderInfo->shaderHeight ) };
+					const double shift[2]{ FRAC( buildSide.texMat[0][2] ) * buildSide.shaderInfo->shaderWidth,
+					                       FRAC( buildSide.texMat[1][2] ) * buildSide.shaderInfo->shaderHeight };
+
+					const DoubleVector3 basis_s = vector3_normalised( texX * buildSide.texMat[0][0] + texY * buildSide.texMat[0][1] );
+					const DoubleVector3 basis_t = vector3_normalised( texX * buildSide.texMat[1][0] + texY * buildSide.texMat[1][1] );
+
+					/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) common/caulk [ 1 0 0 0 ] [ 0 -1 0 48 ] 90 0.5 0.5 0 0 0 */
+					fprintf( f, "%s [ %.8f %.8f %.8f %.8f ] [ %.8f %.8f %.8f %.8f ] 0 %.8f %.8f %d 0 0\n",
+					         texture,
+					         basis_s.x(), basis_s.y(), basis_s.z(), shift[0],
+					         basis_t.x(), basis_t.y(), basis_t.z(), shift[1],
+					         scale[0], scale[1],
+					         contentFlag
+					       );
+				}
 			}
-			else
-			{
+			else if ( brushType == EBrushType::Quake ) {
 				// invert QuakeTextureVecs
-				int i;
 				int sv, tv;
-				float stI[2], stJ[2], stK[2];
-				Vector3 sts[2];
+				BasicVector2<double> stI, stJ, stK;
+				double D, D0, D1, D2;
+				DoubleVector3 texMat[2];
 				float shift[2], scale[2];
 				float rotate;
-				float D, D0, D1, D2;
 
 				const auto vecs = TextureAxisFromPlane( buildPlane );
-				if ( vecs[0][0] ) {
-					sv = 0;
-				}
-				else if ( vecs[0][1] ) {
-					sv = 1;
-				}
-				else{
-					sv = 2;
-				}
-				if ( vecs[1][0] ) {
-					tv = 0;
-				}
-				else if ( vecs[1][1] ) {
-					tv = 1;
-				}
-				else{
-					tv = 2;
-				}
+				sv = vecs[0][0]? 0
+				   : vecs[0][1]? 1: 2;
+				tv = vecs[1][0]? 0
+				   : vecs[1][1]? 1: 2;
 
-				stI[0] = vert[0]->st[0] * buildSide.shaderInfo->shaderWidth;
-				stI[1] = vert[0]->st[1] * buildSide.shaderInfo->shaderHeight;
-				stJ[0] = vert[1]->st[0] * buildSide.shaderInfo->shaderWidth;
-				stJ[1] = vert[1]->st[1] * buildSide.shaderInfo->shaderHeight;
-				stK[0] = vert[2]->st[0] * buildSide.shaderInfo->shaderWidth;
-				stK[1] = vert[2]->st[1] * buildSide.shaderInfo->shaderHeight;
+				stI[0] = sts[0][0] * buildSide.shaderInfo->shaderWidth;
+				stI[1] = sts[0][1] * buildSide.shaderInfo->shaderHeight;
+				stJ[0] = sts[1][0] * buildSide.shaderInfo->shaderWidth;
+				stJ[1] = sts[1][1] * buildSide.shaderInfo->shaderHeight;
+				stK[0] = sts[2][0] * buildSide.shaderInfo->shaderWidth;
+				stK[1] = sts[2][1] * buildSide.shaderInfo->shaderHeight;
 
 				D = Det3x3(
-				        vert[0]->xyz[sv], vert[0]->xyz[tv], 1,
-				        vert[1]->xyz[sv], vert[1]->xyz[tv], 1,
-				        vert[2]->xyz[sv], vert[2]->xyz[tv], 1
+				        verts[0][sv], verts[0][tv], 1,
+				        verts[1][sv], verts[1][tv], 1,
+				        verts[2][sv], verts[2][tv], 1
 				    );
 				if ( D != 0 ) {
-					for ( i = 0; i < 2; ++i )
+					for ( int i = 0; i < 2; ++i )
 					{
 						D0 = Det3x3(
-						         stI[i], vert[0]->xyz[tv], 1,
-						         stJ[i], vert[1]->xyz[tv], 1,
-						         stK[i], vert[2]->xyz[tv], 1
+						         stI[i], verts[0][tv], 1,
+						         stJ[i], verts[1][tv], 1,
+						         stK[i], verts[2][tv], 1
 						     );
 						D1 = Det3x3(
-						         vert[0]->xyz[sv], stI[i], 1,
-						         vert[1]->xyz[sv], stJ[i], 1,
-						         vert[2]->xyz[sv], stK[i], 1
+						         verts[0][sv], stI[i], 1,
+						         verts[1][sv], stJ[i], 1,
+						         verts[2][sv], stK[i], 1
 						     );
 						D2 = Det3x3(
-						         vert[0]->xyz[sv], vert[0]->xyz[tv], stI[i],
-						         vert[1]->xyz[sv], vert[1]->xyz[tv], stJ[i],
-						         vert[2]->xyz[sv], vert[2]->xyz[tv], stK[i]
+						         verts[0][sv], verts[0][tv], stI[i],
+						         verts[1][sv], verts[1][tv], stJ[i],
+						         verts[2][sv], verts[2][tv], stK[i]
 						     );
-						sts[i] = { D0 / D, D1 / D, D2 / D };
-						//Sys_Printf( "%.3f %.3f %.3f \n", sts[i][0], sts[i][1], sts[i][2] );
+						texMat[i] = { D0 / D, D1 / D, D2 / D };
+						//Sys_Printf( "%.3f %.3f %.3f \n", texMat[i][0], texMat[i][1], texMat[i][2] );
 					}
 				}
 				else{
 					fprintf( stderr, "degenerate triangle found when solving texDef equations\n" ); // FIXME add stuff here
-					sts[0] = { 2.f, 0.f, 0.f };
-					sts[1] = { 0.f, -2.f, 0.f };
+					texMat[0] = { 2.0, 0.0, 0.0 };
+					texMat[1] = { 0.0, -2.0, 0.0 };
 				}
 				// now we must solve:
 				//	// now we must invert:
@@ -580,18 +603,40 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 				//	nt =  cosv * vecs[1][tv];
 				//	vecsrotscaled[1][sv] = ns / scale[1];
 				//	vecsrotscaled[1][tv] = nt / scale[1];
-				scale[0] = 1.0 / sqrt( sts[0][0] * sts[0][0] + sts[0][1] * sts[0][1] );
-				scale[1] = 1.0 / sqrt( sts[1][0] * sts[1][0] + sts[1][1] * sts[1][1] );
-				rotate = radians_to_degrees( atan2( sts[0][1] * vecs[0][sv] - sts[1][0] * vecs[1][tv], sts[0][0] * vecs[0][sv] + sts[1][1] * vecs[1][tv] ) );
-				shift[0] = buildSide.shaderInfo->shaderWidth * FRAC( sts[0][2] / buildSide.shaderInfo->shaderWidth );
-				shift[1] = buildSide.shaderInfo->shaderHeight * FRAC( sts[1][2] / buildSide.shaderInfo->shaderHeight );
+#if 0
+				scale[0] = 1.0 / vector2_length( texMat[0].vec2() );
+				scale[1] = 1.0 / vector2_length( texMat[1].vec2() );
+				rotate = radians_to_degrees( atan2( texMat[0][1] * vecs[0][sv] - texMat[1][0] * vecs[1][tv], texMat[0][0] * vecs[0][sv] + texMat[1][1] * vecs[1][tv] ) );
+				shift[0] = buildSide.shaderInfo->shaderWidth * FRAC( texMat[0][2] / buildSide.shaderInfo->shaderWidth );
+				shift[1] = buildSide.shaderInfo->shaderHeight * FRAC( texMat[1][2] / buildSide.shaderInfo->shaderHeight );
+#else			// Texdef_fromTransform() from brush_primit.cpp, flawless unlike upper
+				scale[0] = 1.0 / vector2_length( texMat[0].vec2() );
+				scale[1] = 1.0 / vector2_length( texMat[1].vec2() );
 
+				rotate = -radians_to_degrees( atan2( -texMat[0][1], texMat[0][0] ) );
+
+				if ( rotate == -180.0f ) {
+					rotate = 180.0f;
+				}
+
+				shift[0] = buildSide.shaderInfo->shaderWidth * FRAC( texMat[0][2] / buildSide.shaderInfo->shaderWidth );
+				shift[1] = buildSide.shaderInfo->shaderHeight * FRAC( texMat[1][2] / buildSide.shaderInfo->shaderHeight );
+
+				// If the 2d cross-product of the x and y axes is positive, one of the axes has a negative scale.
+				if ( vector2_cross( Vector2( texMat[0][0], texMat[0][1] ), Vector2( texMat[1][0], texMat[1][1] ) ) > 0 ) {
+					if ( rotate >= 180.0f ) {
+						rotate -= 180.0f;
+						scale[0] = -scale[0];
+					}
+					else
+					{
+						scale[1] = -scale[1];
+					}
+				}
+#endif
 				/* print brush side */
 				/* ( 640 24 -224 ) ( 448 24 -224 ) ( 448 -232 -224 ) common/caulk 0 48 0 0.500000 0.500000 0 0 0 */
-				fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) %s %.8f %.8f %.8f %.8f %.8f %d 0 0\n",
-				         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
-				         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
-				         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ],
+				fprintf( f, "%s %.8f %.8f %.8f %.8f %.8f %d 0 0\n",
 				         texture,
 				         shift[0], shift[1], rotate, scale[0], scale[1],
 				         contentFlag
@@ -600,7 +645,8 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 		}
 		else
 		{
-			if ( !striEqualPrefix( buildSide.shaderInfo->shader, "textures/common/" )
+			if ( g_decompile_wtf
+			  && !striEqualPrefix( buildSide.shaderInfo->shader, "textures/common/" )
 			  && !striEqualPrefix( buildSide.shaderInfo->shader, "textures/system/" )
 			  &&        !strEqual( buildSide.shaderInfo->shader, "noshader" )
 			  &&        !strEqual( buildSide.shaderInfo->shader, "default" ) ) {
@@ -608,25 +654,28 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 				texture = "common/WTF";
 			}
 
-			if ( brushPrimitives ) {
-				fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s %d 0 0\n",
-				         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
-				         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
-				         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ],
-				         1.0f / 16.0f, 0.0f, 0.0f,
-				         0.0f, 1.0f / 16.0f, 0.0f,
+			if ( brushType == EBrushType::Quake ) {
+				fprintf( f, "%s %.8f %.8f %.8f %.8f %.8f %d 0 0\n",
 				         texture,
+				         0.0f, 0.0f, 0.0f, 0.25f, 0.25f,
 				         contentFlag
 				       );
 			}
-			else
-			{
-				fprintf( f, "\t\t( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) ( %.3f %.3f %.3f ) %s %.8f %.8f %.8f %.8f %.8f %d 0 0\n",
-				         pts[ 0 ][ 0 ], pts[ 0 ][ 1 ], pts[ 0 ][ 2 ],
-				         pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], pts[ 1 ][ 2 ],
-				         pts[ 2 ][ 0 ], pts[ 2 ][ 1 ], pts[ 2 ][ 2 ],
+			else if ( brushType == EBrushType::Valve220 ) {
+				Vector3 texX, texY;
+				ComputeAxisBase( buildPlane.normal(), texX, texY );
+				fprintf( f, "%s [ %.8f %.8f %.8f %.8f ] [ %.8f %.8f %.8f %.8f ] 0 0.5 0.5 %d 0 0\n",
 				         texture,
-				         0.0f, 0.0f, 0.0f, 0.25f, 0.25f,
+				         texX.x(), texX.y(), texX.z(), 0.f,
+				         texY.x(), texY.y(), texY.z(), 0.f,
+				         contentFlag
+				       );
+			}
+			else if ( brushType == EBrushType::Bp ) {
+				fprintf( f, "( ( %.8f %.8f %.8f ) ( %.8f %.8f %.8f ) ) %s %d 0 0\n",
+				         1.0f / 16.0f, 0.0f, 0.0f,
+				         0.0f, 1.0f / 16.0f, 0.0f,
+				         texture,
 				         contentFlag
 				       );
 			}
@@ -634,7 +683,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 	}
 
 	/* end brush */
-	if ( brushPrimitives ) {
+	if ( brushType == EBrushType::Bp ) {
 		fprintf( f, "\t}\n" );
 	}
 	fprintf( f, "\t}\n\n" );
@@ -643,7 +692,7 @@ static void ConvertBrush( FILE *f, int bspBrushNum, const Vector3& origin, bool 
 
 #if 0
 /* iterate through the brush sides (ignore the first 6 bevel planes) */
-for ( i = 0; i < brush->numSides; i++ )
+for ( i = 0; i < brush->numSides; ++i )
 {
 	/* get side */
 	side = &bspBrushSides[ brush->firstSide + i ];
@@ -680,7 +729,7 @@ for ( i = 0; i < brush->numSides; i++ )
 	}
 
 	/* offset by origin */
-	for ( j = 0; j < 3; j++ )
+	for ( j = 0; j < 3; ++j )
 		VectorAdd( pts[ j ], origin, pts[ j ] );
 
 	/* print brush side */
@@ -744,13 +793,13 @@ static void ConvertPatch( FILE *f, int num, const bspDrawSurface_t& ds, const Ve
 	fprintf( f, "\t\t\t(\n" );
 
 	/* iterate through the verts */
-	for ( int x = 0; x < ds.patchWidth; x++ )
+	for ( int x = 0; x < ds.patchWidth; ++x )
 	{
 		/* start row */
 		fprintf( f, "\t\t\t\t(" );
 
 		/* iterate through the row */
-		for ( int y = 0; y < ds.patchHeight; y++ )
+		for ( int y = 0; y < ds.patchHeight; ++y )
 		{
 			/* get vert */
 			const bspDrawVert_t& dv = bspDrawVerts[ ds.firstVert + ( y * ds.patchWidth ) + x ];
@@ -779,22 +828,22 @@ static void ConvertPatch( FILE *f, int num, const bspDrawSurface_t& ds, const Ve
    exports a bsp model to a map file
  */
 
-static void ConvertModel( FILE *f, const bspModel_t& model, const Vector3& origin, bool brushPrimitives ){
+static void ConvertModel( FILE *f, const bspModel_t& model, const Vector3& origin, EBrushType brushType ){
 	if ( origin != g_vector3_identity ) {
-		ConvertOriginBrush( f, -1, origin, brushPrimitives );
+		ConvertOriginBrush( f, -1, origin, brushType );
 	}
 
 	/* go through each brush in the model */
-	for ( int i = 0; i < model.numBSPBrushes; i++ )
+	for ( int i = 0; i < model.numBSPBrushes; ++i )
 	{
 		if( fast )
-			ConvertBrushFast( f, model.firstBSPBrush + i, origin, brushPrimitives );
+			ConvertBrushFast( f, model, model.firstBSPBrush + i, origin, brushType );
 		else
-			ConvertBrush( f, model.firstBSPBrush + i, origin, brushPrimitives );
+			ConvertBrush( f, model, model.firstBSPBrush + i, origin, brushType );
 	}
 
 	/* go through each drawsurf in the model */
-	for ( int i = 0; i < model.numBSPSurfaces; i++ )
+	for ( int i = 0; i < model.numBSPSurfaces; ++i )
 	{
 		const int num = i + model.firstBSPSurface;
 		const bspDrawSurface_t& ds = bspDrawSurfaces[ num ];
@@ -844,7 +893,7 @@ static void ConvertEPairs( FILE *f, const entity_t& e, bool skip_origin ){
    exports an quake map file from the bsp
  */
 
-static int ConvertBSPToMap_Ext( char *bspName, bool brushPrimitives ){
+static int ConvertBSPToMap_Ext( char *bspName, EBrushType brushType ){
 	/* setup brush conversion prerequisites */
 	{
 		/* convert bsp planes to map planes */
@@ -912,7 +961,7 @@ static int ConvertBSPToMap_Ext( char *bspName, bool brushPrimitives ){
 		/* only handle bsp models */
 		if ( modelNum >= 0 ) {
 			/* convert model */
-			ConvertModel( f, bspModels[ modelNum ], e.vectorForKey( "origin" ), brushPrimitives );
+			ConvertModel( f, bspModels[ modelNum ], e.vectorForKey( "origin" ), brushType );
 		}
 
 		/* end entity */
@@ -927,9 +976,13 @@ static int ConvertBSPToMap_Ext( char *bspName, bool brushPrimitives ){
 }
 
 int ConvertBSPToMap( char *bspName ){
-	return ConvertBSPToMap_Ext( bspName, false );
+	return ConvertBSPToMap_Ext( bspName, EBrushType::Quake );
 }
 
 int ConvertBSPToMap_BP( char *bspName ){
-	return ConvertBSPToMap_Ext( bspName, true );
+	return ConvertBSPToMap_Ext( bspName, EBrushType::Bp );
+}
+
+int ConvertBSPToMap_220( char *bspName ){
+	return ConvertBSPToMap_Ext( bspName, EBrushType::Valve220 );
 }

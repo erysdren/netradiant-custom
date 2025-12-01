@@ -26,7 +26,6 @@
 #include "imodel.h"
 #include "ifilesystem.h"
 #include "iundo.h"
-#include "editable.h"
 
 #include "eclasslib.h"
 #include "scenelib.h"
@@ -36,6 +35,7 @@
 #include "stringio.h"
 
 #include "gtkutil/filechooser.h"
+#include "gtkutil/widget.h"
 #include "gtkmisc.h"
 #include "select.h"
 #include "map.h"
@@ -52,7 +52,7 @@
 
 struct entity_globals_t
 {
-	Vector3 color_entity = Vector3( 1.0f );
+	Vector3 color_entity = Vector3( 1 );
 };
 
 entity_globals_t g_entity_globals;
@@ -65,10 +65,10 @@ public:
 	EntitySetKeyValueSelected( const char* key, const char* value )
 		: m_key( key ), m_value( value ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		Entity* entity = Node_getEntity( path.top() );
 		if ( entity != 0
 		     && ( instance.childSelected() || Instance_isSelected( instance ) ) ) {
@@ -86,10 +86,10 @@ public:
 	EntitySetClassnameSelected( const char* classname )
 		: m_classname( classname ), m_world( Map_FindWorldspawn( g_map ) ), m_2world( m_world && string_equal( m_classname, "worldspawn" ) ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		Entity* entity = Node_getEntity( path.top() );
 		if ( entity != 0 && ( instance.childSelected() || Instance_isSelected( instance ) ) ) {
 			if( path.top().get_pointer() == m_world ){ /* do not want to convert whole worldspawn entity */
@@ -306,7 +306,7 @@ void Entity_moveSelectedPrimitives( bool toLast ){
 	scene::Node& node = ( !Node_isEntity( path.top() ) && path.size() > 1 )? path.parent() : path.top();
 
 	if ( Node_isEntity( node ) && node_is_group( node ) ) {
-		const auto command = StringStream<64>( "movePrimitivesToEntity ", makeQuoted( Node_getEntity( node )->getClassName() ) );
+		const auto command = StringStream<64>( "movePrimitivesToEntity ", Quoted( Node_getEntity( node )->getClassName() ) );
 		UndoableCommand undo( command );
 		Scene_parentSelectedBrushesToEntity( GlobalSceneGraph(), node );
 	}
@@ -601,6 +601,14 @@ const char* misc_model_dialog( QWidget* parent, const char* filepath ){
 	}
 	return 0;
 }
+
+void Entity_reloadDefinitions(){
+	if( ConfirmModified( "Reload Entity Definitions" ) ){
+		GlobalEntityClassManager().unrealise();
+		GlobalEntityClassManager().realise();
+	}
+}
+
 /*
 void LightRadiiImport( EntityCreator& self, bool value ){
 	self.setLightRadii( value );
@@ -705,6 +713,8 @@ void Entity_constructMenu( QMenu* menu ){
 	create_menu_item_with_mnemonic( menu, "&Move Primitives to Entity", "EntityMovePrimitivesToLast" );
 	create_menu_item_with_mnemonic( menu, "&Select Color...", "EntityColorSet" );
 	create_menu_item_with_mnemonic( menu, "&Normalize Color", "EntityColorNormalize" );
+	menu->addSeparator();
+	create_menu_item_with_mnemonic( menu, "Reload Entity Definitions", "EntityReloadDefinitions" );
 }
 
 void Entity_registerShortcuts(){
@@ -728,6 +738,7 @@ void Entity_Construct(){
 	GlobalCommands_insert( "EntityMovePrimitivesToFirst", makeCallbackF( Entity_moveSelectedPrimitivesToFirst ) );
 	GlobalCommands_insert( "EntityUngroup", makeCallbackF( Entity_ungroup ) );
 	GlobalCommands_insert( "EntityUngroupPrimitives", makeCallbackF( Entity_ungroupSelectedPrimitives ) );
+	GlobalCommands_insert( "EntityReloadDefinitions", makeCallbackF( Entity_reloadDefinitions ) );
 
 	GlobalToggles_insert( "ShowLightRadiuses", makeCallbackF( ToggleShowLightRadii ), ToggleItem::AddCallbackCaller( g_show_lightradii_item ) );
 

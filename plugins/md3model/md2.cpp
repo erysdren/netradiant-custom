@@ -144,7 +144,6 @@ typedef struct
 	int ofs_frames;             // offset for first md2Frame_t
 	int ofs_glcmds;
 	int ofs_end;                // end of file
-
 } md2Header_t;
 
 void istream_read_md2Header( PointerInputStream& inputStream, md2Header_t& header ){
@@ -205,16 +204,16 @@ void MD2Surface_read( Model& model, const byte* buffer, ArchiveFile& file ){
 		surface.indices().reserve( header.num_tris * 3 );
 
 		Array<md2XyzNormal_t> md2Xyz( header.num_xyz );
-		for ( Array<md2XyzNormal_t>::iterator i = md2Xyz.begin(); i != md2Xyz.end(); ++i )
+		for ( auto& xyzn : md2Xyz )
 		{
-			istream_read_md2XyzNormal( frameStream, *i );
+			istream_read_md2XyzNormal( frameStream, xyzn );
 		}
 
 		Array<md2St_t> md2St( header.num_st );
 		PointerInputStream stStream( buffer + header.ofs_st );
-		for ( Array<md2St_t>::iterator i = md2St.begin(); i != md2St.end(); ++i )
+		for ( auto& st : md2St )
 		{
-			istream_read_md2St( stStream, *i );
+			istream_read_md2St( stStream, st );
 		}
 
 		UniqueVertexBuffer<ArbitraryMeshVertex> inserter( surface.vertices() );
@@ -269,13 +268,13 @@ void MD2Model_read( Model& model, const byte* buffer, ArchiveFile& file ){
 }
 
 scene::Node& MD2Model_new( const byte* buffer, ArchiveFile& file ){
-	ModelNode* modelNode = new ModelNode();
+	auto *modelNode = new ModelNode();
 	MD2Model_read( modelNode->model(), buffer, file );
 	return modelNode->node();
 }
 
 scene::Node& MD2Model_default(){
-	ModelNode* modelNode = new ModelNode();
+	auto *modelNode = new ModelNode();
 	Model_constructNull( modelNode->model() );
 	return modelNode->node();
 }

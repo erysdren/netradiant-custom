@@ -167,7 +167,7 @@ Q3map2:
 	* -keepmodels in -bsp / _keepModels on worldspawn: keep misc_model entities in the BSP file after compile
 	* fix: don't turn lights with targetname to styled for IBSP, as they are not switchable there
 	* fix RBSP style keys on -exportents and decompilation, so that they are alright for -onlyents and compilation
-	* -nobouncestore: Do not store BSP, lightmap and shader files between bounces
+	* -nobouncestore: Store BSP, lightmap and shader files only once after last bounce
 	* fix custom shaders generation for lightstyles and external lightmaps hacks for :q3map suffixed shaders
 	* -maxmapdrawsurfs <N>: Sets max amount of mapDrawSurfs, used during .map compilation (-bsp, -convert), default = 131072
 	* -maxshaderinfo <N>: Sets max amount of shaderInfo, default = 8192
@@ -182,6 +182,18 @@ Q3map2:
 	* tighten FilterPatchIntoTree() regarding to even (pink) points
 	* fix tiny structural brushes breaking bsp tree
 	* handle patch lodbounds in -shift and -scale
+	* refactor to work without -maxshaderinfo limit, improve shader search performance
+	* fix and simplify FloodAreas
+	* support distinct lighting from different sky shaders in one map (by Tom Arrow)
+	* -onesky: fallback to old behavior: any sky emits total of all suns/skylights in the map
+	* -modelclip: Decompile model autoclip brushes during bsp to map conversion (they are skipped by default)
+	* -wtf: During bsp to map conversion use common/WTF on faces with failed texture alignment deduction
+	* fix AP texture alignment deduction during bsp to map decompilation
+	* -format map_220: bsp to map of Valve220 format conversion
+	* support separated _ambient, _color per group, misc_model entities
+	* merge coplanar triangles for model autoclip in default, pyramidal, face normals, 45, axial pyramid, terrain, up, down modes
+	* Q3MAP2_EXPERIMENTAL_OFFSET_WINDING_CREATION for higher windings precision
+	* volumetric merge of triangles for model autoclip in axial backplane, max extrude modes
 
 
 
@@ -329,6 +341,8 @@ binds...
 	* update SelectionSystem highlights, manipulations immediately onModifierDown(), onModifierUp()
 	* add alt + m1 selection style to transform manipulator for scaling in 3D
 	* ctrl + shift + p: Shortcuts dialog (keyboard commands palette)
+	* m2 in texBro: context menu
+	* del: DeleteSelection3 as most expected deletion bind
 
 menus...
 	* smartified content basically
@@ -367,6 +381,13 @@ menus...
 	* Misc->Colors: add Model Browser Background control
 	* Modify->Repeat: saved transforms feedback and individual resets
 	* Modify->Repeat->Reset Transforms (alt + r)
+	* Entity->Reload Entity Definitions
+	* View->Layers Browser (L)
+	* Edit->Expand Selection To Layers (ctrl + q)
+	* shift + q: move-to LayersMenu
+	* context menu for toolbar buttons configuration
+	* Copy All in console context menu
+	* texBro.context menu: Select Textured Objects, Select Textured Surfaces
 
 misc...
 	* removed note to save before going to preferences, project settings
@@ -1123,6 +1144,22 @@ misc...
 		render current leaf convex volume, in white
 		support bsp without vis data
 		add RBSP, FBSP support
+	* bobToolz: new Aperture Door builder
+	* .def .ent .fgd can be used simultaneously (removed entityclass="halflife")
+	* shader editor: save on ctrl + s
+	* shader editor: Find, FindNext, FindPrevious OS dependent binds; Find fills search entry from selection
+	* shader editor: make Copy and SelectAll binds work in read only mode
+	* build menu.customize: drag and drop items; ctrl + drag = copy
+	* build menu.customize: remove command line item when set empty
+	* build menu.customize.build variables: are editable
+	* layers system (stored in comments of .map file)
+	* Layers Browser: New Layer, Show All Layers, Hide All Layers buttons
+	* new icons by Julius, high dpi scaling support
+	* improved GUI themes, new unmodified Fusion theme, external .qss file
+	* render camera crosshair sharply independently of viewport size, with shadow
+	* support mixture of monitored and unmonitored build commands (do unmonitored run after 1st such command)
+	* do Run Engine After Compile also after unmonitored builds
+	* adjust icons in light GUI themes for better visibility
 
 
 

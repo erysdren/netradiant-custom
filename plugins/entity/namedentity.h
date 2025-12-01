@@ -41,9 +41,9 @@ public:
 		m_callbacks.erase( callback );
 	}
 	void changed( const char* name ) const {
-		for ( NameCallbacks::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i )
+		for ( const auto& cb : m_callbacks )
 		{
-			( *i )( name );
+			cb( name );
 		}
 	}
 };
@@ -56,7 +56,7 @@ class NamedEntity : public Nameable
 public:
 	NamedEntity( EntityKeyValues& entity ) : m_entity( entity ){
 	}
-	const char* name() const {
+	const char* name() const override {
 		if ( m_name.empty() ) {
 			return m_entity.getClassName();
 		}
@@ -68,10 +68,10 @@ public:
 	const Colour3& color() const {
 		return m_entity.getEntityClass().color;
 	}
-	void attach( const NameCallback& callback ){
+	void attach( const NameCallback& callback ) override {
 		m_changed.insert( callback );
 	}
-	void detach( const NameCallback& callback ){
+	void detach( const NameCallback& callback ) override {
 		m_changed.erase( callback );
 	}
 
@@ -130,7 +130,7 @@ public:
 				return;
 		}
 
-		Vector4 position( m_position, 1.f );
+		Vector4 position( m_position, 1 );
 		Matrix4 object2screen( volume.GetViewMatrix() );
 		matrix4_multiply_by_matrix4( object2screen, localToWorld );
 		matrix4_transform_vector4( object2screen, position );

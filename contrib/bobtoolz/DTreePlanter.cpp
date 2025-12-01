@@ -58,11 +58,11 @@ SignalHandlerResult DTreePlanter::mouseDown( const WindowVector& position, Butto
 
 		if ( m_autoLink ) {
 
-			const scene::Path* pLastEntity = NULL;
-			const scene::Path* pThisEntity = NULL;
+			const scene::Path* pLastEntity = nullptr;
+			const scene::Path* pThisEntity = nullptr;
 
 			int entpos;
-			for ( int i = 0; i < 256; i++ ) {
+			for ( int i = 0; i < 256; ++i ) {
 				sprintf( buffer, m_linkName, i );
 				pThisEntity = FindEntityFromTargetname( buffer );
 
@@ -88,7 +88,6 @@ SignalHandlerResult DTreePlanter::mouseDown( const WindowVector& position, Butto
 				e2.RemoveFromRadiant();
 				e2.BuildInRadiant( false );
 			}
-
 		}
 
 		if ( m_setAngles ) {
@@ -197,7 +196,7 @@ void DTreePlanter::DropEntsToGround() {
 void MakeChain( int linkNum, const char* linkName ) {
 	char buffer[256];
 	int i;
-	for ( i = 0; i < linkNum; i++ ) {
+	for ( i = 0; i < linkNum; ++i ) {
 		DEntity e( "info_train_spline_main" );
 
 		sprintf( buffer, "%s_pt%i", linkName, i );
@@ -216,7 +215,7 @@ void MakeChain( int linkNum, const char* linkName ) {
 		e.BuildInRadiant( false );
 	}
 
-	for ( i = 0; i < linkNum - 1; i++ ) {
+	for ( i = 0; i < linkNum - 1; ++i ) {
 		DEntity e( "info_train_spline_control" );
 
 		sprintf( buffer, "%s_ctl%i", linkName, i );

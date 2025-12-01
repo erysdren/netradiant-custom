@@ -31,8 +31,15 @@
 
 class RadiantModuleServer : public ModuleServer
 {
-	typedef std::pair<CopiedString, int> ModuleType;
-	typedef std::pair<ModuleType, CopiedString> ModuleKey;
+	struct ModuleKey
+	{
+		CopiedString type;
+		int version;
+		CopiedString name;
+		bool operator<( const ModuleKey& other ) const {
+			return std::tie( type, version, name ) < std::tie( other.type, other.version, other.name );
+		}
+	};
 	typedef std::map<ModuleKey, Module*> Modules_;
 	Modules_ m_modules;
 	bool m_error;
@@ -41,50 +48,50 @@ public:
 	RadiantModuleServer() : m_error( false ){
 	}
 
-	void setError( bool error ){
+	void setError( bool error ) override {
 		m_error = error;
 	}
-	bool getError() const {
+	bool getError() const override {
 		return m_error;
 	}
 
-	TextOutputStream& getOutputStream(){
+	TextOutputStream& getOutputStream() override {
 		return globalOutputStream();
 	}
-	TextOutputStream& getWarningStream(){
+	TextOutputStream& getWarningStream() override {
 		return globalWarningStream();
 	}
-	TextOutputStream& getErrorStream(){
+	TextOutputStream& getErrorStream() override {
 		return globalErrorStream();
 	}
-	DebugMessageHandler& getDebugMessageHandler(){
+	DebugMessageHandler& getDebugMessageHandler() override {
 		return globalDebugMessageHandler();
 	}
 
-	void registerModule( const char* type, int version, const char* name, Module& module ){
+	void registerModule( const char* type, int version, const char* name, Module& module ) override {
 		ASSERT_NOTNULL( (volatile intptr_t)&module );
-		if ( !m_modules.insert( Modules_::value_type( ModuleKey( ModuleType( type, version ), name ), &module ) ).second ) {
-			globalErrorStream() << "module already registered: type=" << makeQuoted( type ) << " name=" << makeQuoted( name ) << '\n';
+		if ( !m_modules.insert( Modules_::value_type( ModuleKey( type, version, name ), &module ) ).second ) {
+			globalErrorStream() << "module already registered: type=" << Quoted( type ) << " name=" << Quoted( name ) << '\n';
 		}
 		else
 		{
-			globalOutputStream() << "Module Registered: type=" << makeQuoted( type ) << " version=" << makeQuoted( version ) << " name=" << makeQuoted( name ) << '\n';
+			globalOutputStream() << "Module Registered: type=" << Quoted( type ) << " version=" << Quoted( version ) << " name=" << Quoted( name ) << '\n';
 		}
 	}
 
-	Module* findModule( const char* type, int version, const char* name ) const {
-		Modules_::const_iterator i = m_modules.find( ModuleKey( ModuleType( type, version ), name ) );
+	Module* findModule( const char* type, int version, const char* name ) const override {
+		Modules_::const_iterator i = m_modules.find( ModuleKey( type, version, name ) );
 		if ( i != m_modules.end() ) {
 			return ( *i ).second;
 		}
 		return 0;
 	}
 
-	void foreachModule( const char* type, int version, const Visitor& visitor ){
-		for ( Modules_::const_iterator i = m_modules.begin(); i != m_modules.end(); ++i )
+	void foreachModule( const char* type, int version, const Visitor& visitor ) override {
+		for ( const auto& [ key, module ] : m_modules )
 		{
-			if ( string_equal( ( *i ).first.first.first.c_str(), type ) ) {
-				visitor.visit( ( *i ).first.second.c_str(), *( *i ).second );
+			if ( string_equal( key.type.c_str(), type ) ) {
+				visitor.visit( key.name.c_str(), *module );
 			}
 		}
 	}
@@ -101,12 +108,12 @@ const char* FormatGetLastError(){
 	FormatMessage(
 	    FORMAT_MESSAGE_FROM_SYSTEM |
 	    FORMAT_MESSAGE_IGNORE_INSERTS,
-	    NULL,
+	    nullptr,
 	    GetLastError(),
 	    MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), // Default language
 	    buf,
 	    FORMAT_BUFSIZE,
-	    NULL
+	    nullptr
 	);
 	return buf;
 }
@@ -120,7 +127,7 @@ public:
 	DynamicLibrary( const char* filename ){
 		m_library = LoadLibrary( filename );
 		if ( m_library == 0 ) {
-			globalErrorStream() << "LoadLibrary failed: '" << filename << "'\n";
+			globalErrorStream() << "LoadLibrary failed: " << SingleQuoted( filename ) << '\n';
 			globalErrorStream() << "GetLastError: " << FormatGetLastError();
 		}
 	}
@@ -135,7 +142,7 @@ public:
 	FunctionPointer findSymbol( const char* symbol ){
 		FunctionPointer address = (FunctionPointer) GetProcAddress( m_library, symbol );
 		if ( address == 0 ) {
-			globalErrorStream() << "GetProcAddress failed: '" << symbol << "'\n";
+			globalErrorStream() << "GetProcAddress failed: " << SingleQuoted( symbol ) << '\n';
 			globalErrorStream() << "GetLastError: " << FormatGetLastError();
 		}
 		return address;
@@ -155,7 +162,7 @@ public:
 	DynamicLibrary( const char* filename ){
 		m_library = dlopen( filename, RTLD_NOW );
 		if ( failed() ) {
-			globalErrorStream() << "LoadLibrary failed: '" << filename << "'\n";
+			globalErrorStream() << "LoadLibrary failed: " << SingleQuoted( filename ) << '\n';
 			globalErrorStream() << "Module dlopen(3) Error: " << dlerror() << '\n';
 		}
 	}
@@ -219,7 +226,7 @@ public:
 		release();
 	}
 	void registerLibrary( const char* filename, ModuleServer& server ){
-		DynamicLibraryModule* library = new DynamicLibraryModule( filename );
+		auto *library = new DynamicLibraryModule( filename );
 
 		if ( library->failed() ) {
 			delete library;
@@ -231,9 +238,9 @@ public:
 		}
 	}
 	void release(){
-		for ( libraries_t::iterator i = m_libraries.begin(); i != m_libraries.end(); ++i )
+		for ( auto *module : m_libraries )
 		{
-			delete *i;
+			delete module;
 		}
 	}
 	void clear(){

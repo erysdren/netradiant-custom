@@ -171,17 +171,17 @@ void light_draw_radius_fill( const Vector3& origin, const std::array<float, 3>& 
 
 
 void cartesian( const double Long, const double Lat, float cart[3] ) {
-	cart[0] = cos( Long ) * fabs( cos( Lat ) );
-	cart[1] = sin( Long ) * fabs( cos( Lat ) );
+	cart[0] = cos( Long ) * std::fabs( cos( Lat ) );
+	cart[1] = sin( Long ) * std::fabs( cos( Lat ) );
 	cart[2] = sin( Lat );
 }
 
 void sphere_construct_fill( Vector3 radiiPoints[SPHERE_FILL_POINTS] ){
 	float cart[3];
 	int k = 0;
-	const double step = c_pi / static_cast<double>( SPHERE_FILL_SIDES );
+	const double step = c_pi / SPHERE_FILL_SIDES;
 
-	radiiPoints[k++] = Vector3( 0.0, 0.0, -1.0 );
+	radiiPoints[k++] = Vector3( 0, 0, -1 );
 	for( int i = 0; i < SPHERE_FILL_SIDES * 2; i += 2 ) {
 		for( int j = -SPHERE_FILL_SIDES / 2 + 1; j < SPHERE_FILL_SIDES / 2; ++j ) {
 			cartesian( step * i, step * j, cart );
@@ -189,25 +189,27 @@ void sphere_construct_fill( Vector3 radiiPoints[SPHERE_FILL_POINTS] ){
 			cartesian( step * ( i + 1 ), step * j, cart );
 			radiiPoints[k++] = Vector3( cart[0], cart[1], cart[2] );
 		}
-		radiiPoints[k++] = Vector3( 0.0, 0.0, 1.0 );
+		radiiPoints[k++] = Vector3( 0, 0, 1 );
 		for( int j = SPHERE_FILL_SIDES / 2 - 1; j > -SPHERE_FILL_SIDES / 2; --j ) {
 			cartesian( step * ( i + 1 ), step * j, cart );
 			radiiPoints[k++] = Vector3( cart[0], cart[1], cart[2] );
 			cartesian( step * ( i + 2 ), step * j, cart );
 			radiiPoints[k++] = Vector3( cart[0], cart[1], cart[2] );
 		}
-		radiiPoints[k++] = Vector3( 0.0, 0.0, -1.0 );
+		radiiPoints[k++] = Vector3( 0, 0, -1 );
 	}
 	//globalOutputStream() << k << "!!!!!!!!!!!!\n";
 }
 
 void sphere_draw_fill( const Vector3& origin, float radius, const Vector3 radiiPoints[SPHERE_FILL_POINTS] ){
-	gl().glBegin( GL_TRIANGLE_STRIP );
-	for ( int i = 0; i < SPHERE_FILL_POINTS; ++i )
-	{
-		gl().glVertex3fv( vector3_to_array( vector3_added( origin, vector3_scaled( radiiPoints[i], radius ) ) ) );
+	if( radius > 0 ){
+		gl().glBegin( GL_TRIANGLE_STRIP );
+		for ( int i = 0; i < SPHERE_FILL_POINTS; ++i )
+		{
+			gl().glVertex3fv( vector3_to_array( vector3_added( origin, vector3_scaled( radiiPoints[i], radius ) ) ) );
+		}
+		gl().glEnd();
 	}
-	gl().glEnd();
 }
 
 	#elif 0 // triangles
@@ -221,15 +223,15 @@ void sphere_draw_fill( const Vector3& origin, float radius, const Vector3 radiiP
 #define Z .850650808352039932
 
 static float vdata[12][3] = {
-	{ -X, 0.0, Z}, {X, 0.0, Z}, { -X, 0.0, -Z}, {X, 0.0, -Z},
-	{0.0, Z, X}, {0.0, Z, -X}, {0.0, -Z, X}, {0.0, -Z, -X},
-	{Z, X, 0.0}, { -Z, X, 0.0}, {Z, -X, 0.0}, { -Z, -X, 0.0}
+	{-X, 0, Z}, { X, 0, Z}, {-X, 0,-Z}, { X, 0,-Z},
+	{ 0, Z, X}, { 0, Z,-X}, { 0,-Z, X}, { 0,-Z,-X},
+	{ Z, X, 0}, {-Z, X, 0}, { Z,-X, 0}, {-Z,-X, 0}
 };
 static unsigned int tindices[20][3] = {
-	{0, 4, 1}, {0, 9, 4}, {9, 5, 4}, {4, 5, 8}, {4, 8, 1},
-	{8, 10, 1}, {8, 3, 10}, {5, 3, 8}, {5, 2, 3}, {2, 7, 3},
-	{7, 10, 3}, {7, 6, 10}, {7, 11, 6}, {11, 0, 6}, {0, 1, 6},
-	{6, 1, 10}, {9, 0, 11}, {9, 11, 2}, {9, 2, 5}, {7, 2, 11}
+	{0,  4,  1}, {0, 9,  4}, {9,  5, 4}, { 4, 5, 8}, {4, 8,  1},
+	{8, 10,  1}, {8, 3, 10}, {5,  3, 8}, { 5, 2, 3}, {2, 7,  3},
+	{7, 10,  3}, {7, 6, 10}, {7, 11, 6}, {11, 0, 6}, {0, 1,  6},
+	{6,  1, 10}, {9, 0, 11}, {9, 11, 2}, { 9, 2, 5}, {7, 2, 11}
 };
 
 void normalize( float * a ) {
@@ -246,7 +248,7 @@ void drawtri( float * a, float * b, float * c, int div, Vector3 radiiPoints[SPHE
 		radiiPoints[k++] = Vector3( c[0], c[1], c[2] );
 	} else {
 		float ab[3], ac[3], bc[3];
-		for( int i = 0; i < 3; i++ ) {
+		for( int i = 0; i < 3; ++i ) {
 			ab[i] = ( a[i] + b[i] ) / 2;
 			ac[i] = ( a[i] + c[i] ) / 2;
 			bc[i] = ( b[i] + c[i] ) / 2;
@@ -263,7 +265,7 @@ void drawtri( float * a, float * b, float * c, int div, Vector3 radiiPoints[SPHE
 
 void sphere_construct_fill( Vector3 radiiPoints[SPHERE_FILL_POINTS] ){
 	int k = 0;
-	for( int i = 0; i < 20; i++ )
+	for( int i = 0; i < 20; ++i )
 		drawtri( vdata[tindices[i][0]], vdata[tindices[i][1]], vdata[tindices[i][2]], SPHERE_FILL_DIV, radiiPoints, k );
 }
 
@@ -320,18 +322,9 @@ void sphere_draw_fill( const Vector3& origin, float radius, const Vector3 radiiP
 
 	#endif
 
-void light_draw_radius_fill( const Vector3& origin, const std::array<float, 3>& envelope, const Vector3 radiiPoints[SPHERE_FILL_POINTS] ){
-#ifdef RADII_RENDER_BIG_RADIUS
-	if ( envelope[0] > 0 ) {
-		sphere_draw_fill( origin, envelope[0], radiiPoints );
-	}
-#endif
-	if ( envelope[1] > 0 ) {
-		sphere_draw_fill( origin, envelope[1], radiiPoints );
-	}
-	if ( envelope[2] > 0 ) {
-		sphere_draw_fill( origin, envelope[2], radiiPoints );
-	}
+void light_draw_radius_fill( const Vector3& origin, const float envelopes[ 2 ], const Vector3 radiiPoints[SPHERE_FILL_POINTS] ){
+	sphere_draw_fill( origin, envelopes[ 0 ], radiiPoints );
+	sphere_draw_fill( origin, envelopes[ 1 ], radiiPoints );
 }
 #endif
 
@@ -341,7 +334,7 @@ void sphere_draw_wire( const Vector3& origin, float radius, int sides ){
 	{
 		gl().glBegin( GL_LINE_LOOP );
 
-		for ( int i = 0; i <= sides; i++ )
+		for ( int i = 0; i <= sides; ++i )
 		{
 			double ds = sin( ( i * 2 * c_pi ) / sides );
 			double dc = cos( ( i * 2 * c_pi ) / sides );
@@ -359,7 +352,7 @@ void sphere_draw_wire( const Vector3& origin, float radius, int sides ){
 	{
 		gl().glBegin( GL_LINE_LOOP );
 
-		for ( int i = 0; i <= sides; i++ )
+		for ( int i = 0; i <= sides; ++i )
 		{
 			double ds = sin( ( i * 2 * c_pi ) / sides );
 			double dc = cos( ( i * 2 * c_pi ) / sides );
@@ -377,7 +370,7 @@ void sphere_draw_wire( const Vector3& origin, float radius, int sides ){
 	{
 		gl().glBegin( GL_LINE_LOOP );
 
-		for ( int i = 0; i <= sides; i++ )
+		for ( int i = 0; i <= sides; ++i )
 		{
 			double ds = sin( ( i * 2 * c_pi ) / sides );
 			double dc = cos( ( i * 2 * c_pi ) / sides );
@@ -413,74 +406,50 @@ void light_draw_radius_wire( const Vector3& origin, const std::array<float, 3>& 
 void sphere_construct_wire( Vector3 radiiPoints[SPHERE_WIRE_POINTS] ){
 	int k = 0;
 
-	for ( int i = 0; i < SPHERE_WIRE_SIDES; i++ )
+	for ( int i = 0; i < SPHERE_WIRE_SIDES; ++i )
 	{
-		double ds = sin( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
-		double dc = cos( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
+		const float ds = sin( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
+		const float dc = cos( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
 
-		radiiPoints[k++] =
-		    Vector3(
-		        static_cast<float>( dc ),
-		        static_cast<float>( ds ),
-		        0.f
-		    );
+		radiiPoints[k++] = Vector3( dc, ds, 0 );
 	}
 
-	for ( int i = 0; i < SPHERE_WIRE_SIDES; i++ )
+	for ( int i = 0; i < SPHERE_WIRE_SIDES; ++i )
 	{
-		double ds = sin( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
-		double dc = cos( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
+		const float ds = sin( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
+		const float dc = cos( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
 
-		radiiPoints[k++] =
-		    Vector3(
-		        static_cast<float>( dc ),
-		        0.f,
-		        static_cast<float>( ds )
-		    );
+		radiiPoints[k++] = Vector3( dc, 0, ds );
 	}
 
-	for ( int i = 0; i < SPHERE_WIRE_SIDES; i++ )
+	for ( int i = 0; i < SPHERE_WIRE_SIDES; ++i )
 	{
-		double ds = sin( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
-		double dc = cos( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
+		const float ds = sin( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
+		const float dc = cos( ( i * 2 * c_pi ) / SPHERE_WIRE_SIDES );
 
-		radiiPoints[k++] =
-		    Vector3(
-		        0.f,
-		        static_cast<float>( dc ),
-		        static_cast<float>( ds )
-		    );
+		radiiPoints[k++] = Vector3( 0, dc, ds );
 	}
-
 }
 
 void sphere_draw_wire( const Vector3& origin, float radius, const Vector3 radiiPoints[SPHERE_WIRE_POINTS] ){
-	int k = 0;
-	for( int j = 0; j < 3; j++ )
-	{
-		gl().glBegin( GL_LINE_LOOP );
-
-		for ( int i = 0; i < SPHERE_WIRE_SIDES; i++ )
+	if( radius > 0 ){
+		for( int j = 0, k = 0; j < 3; ++j )
 		{
-			gl().glVertex3fv( vector3_to_array( vector3_added( origin, vector3_scaled( radiiPoints[k++], radius ) ) ) );
-		}
+			gl().glBegin( GL_LINE_LOOP );
 
-		gl().glEnd();
+			for ( int i = 0; i < SPHERE_WIRE_SIDES; ++i )
+			{
+				gl().glVertex3fv( vector3_to_array( vector3_added( origin, vector3_scaled( radiiPoints[k++], radius ) ) ) );
+			}
+
+			gl().glEnd();
+		}
 	}
 }
 
-void light_draw_radius_wire( const Vector3& origin, const std::array<float, 3>& envelope, const Vector3 radiiPoints[SPHERE_WIRE_POINTS] ){
-#ifdef RADII_RENDER_BIG_RADIUS
-	if ( envelope[0] > 0 ) {
-		sphere_draw_wire( origin, envelope[0], radiiPoints );
-	}
-#endif
-	if ( envelope[1] > 0 ) {
-		sphere_draw_wire( origin, envelope[1], radiiPoints );
-	}
-	if ( envelope[2] > 0 ) {
-		sphere_draw_wire( origin, envelope[2], radiiPoints );
-	}
+void light_draw_radius_wire( const Vector3& origin, const float envelopes[ 2 ], const Vector3 radiiPoints[SPHERE_WIRE_POINTS] ){
+	sphere_draw_wire( origin, envelopes[ 0 ], radiiPoints );
+	sphere_draw_wire( origin, envelopes[ 1 ], radiiPoints );
 }
 #endif
 
@@ -685,7 +654,6 @@ void light_draw( const AABB& aabb_light, RenderStateFlags state ){
 		gl().glVertex3fv( e->origin );
 		gl().glVertex3fv( vTemp );
 		gl().glEnd();
-
 	}
 #endif
 }
@@ -725,7 +693,7 @@ inline float light_intensity( float radius, float falloffTolerance ){
 LightType g_lightType = LIGHTTYPE_DEFAULT;
 
 
-bool spawnflags_linear( int flags ){
+inline bool spawnflags_linear( int flags ){
 	if ( g_lightType == LIGHTTYPE_RTCW ) {
 		// Spawnflags :
 		// 1: nonlinear
@@ -764,7 +732,7 @@ private:
 	void calculateRadii(){
 		const float intensity = std::fabs( getIntensity() * m_scale ); // support either intensity sign
 
-		if ( spawnflags_linear( m_flags ) ) {
+		if ( isLinear() ) {
 			m_radii_transformed[0] = m_radii[0] = light_radius_linear( intensity, 1.0f ) / m_fade;
 			m_radii_transformed[1] = m_radii[1] = light_radius_linear( intensity, 48.0f ) / m_fade;
 			m_radii_transformed[2] = m_radii[2] = light_radius_linear( intensity, 255.0f ) / m_fade;
@@ -795,8 +763,8 @@ public:
 	typedef MemberCaller<LightRadii, void(const char*), &LightRadii::secondaryIntensityChanged> SecondaryIntensityChangedCaller;
 	void scaleChanged( const char* value ){
 		m_scale = string_read_float( value );
-		if ( m_scale <= 0.0f ) {
-			m_scale = 1.0f;
+		if ( m_scale <= 0 ) {
+			m_scale = 1;
 		}
 		calculateRadii();
 		SceneChangeNotify();
@@ -804,8 +772,8 @@ public:
 	typedef MemberCaller<LightRadii, void(const char*), &LightRadii::scaleChanged> ScaleChangedCaller;
 	void fadeChanged( const char* value ){
 		m_fade = string_read_float( value );
-		if ( m_fade <= 0.0f ) {
-			m_fade = 1.0f;
+		if ( m_fade <= 0 ) {
+			m_fade = 1;
 		}
 		calculateRadii();
 		SceneChangeNotify();
@@ -823,10 +791,10 @@ public:
 
 		auto& r = m_radii_transformed;
 
-		if ( spawnflags_linear( m_flags ) ) {
+		if ( isLinear() ) {
 			r[0] = radius + 47.0f / m_fade;
-			if( r[0] < 1.f ){ // prevent transform to <=0, as we use r[0] to calculate intensity
-				r[0] = 1.f;
+			if( r[0] < 1 ){ // prevent transform to <=0, as we use r[0] to calculate intensity
+				r[0] = 1;
 				r[1] = r[2] = 1.f - 47.0f / m_fade; // this is called once again after minimizing already minimal radii, so calculate correct r[1]
 			}
 			else{
@@ -837,8 +805,8 @@ public:
 		else
 		{
 			r[0] = radius * sqrt( 48.f );
-			if( r[0] < 1.f ){
-				r[0] = 1.f;
+			if( r[0] < 1 ){
+				r[0] = 1;
 				r[1] = r[2] = 0;
 			}
 			else{
@@ -849,10 +817,13 @@ public:
 //		globalOutputStream() << r[0] << ' ' << r[1] << ' ' << r[2] << " m_radii_transformed\n";
 	}
 	float calculateIntensityFromRadii() const {
-		return std::copysign( spawnflags_linear( m_flags ) // keep intensity sign, while adjusting it via radii
-		                      ? light_intensity_linear( m_radii_transformed[0] * m_fade, 1.f ) / m_scale
-		                      : light_intensity( m_radii_transformed[0], 1.f ) / m_scale
+		return std::copysign( isLinear() // keep intensity sign, while adjusting it via radii
+		                      ? light_intensity_linear( m_radii_transformed[0] * m_fade, 1 ) / m_scale
+		                      : light_intensity( m_radii_transformed[0], 1 ) / m_scale
 		                      , getIntensity() );
+	}
+	bool isLinear() const {
+		return spawnflags_linear( m_flags );
 	}
 };
 
@@ -904,9 +875,10 @@ public:
 
 	RenderLightRadiiWire( LightRadii& radii, const Vector3& origin ) : m_radii( radii ), m_origin( origin ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		//light_draw_radius_wire( m_origin, m_radii.m_radii );
-		light_draw_radius_wire( m_origin, m_radii.m_radii_transformed, m_radiiPoints );
+		// draw two practically useful radiuses
+		light_draw_radius_wire( m_origin, m_radii.m_radii_transformed.data() + !m_radii.isLinear(), m_radiiPoints );
 	}
 };
 Vector3 RenderLightRadiiWire::m_radiiPoints[SPHERE_WIRE_POINTS] = {g_vector3_identity};
@@ -921,9 +893,10 @@ public:
 
 	RenderLightRadiiFill( LightRadii& radii, const Vector3& origin ) : m_radii( radii ), m_origin( origin ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		//light_draw_radius_fill( m_origin, m_radii.m_radii );
-		light_draw_radius_fill( m_origin, m_radii.m_radii_transformed, m_radiiPoints );
+		// draw two practically useful radiuses
+		light_draw_radius_fill( m_origin, m_radii.m_radii_transformed.data() + !m_radii.isLinear(), m_radiiPoints );
 	}
 };
 //Shader* RenderLightRadiiFill::m_state = 0;
@@ -938,7 +911,7 @@ public:
 
 	RenderLightRadiiBox( const Vector3& origin ) : m_origin( origin ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		//draw the bounding box of light based on light_radius key
 		if ( ( state & RENDER_FILL ) != 0 ) {
 			aabb_draw_flatshade( m_points );
@@ -963,7 +936,7 @@ public:
 
 	RenderLightCenter( const Vector3& center, EntityClass& eclass ) : m_center( center ), m_eclass( eclass ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		gl().glBegin( GL_POINTS );
 		gl().glColor3fv( vector3_to_array( m_eclass.color ) );
 		gl().glVertex3fv( vector3_to_array( m_center ) );
@@ -980,7 +953,7 @@ public:
 
 	RenderLightProjection( const Matrix4& projection ) : m_projection( projection ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		Matrix4 unproject( matrix4_full_inverse( m_projection ) );
 		std::array<Vector3, 8> points = aabb_corners( AABB( Vector3( 0.5f, 0.5f, 0.5f ), Vector3( 0.5f, 0.5f, 0.5f ) ) );
 		points[0] = vector4_projected( matrix4_transformed_vector4( unproject, Vector4( points[0], 1 ) ) );
@@ -1424,16 +1397,16 @@ public:
 		m_traverseObservers.detach( *observer );
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		light_draw( m_aabb_light, state );
 	}
 
-	VolumeIntersectionValue intersectVolume( const VolumeTest& volume, const Matrix4& localToWorld ) const {
+	VolumeIntersectionValue intersectVolume( const VolumeTest& volume, const Matrix4& localToWorld ) const override {
 		return volume.TestAABB( m_aabb_light, localToWorld );
 	}
 
 // cache
-	const AABB& localAABB() const {
+	const AABB& localAABB() const override {
 		return m_aabb_light;
 	}
 
@@ -1513,7 +1486,7 @@ public:
 	void rotate( const Quaternion& rotation ){
 		rotation_rotate( m_rotation, rotation );
 	}
-	void snapto( float snap ){
+	void snapto( float snap ) override {
 		if ( g_lightType == LIGHTTYPE_DOOM3 && !m_useLightOrigin && !m_traverse.empty() ) {
 			m_useLightOrigin = true;
 			m_lightOrigin = m_originKey.m_origin;
@@ -1589,7 +1562,7 @@ public:
 	typedef MemberCaller<Light, void(), &Light::transformChanged> TransformChangedCaller;
 
 	mutable Matrix4 m_localPivot;
-	const Matrix4& getLocalPivot() const {
+	const Matrix4& getLocalPivot() const override {
 		m_localPivot = rotation_toMatrix( m_rotation );
 		m_localPivot.t().vec3() = m_aabb_light.origin;
 		return m_localPivot;
@@ -1616,15 +1589,15 @@ public:
 		return aabb_intersects_aabb( other, AABB(
 		                                 bounds.origin,
 		                                 Vector3(
-		                                     static_cast<float>( fabs( m_rotation[0] * bounds.extents[0] )
-		                                                       + fabs( m_rotation[3] * bounds.extents[1] )
-		                                                       + fabs( m_rotation[6] * bounds.extents[2] ) ),
-		                                     static_cast<float>( fabs( m_rotation[1] * bounds.extents[0] )
-		                                                       + fabs( m_rotation[4] * bounds.extents[1] )
-		                                                       + fabs( m_rotation[7] * bounds.extents[2] ) ),
-		                                     static_cast<float>( fabs( m_rotation[2] * bounds.extents[0] )
-		                                                       + fabs( m_rotation[5] * bounds.extents[1] )
-		                                                       + fabs( m_rotation[8] * bounds.extents[2] ) )
+		                                     std::fabs( m_rotation[0] * bounds.extents[0] )
+		                                   + std::fabs( m_rotation[3] * bounds.extents[1] )
+		                                   + std::fabs( m_rotation[6] * bounds.extents[2] ),
+		                                     std::fabs( m_rotation[1] * bounds.extents[0] )
+		                                   + std::fabs( m_rotation[4] * bounds.extents[1] )
+		                                   + std::fabs( m_rotation[7] * bounds.extents[2] ),
+		                                     std::fabs( m_rotation[2] * bounds.extents[0] )
+		                                   + std::fabs( m_rotation[5] * bounds.extents[1] )
+		                                   + std::fabs( m_rotation[8] * bounds.extents[2] )
 		                                 )
 		                             ) );
 	}
@@ -1763,7 +1736,7 @@ public:
 		m_doom3Frustum.front = lightProject[3];
 
 		m_doom3Frustum.back = lightProject[3];
-		m_doom3Frustum.back.dist() -= 1.0f;
+		m_doom3Frustum.back.dist() -= 1;
 		m_doom3Frustum.back = plane3_flipped( m_doom3Frustum.back );
 
 		Matrix4 test( matrix4_from_planes( m_doom3Frustum.left, m_doom3Frustum.right, m_doom3Frustum.bottom, m_doom3Frustum.top, m_doom3Frustum.front, m_doom3Frustum.back ) );
@@ -1820,7 +1793,7 @@ class LightInstance :
 public:
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	Bounded& get( NullType<Bounded>){
+	Bounded& get( NullType<Bounded> ){
 		return m_contained;
 	}
 
@@ -1851,13 +1824,13 @@ public:
 
 		m_contained.instanceDetach( Instance::path() );
 	}
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_contained.renderSolid( renderer, volume, Instance::localToWorld(), getSelectable().isSelected() );
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_contained.renderWireframe( renderer, volume, Instance::localToWorld(), getSelectable().isSelected() );
 	}
-	void testSelect( Selector& selector, SelectionTest& test ){
+	void testSelect( Selector& selector, SelectionTest& test ) override {
 		m_contained.testSelect( selector, test, Instance::localToWorld() );
 	}
 
@@ -1900,7 +1873,7 @@ public:
 	}
 
 
-	bool isSelectedComponents() const {
+	bool isSelectedComponents() const override {
 		if ( g_lightType == LIGHTTYPE_DOOM3 ) {
 			return m_dragPlanes.isSelected();
 		}
@@ -1908,7 +1881,7 @@ public:
 			return m_scaleRadius.isSelected();
 		}
 	}
-	void setSelectedComponents( bool select, SelectionSystem::EComponentMode mode ){
+	void setSelectedComponents( bool select, SelectionSystem::EComponentMode mode ) override {
 		if ( mode == SelectionSystem::eFace ) {
 			if ( g_lightType == LIGHTTYPE_DOOM3 ) {
 				m_dragPlanes.setSelected( false );
@@ -1918,9 +1891,9 @@ public:
 			}
 		}
 	}
-	void testSelectComponents( Selector& selector, SelectionTest& test, SelectionSystem::EComponentMode mode ){
+	void testSelectComponents( Selector& selector, SelectionTest& test, SelectionSystem::EComponentMode mode ) override {
 	}
-	void gatherComponentsHighlight( std::vector<std::vector<Vector3>>& polygons, SelectionIntersection& intersection, SelectionTest& test, SelectionSystem::EComponentMode mode ) const {
+	void gatherComponentsHighlight( std::vector<std::vector<Vector3>>& polygons, SelectionIntersection& intersection, SelectionTest& test, SelectionSystem::EComponentMode mode ) const override {
 	}
 
 	void selectedChangedComponent( const Selectable& selectable ){
@@ -1958,34 +1931,34 @@ public:
 	}
 	typedef MemberCaller<LightInstance, void(), &LightInstance::lightChanged> LightChangedCaller;
 
-	Shader* getShader() const {
+	Shader* getShader() const override {
 		return m_contained.getShader();
 	}
-	const AABB& aabb() const {
+	const AABB& aabb() const override {
 		return m_contained.aabb();
 	}
-	bool testAABB( const AABB& other ) const {
+	bool testAABB( const AABB& other ) const override {
 		return m_contained.testAABB( other );
 	}
-	const Matrix4& rotation() const {
+	const Matrix4& rotation() const override {
 		return m_contained.rotation();
 	}
-	const Vector3& offset() const {
+	const Vector3& offset() const override {
 		return m_contained.offset();
 	}
-	const Vector3& colour() const {
+	const Vector3& colour() const override {
 		return m_contained.colour();
 	}
 
-	bool isProjected() const {
+	bool isProjected() const override {
 		return m_contained.isProjected();
 	}
-	const Matrix4& projection() const {
+	const Matrix4& projection() const override {
 		return m_contained.projection();
 	}
 };
 
-class LightNode :
+class LightNode final :
 	public scene::Node::Symbiot,
 	public scene::Instantiable,
 	public scene::Cloneable,
@@ -2031,30 +2004,30 @@ class LightNode :
 public:
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	scene::Traversable& get( NullType<scene::Traversable>){
+	scene::Traversable& get( NullType<scene::Traversable> ){
 		return m_contained.getTraversable();
 	}
-	Editable& get( NullType<Editable>){
+	Editable& get( NullType<Editable> ){
 		return m_contained;
 	}
-	Snappable& get( NullType<Snappable>){
+	Snappable& get( NullType<Snappable> ){
 		return m_contained;
 	}
-	TransformNode& get( NullType<TransformNode>){
+	TransformNode& get( NullType<TransformNode> ){
 		return m_contained.getTransformNode();
 	}
-	Entity& get( NullType<Entity>){
+	Entity& get( NullType<Entity> ){
 		return m_contained.getEntity();
 	}
-	Nameable& get( NullType<Nameable>){
+	Nameable& get( NullType<Nameable> ){
 		return m_contained.getNameable();
 	}
-	Namespaced& get( NullType<Namespaced>){
+	Namespaced& get( NullType<Namespaced> ){
 		return m_contained.getNamespaced();
 	}
 
 	LightNode( EntityClass* eclass ) :
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), GlobalSceneGraph().currentLayer() ),
 		m_contained( eclass, m_node, InstanceSet::TransformChangedCaller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ), InstanceSetEvaluateTransform<LightInstance>::Caller( m_instances ) ){
 		construct();
 	}
@@ -2063,7 +2036,7 @@ public:
 		scene::Instantiable( other ),
 		scene::Cloneable( other ),
 		scene::Traversable::Observer( other ),
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), other.m_node.m_layer ),
 		m_contained( other.m_contained, m_node, InstanceSet::TransformChangedCaller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ), InstanceSetEvaluateTransform<LightInstance>::Caller( m_instances ) ){
 		construct();
 	}
@@ -2071,34 +2044,34 @@ public:
 		destroy();
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	scene::Node& clone() const {
+	scene::Node& clone() const override {
 		return ( new LightNode( *this ) )->node();
 	}
 
-	void insert( scene::Node& child ){
+	void insert( scene::Node& child ) override {
 		m_instances.insert( child );
 	}
-	void erase( scene::Node& child ){
+	void erase( scene::Node& child ) override {
 		m_instances.erase( child );
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new LightInstance( path, parent, m_contained );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };

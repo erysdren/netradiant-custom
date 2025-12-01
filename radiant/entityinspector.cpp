@@ -25,14 +25,12 @@
 
 #include "ientity.h"
 #include "ifilesystem.h"
-#include "imodel.h"
 #include "iscenegraph.h"
 #include "iselection.h"
 #include "iundo.h"
 
 #include <map>
 #include <set>
-#include <variant>
 
 #include <gtkutil/guisettings.h>
 #include <QSplitter>
@@ -49,7 +47,6 @@
 #include <QPushButton>
 #include <QToolButton>
 #include <QKeyEvent>
-#include <QApplication>
 #include <QButtonGroup>
 #include <QToolTip>
 #include "gtkutil/combobox.h"
@@ -66,13 +63,12 @@
 #include "gtkutil/accelerator.h"
 #include "gtkutil/dialog.h"
 #include "gtkutil/filechooser.h"
-#include "gtkutil/messagebox.h"
 #include "gtkutil/nonmodal.h"
 #include "gtkutil/entry.h"
+#include "gtkutil/image.h"
 
 #include "qe3.h"
 #include "gtkmisc.h"
-#include "gtkdlgs.h"
 #include "entity.h"
 #include "mainframe.h"
 #include "textureentry.h"
@@ -104,7 +100,7 @@ const char* SelectedEntity_getValueForKey( const char* key ){
 }
 
 void Scene_EntitySetKeyValue_Selected_Undoable( const char* key, const char* value ){
-	const auto command = StringStream( "entitySetKeyValue -key ", makeQuoted( key ), " -value ", makeQuoted( value ) );
+	const auto command = StringStream( "entitySetKeyValue -key ", Quoted( key ), " -value ", Quoted( value ) );
 	UndoableCommand undo( command );
 	Scene_EntitySetKeyValue_Selected( key, value );
 }
@@ -248,7 +244,7 @@ public:
 		m_key( key ),
 		m_entry( new NonModalEntry( ApplyCaller( *this ), UpdateCaller( *this ) ) ){
 		m_entry->setValidator( new KeyValueValidator( m_entry ) );
-		auto button = m_entry->addAction( QApplication::style()->standardIcon( QStyle::SP_ArrowRight ), QLineEdit::ActionPosition::TrailingPosition );
+		auto *button = m_entry->addAction( new_local_icon( "ellipsis.png" ), QLineEdit::ActionPosition::TrailingPosition );
 		QObject::connect( button, &QAction::triggered, [this](){ browse(); } );
 	}
 	void release() override {
@@ -287,7 +283,7 @@ public:
 		m_key( key ),
 		m_entry( new NonModalEntry( ApplyCaller( *this ), UpdateCaller( *this ) ) ){
 		m_entry->setValidator( new KeyValueValidator( m_entry ) );
-		auto button = m_entry->addAction( QApplication::style()->standardIcon( QStyle::SP_DialogOpenButton ), QLineEdit::ActionPosition::TrailingPosition );
+		auto *button = m_entry->addAction( new_local_icon( "ellipsis.png" ), QLineEdit::ActionPosition::TrailingPosition );
 		QObject::connect( button, &QAction::triggered, [this](){ browse(); } );
 	}
 	void release() override {
@@ -351,7 +347,7 @@ public:
 		m_key( key ),
 		m_entry( new NonModalEntry( ApplyCaller( *this ), UpdateCaller( *this ) ) ){
 		m_entry->setValidator( new KeyValueValidator( m_entry ) );
-		auto button = m_entry->addAction( QApplication::style()->standardIcon( QStyle::SP_MediaVolume ), QLineEdit::ActionPosition::TrailingPosition );
+		auto *button = m_entry->addAction( new_local_icon( "ellipsis.png" ), QLineEdit::ActionPosition::TrailingPosition );
 		QObject::connect( button, &QAction::triggered, [this](){ browse(); } );
 	}
 	void release() override {
@@ -400,8 +396,8 @@ public:
 };
 
 inline QWidget *new_container_widget(){
-	QWidget *w = new QWidget;
-	auto l = new QHBoxLayout( w );
+	auto *w = new QWidget;
+	auto *l = new QHBoxLayout( w );
 	l->setContentsMargins( 0, 0, 0, 0 );
 	return w;
 }
@@ -768,10 +764,9 @@ public:
 		: m_keyvalues( keyvalues ){
 	}
 
-	void visit( const char* key, const char* value ){
+	void visit( const char* key, const char* value ) override {
 		m_keyvalues.insert( KeyValues::value_type( CopiedString( key ), CopiedString( value ) ) );
 	}
-
 };
 
 void Entity_GetKeyValues( const Entity& entity, KeyValues& keyvalues, KeyValues& defaultValues ){
@@ -779,11 +774,9 @@ void Entity_GetKeyValues( const Entity& entity, KeyValues& keyvalues, KeyValues&
 
 	entity.forEachKeyValue( visitor );
 
-	const EntityClassAttributes& attributes = entity.getEntityClass().m_attributes;
-
-	for ( EntityClassAttributes::const_iterator i = attributes.begin(); i != attributes.end(); ++i )
+	for ( const auto& [ key, value ] : entity.getEntityClass().m_attributes )
 	{
-		defaultValues.insert( KeyValues::value_type( ( *i ).first, ( *i ).second.m_value ) );
+		defaultValues.insert( KeyValues::value_type( key, value.m_value ) );
 	}
 }
 
@@ -797,7 +790,7 @@ void Entity_GetKeyValues_Selected( KeyValues& keyvalues, KeyValues& defaultValue
 		EntityGetKeyValues( KeyValues& keyvalues, KeyValues& defaultValues )
 			: m_keyvalues( keyvalues ), m_defaultValues( defaultValues ){
 		}
-		void visit( scene::Instance& instance ) const {
+		void visit( scene::Instance& instance ) const override {
 			Entity* entity = Node_getEntity( instance.path().top() );
 			if ( entity == 0 && instance.path().size() != 1 ) {
 				entity = Node_getEntity( instance.path().parent() );
@@ -826,8 +819,8 @@ class EntityClassListStoreAppend : public EntityClassVisitor
 public:
 	EntityClassListStoreAppend( QTreeWidget* tree_ ) : tree( tree_ ){
 	}
-	void visit( EntityClass* e ){
-		auto item = new QTreeWidgetItem( tree );
+	void visit( EntityClass* e ) override {
+		auto *item = new QTreeWidgetItem( tree );
 		item->setData( 0, Qt::ItemDataRole::DisplayRole, e->name() );
 		item->setData( 0, Qt::ItemDataRole::UserRole, QVariant::fromValue( e ) );
 	}
@@ -888,7 +881,7 @@ void SpawnFlags_setEntityClass( EntityClass* eclass ){
 	g_spawnflag_count = 0;
 
 	// do a first pass to count the spawn flags, don't touch the widgets, we don't know in what state they are
-	for ( int i = 0; i < MAX_FLAGS; i++ )
+	for ( int i = 0; i < MAX_FLAGS; ++i )
 	{
 		if ( !string_empty( eclass->flagnames[i] ) ) {
 			spawn_table[g_spawnflag_count++] = i;
@@ -923,7 +916,7 @@ void EntityClassList_selectEntityClass( EntityClass* eclass ){
 
 void EntityInspector_appendAttribute( const EntityClassAttributePair& attributePair, EntityAttribute& attribute ){
 	const char* keyname = attributePair.first.c_str(); //EntityClassAttributePair_getName( attributePair );
-	auto label = new QLabel( keyname );
+	auto *label = new QLabel( keyname );
 	EntityAttribute_setTooltip( label, attributePair.second.m_name.c_str(), attributePair.second.m_description.c_str() );
 	DialogGrid_packRow( g_attributeBox, attribute.getWidget(), label );
 }
@@ -1107,7 +1100,7 @@ void EntityInspector_applyKeyValue(){
 
 void EntityInspector_clearKeyValue(){
 	// Get current selection text
-	if( const auto item = g_entprops_store->currentItem() ){
+	if( const auto *item = g_entprops_store->currentItem() ){
 		const auto key = item->text( 0 ).toLatin1();
 
 		if ( !string_equal( key.constData(), "classname" ) ) {
@@ -1123,7 +1116,7 @@ class : public QObject
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ) {
-			QKeyEvent *keyEvent = static_cast<QKeyEvent *>( event );
+			auto *keyEvent = static_cast<QKeyEvent *>( event );
 			if( keyEvent->key() == Qt::Key_Delete ){
 				EntityInspector_clearKeyValue();
 				event->accept();
@@ -1168,7 +1161,7 @@ class : public QObject
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ) {
-			QKeyEvent *keyEvent = static_cast<QKeyEvent *>( event );
+			auto *keyEvent = static_cast<QKeyEvent *>( event );
 			if( keyEvent->key() == Qt::Key_Return
 			 || keyEvent->key() == Qt::Key_Enter
 			 || keyEvent->key() == Qt::Key_Tab
@@ -1198,14 +1191,14 @@ void EntityInspector_destroyWindow(){
 }
 
 QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
-	auto splitter = new QSplitter( Qt::Vertical );
+	auto *splitter = new QSplitter( Qt::Vertical );
 
 	QObject::connect( splitter, &QObject::destroyed, EntityInspector_destroyWindow );
 	splitter->installEventFilter( &g_pressedKeysFilter );
 
 	{
 		// class list
-		auto tree = g_entityClassList = new QTreeWidget;
+		auto *tree = g_entityClassList = new QTreeWidget;
 		tree->setColumnCount( 1 );
 		tree->setSortingEnabled( true );
 		tree->sortByColumn( 0, Qt::SortOrder::AscendingOrder );
@@ -1227,25 +1220,25 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 		splitter->addWidget( tree );
 	}
 	{
-		auto text = g_entityClassComment = new QPlainTextEdit;
+		auto *text = g_entityClassComment = new QPlainTextEdit;
 		text->setReadOnly( true );
 		text->setUndoRedoEnabled( false );
 
 		splitter->addWidget( text );
 	}
 	{
-		QWidget *containerWidget = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
+		auto *containerWidget = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
 		splitter->addWidget( containerWidget );
-		auto vbox = new QVBoxLayout( containerWidget );
+		auto *vbox = new QVBoxLayout( containerWidget );
 		vbox->setContentsMargins( 0, 0, 0, 0 );
 		{
 			// Spawnflags (4 colums wide max, or window gets too wide.)
-			auto grid = g_spawnflagsTable = new QGridLayout;
+			auto *grid = g_spawnflagsTable = new QGridLayout;
 			grid->setAlignment( Qt::AlignmentFlag::AlignLeft );
 			vbox->addLayout( grid );
-			for ( int i = 0; i < MAX_FLAGS; i++ )
+			for ( int i = 0; i < MAX_FLAGS; ++i )
 			{
-				auto check = g_entitySpawnflagsCheck[i] = new QCheckBox;
+				auto *check = g_entitySpawnflagsCheck[i] = new QCheckBox;
 				grid->addWidget( check, i / 4, i % 4 );
 				check->hide();
 				QObject::connect( check, &QAbstractButton::clicked, EntityInspector_applySpawnflags );
@@ -1253,7 +1246,7 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 		}
 		{
 			// key/value list
-			auto tree = g_entprops_store = new QTreeWidget;
+			auto *tree = g_entprops_store = new QTreeWidget;
 			tree->setColumnCount( 2 );
 			tree->setUniformRowHeights( true ); // optimization
 			tree->setHorizontalScrollBarPolicy( Qt::ScrollBarPolicy::ScrollBarAlwaysOff );
@@ -1270,7 +1263,7 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 
 		{
 			// key/value entry
-			auto grid = new QGridLayout;
+			auto *grid = new QGridLayout;
 			grid->setContentsMargins( 4, 0, 4, 0 );
 			vbox->addLayout( grid );
 			{
@@ -1278,22 +1271,22 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 				grid->addWidget( new QLabel( "Value" ), 1, 0 );
 			}
 			{
-				auto line = g_entityKeyEntry = new LineEdit;
+				auto *line = g_entityKeyEntry = new LineEdit;
 				grid->addWidget( line, 0, 1 );
 				QObject::connect( line, &QLineEdit::returnPressed, [](){ g_entityValueEntry->setFocus(); g_entityValueEntry->selectAll(); } );
 				line->setValidator( new KeyNameValidator( line ) );
 			}
 
 			{
-				auto line = g_entityValueEntry = new LineEdit;
+				auto *line = g_entityValueEntry = new LineEdit;
 				grid->addWidget( line, 1, 1 );
 				QObject::connect( line, &QLineEdit::returnPressed, [](){ EntityInspector_applyKeyValue(); } );
 				line->setValidator( new KeyValueValidator( line ) );
 			}
 			/* select by key/value buttons */
 			{
-				auto b = new QToolButton;
-				b->setText( "+" );
+				auto *b = new QToolButton;
+				b->setIcon( new_local_icon( "select.png" ) );
 				b->setToolTip( "Select by key" );
 				grid->addWidget( b, 0, 2 );
 				QObject::connect( b, &QAbstractButton::clicked, [](){
@@ -1301,8 +1294,8 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 				} );
 			}
 			{
-				auto b = new QToolButton;
-				b->setText( "+" );
+				auto *b = new QToolButton;
+				b->setIcon( new_local_icon( "select.png" ) );
 				b->setToolTip( "Select by value" );
 				grid->addWidget( b, 1, 2 );
 				QObject::connect( b, &QAbstractButton::clicked, [](){
@@ -1310,8 +1303,8 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 				} );
 			}
 			{
-				auto b = new QToolButton;
-				b->setText( "+" );
+				auto *b = new QToolButton;
+				b->setIcon( new_local_icon( "select.png" ) );
 				b->setToolTip( "Select by key + value" );
 				grid->addWidget( b, 0, 3, 2, 1 );
 				QObject::connect( b, &QAbstractButton::clicked, [](){
@@ -1320,42 +1313,43 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 			}
 		}
 		{
-			auto hbox = new QHBoxLayout;
+			auto *hbox = new QHBoxLayout;
 			hbox->setContentsMargins( 4, 0, 4, 0 );
 			vbox->addLayout( hbox );
 			{
-				auto b = new QPushButton( "Clear All" );
+				auto *b = new QPushButton( "Clear All" );
 				hbox->addWidget( b );
 				QObject::connect( b, &QAbstractButton::clicked, EntityInspector_clearAllKeyValues );
 			}
 			{
-				auto b = new QPushButton( "Delete Key" );
+				auto *b = new QPushButton( "Delete Key" );
 				hbox->addWidget( b );
 				QObject::connect( b, &QAbstractButton::clicked, EntityInspector_clearKeyValue );
 			}
 			{
-				auto b = new QToolButton;
+				auto *b = new QToolButton;
 				hbox->addWidget( b );
-				b->setText( "<" );
+				b->setIcon( new_local_icon( "arrow_left.png" ) );
 				b->setToolTip( "Select targeting entities" );
 				QObject::connect( b, &QAbstractButton::clicked, [](){ Select_ConnectedEntities( true, false, g_focusToggleButton->isChecked() ); } );
 			}
 			{
-				auto b = new QToolButton;
+				auto *b = new QToolButton;
 				hbox->addWidget( b );
-				b->setText( ">" );
-				b->setToolTip( "Select targets" );
-				QObject::connect( b, &QAbstractButton::clicked, [](){ Select_ConnectedEntities( false, true, g_focusToggleButton->isChecked() ); } );
-			}
-			{
-				auto b = new QToolButton;
-				hbox->addWidget( b );
-				b->setText( "<->" );
+				b->setIconSize( QSize( b->iconSize().width() * 2, b->iconSize().height() ) );
+				b->setIcon( new_local_icon( "arrow_left_right.png" ) );
 				b->setToolTip( "Select connected entities" );
 				QObject::connect( b, &QAbstractButton::clicked, [](){ Select_ConnectedEntities( true, true, g_focusToggleButton->isChecked() ); } );
 			}
 			{
-				auto b = g_focusToggleButton = new QToolButton;
+				auto *b = new QToolButton;
+				hbox->addWidget( b );
+				b->setIcon( new_local_icon( "arrow_right.png" ) );
+				b->setToolTip( "Select targets" );
+				QObject::connect( b, &QAbstractButton::clicked, [](){ Select_ConnectedEntities( false, true, g_focusToggleButton->isChecked() ); } );
+			}
+			{
+				auto *b = g_focusToggleButton = new QToolButton;
 				hbox->addWidget( b );
 				b->setText( "👀" );
 				b->setToolTip( "AutoFocus on Selection" );
@@ -1365,12 +1359,12 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 		}
 	}
 	{
-		auto scroll = new QScrollArea;
+		auto *scroll = new QScrollArea;
 		scroll->setHorizontalScrollBarPolicy( Qt::ScrollBarPolicy::ScrollBarAlwaysOff );
 		scroll->setWidgetResizable( true );
 		splitter->addWidget( scroll );
 
-		QWidget *containerWidget = new QWidget; // Adding a QLayout to a QScrollArea is not supported, use proxy widget
+		auto *containerWidget = new QWidget; // Adding a QLayout to a QScrollArea is not supported, use proxy widget
 		g_attributeBox = new QGridLayout( containerWidget );
 		g_attributeBox->setAlignment( Qt::AlignmentFlag::AlignTop );
 		g_attributeBox->setColumnStretch( 0, 111 );
@@ -1396,7 +1390,7 @@ class EntityInspector : public ModuleObserver
 public:
 	EntityInspector() : m_unrealised( 1 ){
 	}
-	void realise(){
+	void realise() override {
 		if ( --m_unrealised == 0 ) {
 			if ( g_entityInspector_windowConstructed ) {
 				//globalOutputStream() << "Entity Inspector: realise\n";
@@ -1404,7 +1398,7 @@ public:
 			}
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		if ( ++m_unrealised == 1 ) {
 			if ( g_entityInspector_windowConstructed ) {
 				//globalOutputStream() << "Entity Inspector: unrealise\n";
@@ -1416,7 +1410,6 @@ public:
 
 EntityInspector g_EntityInspector;
 
-#include "preferencesystem.h"
 #include "stringio.h"
 
 void EntityInspector_construct(){

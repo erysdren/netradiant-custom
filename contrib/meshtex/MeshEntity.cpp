@@ -156,7 +156,7 @@ MeshEntity::MeshEntity(scene::Node& mesh,
    const char *shaderName = GlobalPatchCreator().Patch_getShader(_mesh);
    IShader *shader = GlobalShaderSystem().getShaderForName(shaderName);
    qtexture_t *texture = shader->getTexture();
-   if (texture != NULL)
+   if (texture != nullptr)
    {
       _naturalTexUnits[S_TEX_AXIS] = texture->width / 2.0f;
       _naturalTexUnits[T_TEX_AXIS] = texture->height / 2.0f;
@@ -166,7 +166,7 @@ MeshEntity::MeshEntity(scene::Node& mesh,
    // Check for valid mesh; bail if not.
    if (_numSlices[ROW_SLICE_TYPE] < 3 ||
        _numSlices[COL_SLICE_TYPE] < 3 ||
-       texture == NULL)
+       texture == nullptr)
    {
       _valid = false;
       _errorReportCallback(ERROR_BAD_MESH);
@@ -239,7 +239,7 @@ MeshEntity::GetInfo(const int *refRow,
    size_t bufferOffset = 0;
    // Get reference row info if requested; this will be written into the message
    // buffer as well as sent to the row callback (if any).
-   if (refRow != NULL)
+   if (refRow != nullptr)
    {
       ReportSliceTexInfo(ROW_SLICE_TYPE, *refRow, _naturalAxis[ROW_SLICE_TYPE],
                          messageBuffer + bufferOffset,
@@ -250,7 +250,7 @@ MeshEntity::GetInfo(const int *refRow,
    }
    // Get reference column info if requested; this will be written into the
    // message buffer as well as sent to the column callback (if any).
-   if (refCol != NULL)
+   if (refCol != nullptr)
    {
       ReportSliceTexInfo(COL_SLICE_TYPE, *refCol, _naturalAxis[COL_SLICE_TYPE],
                          messageBuffer + bufferOffset,
@@ -390,7 +390,7 @@ MeshEntity::SetScale(SliceType sliceType,
    CreateUndoPoint();
 
    // Check for bad inputs. Also convert from natural scale to raw scale.
-   if (alignSlice != NULL && !alignSlice->maxSlice)
+   if (alignSlice != nullptr && !alignSlice->maxSlice)
    {
       if (alignSlice->index < 0 ||
           alignSlice->index >= (int)SliceSize(sliceType))
@@ -399,7 +399,7 @@ MeshEntity::SetScale(SliceType sliceType,
          return;
       }
    }
-   if (refSlice != NULL && !refSlice->designation.maxSlice)
+   if (refSlice != nullptr && !refSlice->designation.maxSlice)
    {
       if (refSlice->designation.index < 0 ||
           refSlice->designation.index >= (int)_numSlices[sliceType])
@@ -534,8 +534,8 @@ MeshEntity::GeneralFunction(const GeneralFunctionFactors *sFactors,
    // the input factors care about distances.
    AllocatedMatrix<float> rowDistances(_meshData.x(), _meshData.y());
    AllocatedMatrix<float> colDistances(_meshData.x(), _meshData.y());
-   if ((sFactors != NULL && sFactors->rowDistance != 0.0f) ||
-       (tFactors != NULL && tFactors->rowDistance != 0.0f))
+   if ((sFactors != nullptr && sFactors->rowDistance != 0.0f) ||
+       (tFactors != nullptr && tFactors->rowDistance != 0.0f))
    {
       GenScaledDistanceValues(ROW_SLICE_TYPE,
                               alignColInt,
@@ -544,8 +544,8 @@ MeshEntity::GeneralFunction(const GeneralFunctionFactors *sFactors,
                               1.0f,
                               rowDistances);
    }
-   if ((sFactors != NULL && sFactors->colDistance != 0.0f) ||
-       (tFactors != NULL && tFactors->colDistance != 0.0f))
+   if ((sFactors != nullptr && sFactors->colDistance != 0.0f) ||
+       (tFactors != nullptr && tFactors->colDistance != 0.0f))
    {
       GenScaledDistanceValues(COL_SLICE_TYPE,
                               alignRowInt,
@@ -556,14 +556,14 @@ MeshEntity::GeneralFunction(const GeneralFunctionFactors *sFactors,
    }
 
    // Modify the S axis if requested.
-   if (sFactors != NULL)
+   if (sFactors != nullptr)
    {
       GeneralFunctionInt(*sFactors, S_TEX_AXIS, alignRowInt, alignColInt, surfaceValues,
                          rowDistances, colDistances);
    }
 
    // Modify the T axis if requested.
-   if (tFactors != NULL)
+   if (tFactors != nullptr)
    {
       GeneralFunctionInt(*tFactors, T_TEX_AXIS, alignRowInt, alignColInt, surfaceValues,
                          rowDistances, colDistances);
@@ -585,9 +585,9 @@ MeshEntity::UpdatePosMinMax(PositionAxis axis)
    // Iterate over all control points to find the min and max values.
    _posMin[axis] = _meshData(0, 0).m_vertex[axis];
    _posMax[axis] = _posMin[axis];
-   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; rowIndex++)
+   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; ++rowIndex)
    {
-      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; colIndex++)
+      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; ++colIndex)
       {
          float current = _meshData(rowIndex, colIndex).m_vertex[axis];
          if (current < _posMin[axis])
@@ -620,9 +620,9 @@ MeshEntity::UpdateTexMinMax(TextureAxis axis)
    // Iterate over all control points to find the min and max values.
    _texMin[axis] = _meshData(0, 0).m_texcoord[axis];
    _texMax[axis] = _texMin[axis];
-   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; rowIndex++)
+   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; ++rowIndex)
    {
-      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; colIndex++)
+      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; ++colIndex)
       {
          float current = _meshData(rowIndex, colIndex).m_texcoord[axis];
          if (current < _texMin[axis])
@@ -678,7 +678,7 @@ int
 MeshEntity::InternalSliceDesignation(const SliceDesignation *sliceDesignation,
                                      SliceType sliceType)
 {
-   if (sliceDesignation != NULL)
+   if (sliceDesignation != nullptr)
    {
       // Interpret "max slice" if necessary.
       if (sliceDesignation->maxSlice)
@@ -715,7 +715,7 @@ MeshEntity::InternalRefSliceDescriptor(const RefSliceDescriptor *refSlice,
                                        SliceType sliceType,
                                        RefSliceDescriptorInt& refSliceInt)
 {
-   if (refSlice != NULL)
+   if (refSlice != nullptr)
    {
       // Preserve totalLengthOnly.
       refSliceInt.totalLengthOnly = refSlice->totalLengthOnly;
@@ -726,7 +726,7 @@ MeshEntity::InternalRefSliceDescriptor(const RefSliceDescriptor *refSlice,
    else
    {
       // NULL if unspecified.
-      return NULL;
+      return nullptr;
    }
 }
 
@@ -898,7 +898,7 @@ MeshEntity::ReportSliceTexInfo(SliceType sliceType,
 
    // Send texture info to callback if one is provided.
    bool infscale = (info.scale > FLT_MAX || info.scale < -FLT_MAX);
-   if (texInfoCallback != NULL)
+   if (texInfoCallback != nullptr)
    {
       if (!infscale)
       {
@@ -913,7 +913,7 @@ MeshEntity::ReportSliceTexInfo(SliceType sliceType,
    }
 
    // Write texture info to buffer if one is provided.
-   if (messageBuffer != NULL)
+   if (messageBuffer != nullptr)
    {
       if (!infscale)
       {
@@ -978,9 +978,9 @@ MeshEntity::Shift(TextureAxis axis,
                   float shift)
 {
    // Iterate over all control points and add the offset.
-   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; rowIndex++)
+   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; ++rowIndex)
    {
-      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; colIndex++)
+      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; ++colIndex)
       {
          _meshData(rowIndex, colIndex).m_texcoord[axis] += shift;
       }
@@ -1006,9 +1006,9 @@ MeshEntity::Scale(TextureAxis axis,
    UpdateTexMinMax(axis);
 
    // Iterate over all control points and apply the scale factor.
-   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; rowIndex++)
+   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; ++rowIndex)
    {
-      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; colIndex++)
+      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; ++colIndex)
       {
          // Leave the current minimum edge in place and scale out from that.
          _meshData(rowIndex, colIndex).m_texcoord[axis] =
@@ -1270,7 +1270,7 @@ MeshEntity::EstimateSegmentLength(float startPosition,
    float xr = 0.5f * (endPosition - startPosition);
    float s = 0.0f;
 
-   for (unsigned j = 1; j <= 5; j++) {
+   for (unsigned j = 1; j <= 5; ++j) {
       float dx = xr * x[j];
       s += w[j] * (SliceParametricSpeed(xm + dx, context) +
                    SliceParametricSpeed(xm - dx, context));
@@ -1407,9 +1407,9 @@ MeshEntity::CopyControlTexFromValues(TextureAxis axis,
                                      const Matrix<float>& values)
 {
    // Iterate over all control points and just do a straight copy.
-   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; rowIndex++)
+   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; ++rowIndex)
    {
-      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; colIndex++)
+      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; ++colIndex)
       {
          _meshData(rowIndex, colIndex).m_texcoord[axis] =
             values(rowIndex, colIndex);
@@ -1499,9 +1499,9 @@ MeshEntity::CopyValuesFromControlTex(TextureAxis axis,
                                      Matrix<float>& values)
 {
    // Iterate over all control points and just do a straight copy.
-   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; rowIndex++)
+   for (unsigned rowIndex = 0; rowIndex < _numSlices[ROW_SLICE_TYPE]; ++rowIndex)
    {
-      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; colIndex++)
+      for (unsigned colIndex = 0; colIndex < _numSlices[COL_SLICE_TYPE]; ++colIndex)
       {
          values(rowIndex, colIndex) =
             _meshData(rowIndex, colIndex).m_texcoord[axis];
@@ -1557,7 +1557,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
 
    // Pick the slices that we will measure.
    int firstSlice, lastSlice;
-   if (refSlice != NULL && !refSlice->totalLengthOnly)
+   if (refSlice != nullptr && !refSlice->totalLengthOnly)
    {
       // If a reference slice is provided, and totalLengthOnly is false, then we
       // will only need to measure the reference slice. The values generated for
@@ -1572,7 +1572,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
    }
 
    // Iterate over the slices that need to be measured.
-   for (int slice = firstSlice; slice <= lastSlice; slice++)
+   for (int slice = firstSlice; slice <= lastSlice; ++slice)
    {
       // Some aspects of the SlicePatchContext will vary as we move from patch
       // to patch, but we can go ahead and calculate now any stuff that is
@@ -1615,7 +1615,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
       // even/odd nature of the alignment slice.
       float slicewiseFraction = (float)((alignSlice & 0x1) + 1) / 2.0f;
       // Iterate over the control points greater than the alignment point.
-      for (int halfPatch = alignSlice + 1; halfPatch < (int)SliceSize(sliceType); halfPatch++)
+      for (int halfPatch = alignSlice + 1; halfPatch < (int)SliceSize(sliceType); ++halfPatch)
       {
          // Find the slice-of-other-kind that defines the patch edge orthogonal
          // to our slice.
@@ -1644,7 +1644,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
       // depending on the even/odd nature of the alignment slice.
       slicewiseFraction = (float)((alignSlice - 1) & 0x1) / 2.0f;
       // Iterate over the control points less than the alignment point.
-      for (int halfPatch = alignSlice - 1; halfPatch >= 0; halfPatch--)
+      for (int halfPatch = alignSlice - 1; halfPatch >= 0; --halfPatch)
       {
          // Find the slice-of-other-kind that defines the patch edge orthogonal
          // to our slice.
@@ -1669,7 +1669,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
    // If there's a reference slice, we're going to need to know the total slice
    // length, so save that away.
    float refTotalLength;
-   if (refSlice != NULL)
+   if (refSlice != nullptr)
    {
       refTotalLength =
          MatrixElement(values, sliceType, refSlice->index, SliceSize(sliceType) - 1) -
@@ -1687,7 +1687,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
 
    // Iterate over the slices we're processing and adjust the distance values
    // (remember that this may just be the reference slice).
-   for (int slice = firstSlice; slice <= lastSlice; slice++)
+   for (int slice = firstSlice; slice <= lastSlice; ++slice)
    {
       // Figure out what we're going to divide the distances by.
       float scaleFactor;
@@ -1695,7 +1695,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
       {
          // In this case we've just been passed in the value to divide by.
          scaleFactor = rawScaleOrTiles;
-         if (refSlice != NULL)
+         if (refSlice != nullptr)
          {
             // However if there's a reference slice, adjust the divisor by the
             // ratio of this slice's length to the reference slice's length.
@@ -1722,7 +1722,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
             rawScaleOrTiles;
       }
       // Adjust the distances for this slice by the divisor we calculated.
-      for (unsigned halfPatch = 0; halfPatch < SliceSize(sliceType); halfPatch++)
+      for (unsigned halfPatch = 0; halfPatch < SliceSize(sliceType); ++halfPatch)
       {
          MatrixElement(values, sliceType, slice, halfPatch) /= scaleFactor;
       }
@@ -1733,11 +1733,11 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
    // reference slice. Now we have to copy the reference slice's values to all
    // other slices.
    // (These loops also copy the reference slice to itself, which is fine.)
-   if (refSlice != NULL && !refSlice->totalLengthOnly)
+   if (refSlice != nullptr && !refSlice->totalLengthOnly)
    {
-      for (unsigned slice = 0; slice < _numSlices[sliceType]; slice++)
+      for (unsigned slice = 0; slice < _numSlices[sliceType]; ++slice)
       {
-         for (unsigned halfPatch = 0; halfPatch < SliceSize(sliceType); halfPatch++)
+         for (unsigned halfPatch = 0; halfPatch < SliceSize(sliceType); ++halfPatch)
          {
             MatrixElement(values, sliceType, slice, halfPatch) =
                MatrixElement(values, sliceType, refSlice->index, halfPatch);
@@ -1792,9 +1792,9 @@ MeshEntity::GeneralFunctionInt(const GeneralFunctionFactors& factors,
    }
 
    // Iterate over all values and apply the equation.
-   for (int rowIndex = 0; rowIndex < (int)_numSlices[ROW_SLICE_TYPE]; rowIndex++)
+   for (int rowIndex = 0; rowIndex < (int)_numSlices[ROW_SLICE_TYPE]; ++rowIndex)
    {
-      for (int colIndex = 0; colIndex < (int)_numSlices[COL_SLICE_TYPE]; colIndex++)
+      for (int colIndex = 0; colIndex < (int)_numSlices[COL_SLICE_TYPE]; ++colIndex)
       {
          newValues(rowIndex, colIndex) =
             factors.oldValue * oldValues(rowIndex, colIndex) +

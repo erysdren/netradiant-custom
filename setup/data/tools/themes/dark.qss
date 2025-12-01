@@ -1,0 +1,253 @@
+/* -----------------------------------------------------------------------------
+
+      ABOUT: Dark Qt Style Sheet for NetRadiant-Custom.
+
+       FILE: dark.qss
+    VERSION: 2.0
+       DATE: 9 Oct 2025
+
+----------------------------------------------------------------------------- */
+
+/* ---- QMenu ---- */
+
+QMenu::separator {
+	background: rgb( 93, 94, 91 );
+	margin: 3px 7px 3px 5px; /* order is: top, right, bottom, left */
+
+	height: 1px;
+}
+
+/* ---- QToolTip ---- */
+
+QToolTip {
+	color: rgb( 255, 255, 255 );
+	background: rgb( 77, 79, 75 );
+	margin: 0px;
+	border: 1px solid rgba( 255, 255, 255, 75% );
+	border-radius: 0px;
+	padding: 0px; /* independent values not working */
+
+ /* font-style: italic; */
+}
+
+/* ---- QScrollBar ---- */
+
+QScrollBar:vertical {
+	background: rgb( 73, 74, 71 );
+	margin: 0px;
+	border: none;
+	border-radius: 0px;
+	padding: 0px; /* space around handle, requires more width */
+
+	width: 7px;
+}
+
+QScrollBar::handle:vertical {
+	background: rgb( 111, 105, 100 );
+	border: 1px solid rgb( 128, 128, 128 );
+
+	min-height: 20px;
+}
+
+QScrollBar::add-line:vertical { /* not visible */
+	background: none;
+	border: none;
+
+	height: 0px;
+
+	subcontrol-origin: margin;
+	subcontrol-position: bottom;
+}
+
+QScrollBar::sub-line:vertical { /* not visible */
+	background: none;
+	border: none;
+
+	height: 0px;
+
+	subcontrol-origin: margin;
+	subcontrol-position: top;
+}
+
+QScrollBar:horizontal {
+	background: rgb( 73, 74, 71 );
+	margin: 0px;
+	border: none;
+	border-radius: 0px;
+	padding: 0px; /* space around handle, requires more height */
+
+	height: 7px;
+}
+
+QScrollBar::handle:horizontal {
+	background: rgb( 111, 105, 100 );
+	border: 1px solid rgb( 128, 128, 128 );
+
+	min-width: 20px;
+}
+
+QScrollBar::add-line:horizontal { /* not visible */
+	background: none;
+	border: none;
+
+	width: 0px;
+
+	subcontrol-origin: margin;
+	subcontrol-position: right;
+}
+
+QScrollBar::sub-line:horizontal { /* not visible */
+	background: none;
+	border: none;
+
+	width: 0px;
+
+	subcontrol-origin: margin;
+	subcontrol-position: left;
+}
+
+QScrollBar::handle:hover {
+	background: rgb( 250, 203, 129 ); /* Orange */
+	border-color: rgb( 206, 169, 114 );
+}
+
+/* ---- QToolBar + QToolButton ---- */
+
+QToolBar:horizontal {
+	background: rgb( 70, 70, 70 ); /* darker than Window ( 83, 84, 81 ) */
+	margin: 0px;
+	border: 1px solid transparent;
+	border-top-color: rgb( 120, 120, 120 );
+	border-bottom-color: rgb( 120, 120, 120 );
+	border-radius: 0px;
+	padding: 3px; /* air around content, only single value works */
+
+	spacing: 0px; /* space between butons */
+}
+
+QToolBar:left {
+	background: rgb( 70, 70, 70 );
+	margin: 0px;
+	border: 1px solid transparent;
+	border-right-color: rgb( 120, 120, 120 );
+	border-radius: 0px;
+	padding: 3px;
+
+	spacing: 0px;
+}
+
+QToolBar:right {
+	background: rgb( 70, 70, 70 );
+	margin: 0px;
+	border: 1px solid transparent;
+	border-left-color: rgb( 120, 120, 120 );
+	border-radius: 0px;
+	padding: 3px;
+
+	spacing: 0px;
+}
+
+QToolBar::separator:horizontal {
+	background: transparent;
+	width: 8px;
+}
+
+QToolBar::separator:vertical {
+	background: transparent;
+	height: 8px;
+}
+
+QToolBar QToolButton {
+	background: rgb( 100, 100, 100 ); /* brighter than Window ( 83, 84, 81 ) */
+	margin: 0px;
+	border: 1px solid transparent;
+	border-radius: 0px;
+	padding: 1px; /* add a bit of air around icons */
+}
+
+QToolBar QToolButton:hover {
+	background: rgb( 120, 120, 120 ); /* button BKGR +20 */
+	border-color: rgb( 180, 180, 180 ); /* button BKGR +80 */
+}
+
+QToolBar QToolButton:pressed {
+	background: palette( base ); /* darker than toolbar bg */ /* same as ON */
+	border-color: rgba( 250, 203, 129, 75% ); /* same as ON */
+}
+
+QToolBar QToolButton:on {
+	background: palette( base ); /* darker than toolbar bg */ /* same as ON */
+	border-color: rgba( 250, 203, 129, 75% );
+}
+
+QToolBar QToolButton:on:hover {
+	background: rgb( 70, 79, 82 );
+	border-color: rgba( 250, 203, 129, 95% );
+}
+
+QToolBar QToolButton:on:pressed {
+	background: rgb( 100, 100, 100 ); /* like normal button */
+	border-color: transparent;
+}
+
+/* ---- QToolBar + QToolButton (TexBro & ModelBro) ---- */
+
+QSplitter QToolBar:horizontal {
+	border-color: transparent; /* make the borders invisible */
+	padding: 1px; /* space around content (less than main ToolBar) */
+
+	spacing: 1px; /* separate buttons */
+}
+
+QSplitter QToolBar:horizontal QToolButton {
+	background: transparent; /* make BKGR invisible */
+	padding: 0px; /* space around icon (less than main ToolBar) */
+}
+
+/* ---- QToolButton (generic, not in Toolbars) ---- */
+
+QToolButton {
+	margin: 0px;
+	padding: 0px; /* add a bit of air around icons */
+
+ /* width: 16px;
+	height: 16px; */
+}
+
+QToolButton:hover {
+	background: rgb( 128, 128, 128 );
+}
+
+QToolButton:pressed {
+	background: rgb( 120, 120, 120 );
+}
+
+QToolButton:on {
+	background: palette( base );
+}
+
+QToolButton:on:hover {
+	background: rgb( 70, 79, 82 );
+}
+
+QToolButton:on:pressed {
+	background: rgb( 120, 120, 120 ); /* same as pressed */
+}
+
+QToolButton:disabled {
+	background: rgb( 100, 100, 100 );
+}
+
+/* ---- QPushButton ---- */
+
+QPushButton:hover {
+	background: rgb( 128, 128, 128 );
+}
+
+/* ---- QCheckBox ---- */
+
+QCheckBox:hover {
+	color: rgb( 220, 220, 220 );
+}
+
+/* -------------- EOF --------------- EOF --------------- EOF --------------- */

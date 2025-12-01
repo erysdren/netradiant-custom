@@ -171,10 +171,8 @@ byte  *LBMRLEDecompress( byte *source, byte *unpacked, int bpwidth ){
 		}
 		else{
 			rept = 0;               // rept of 0x80 is NOP
-
 		}
 		count += rept;
-
 	} while ( count < bpwidth );
 
 	if ( count > bpwidth ) {
@@ -202,8 +200,8 @@ void LoadLBM( const char *filename, byte **picture, byte **palette ){
 	int chunktype, chunklength;
 
 // qiet compiler warnings
-	picbuffer = NULL;
-	cmapbuffer = NULL;
+	picbuffer = nullptr;
+	cmapbuffer = nullptr;
 
 //
 // load the LBM
@@ -279,7 +277,6 @@ void LoadLBM( const char *filename, byte **picture, byte **palette ){
 						body_p += Align( bmhd.w );
 					}
 				}
-
 			}
 			else
 			{
@@ -367,7 +364,6 @@ void WriteLBMfile( const char *filename, byte *data,
 	*bmhdlength = BigLong( length );
 	if ( length & 1 ) {
 		*lbmptr++ = 0;          // pad chunk to even offset
-
 	}
 //
 // write CMAP
@@ -387,7 +383,6 @@ void WriteLBMfile( const char *filename, byte *data,
 	*cmaplength = BigLong( length );
 	if ( length & 1 ) {
 		*lbmptr++ = 0;          // pad chunk to even offset
-
 	}
 //
 // write BODY
@@ -407,7 +402,6 @@ void WriteLBMfile( const char *filename, byte *data,
 	*bodylength = BigLong( length );
 	if ( length & 1 ) {
 		*lbmptr++ = 0;          // pad chunk to even offset
-
 	}
 //
 // done
@@ -416,7 +410,6 @@ void WriteLBMfile( const char *filename, byte *data,
 	*formlength = BigLong( length );
 	if ( length & 1 ) {
 		*lbmptr++ = 0;          // pad chunk to even offset
-
 	}
 //
 // write output file
@@ -523,7 +516,7 @@ void LoadPCX( const char *filename, byte **pic, byte **palette, int *width, int 
 	lsize = pcx->color_planes * pcx->bytes_per_line;
 
 	/* go scanline by scanline */
-	for ( y = 0; y <= pcx->ymax; y++, pix += pcx->xmax + 1 )
+	for ( y = 0; y <= pcx->ymax; ++y, pix += pcx->xmax + 1 )
 	{
 		/* do a scanline */
 		runLength = 0;
@@ -892,7 +885,7 @@ void LoadTGABuffer( const byte *f, const size_t dataSize, byte **pic, int *width
 	unsigned char palette[256 * 4];
 	const byte * const enddata = f + dataSize;
 
-	*pic = NULL;
+	*pic = nullptr;
 
 	// abort if it is too small to parse
 	if ( dataSize < 19 ) {
@@ -933,7 +926,7 @@ void LoadTGABuffer( const byte *f, const size_t dataSize, byte **pic, int *width
 			return;
 		}
 		if ( targa_header.colormap_size == 24 ) {
-			for ( x = 0; x < targa_header.colormap_length; x++ )
+			for ( x = 0; x < targa_header.colormap_length; ++x )
 			{
 				palette[x * 4 + 2] = *fin++;
 				palette[x * 4 + 1] = *fin++;
@@ -942,7 +935,7 @@ void LoadTGABuffer( const byte *f, const size_t dataSize, byte **pic, int *width
 			}
 		}
 		else if ( targa_header.colormap_size == 32 ) {
-			for ( x = 0; x < targa_header.colormap_length; x++ )
+			for ( x = 0; x < targa_header.colormap_length; ++x )
 			{
 				palette[x * 4 + 2] = *fin++;
 				palette[x * 4 + 1] = *fin++;
@@ -1357,7 +1350,7 @@ static const KTX_UncompressedFormat_t KTX_UncompressedFormats[] =
 	{ KTX_TYPE_UNSIGNED_SHORT_4_4_4_4, KTX_FORMAT_RGBA, 2, KTX_DecodeRGBA4 },
 	{ KTX_TYPE_UNSIGNED_SHORT_5_5_5_1, KTX_FORMAT_RGBA, 2, KTX_DecodeRGBA5 },
 	{ KTX_TYPE_UNSIGNED_SHORT_5_6_5, KTX_FORMAT_RGB, 2, KTX_DecodeRGB5 },
-	{ 0, 0, 0, NULL }
+	{ 0, 0, 0, nullptr }
 };
 
 static bool KTX_DecodeETC1( const byte* in, size_t inSize, unsigned int width, unsigned int height, byte* out ){
@@ -1391,7 +1384,7 @@ static bool KTX_DecodeETC1( const byte* in, size_t inSize, unsigned int width, u
 				blockrowsize = 4;
 			}
 			blockrowsize *= 4;
-			for ( blockrow = 0; blockrow < blockrows; blockrow++ )
+			for ( blockrow = 0; blockrow < blockrows; ++blockrow )
 			{
 				memcpy( p + blockrow * stride, rgba + blockrow * 16, blockrowsize );
 			}
@@ -1475,10 +1468,10 @@ void LoadKTXBufferFirstImage( const byte *buffer, size_t bufSize, byte **pic, in
 			Error( "LoadKTX: Image is truncated" );
 		}
 
-		for ( y = 0; y < height; y++ )
+		for ( y = 0; y < height; ++y )
 		{
 			unsigned int x;
-			for ( x = 0; x < width; x++, buffer += pixelSize, pixels += 4 )
+			for ( x = 0; x < width; ++x, buffer += pixelSize, pixels += 4 )
 			{
 				ktxFormat->decode( buffer, bigEndian, pixels );
 			}

@@ -142,8 +142,7 @@ static void InitPakFile( ArchiveModules& archiveModules, const char *filename ){
 }
 
 inline void pathlist_append_unique( StrList& pathlist, CopiedString path ){
-	if( std::none_of( pathlist.cbegin(), pathlist.cend(),
-	[&path]( const CopiedString& str ){ return path_compare( str.c_str(), path.c_str() ) == 0; } ) )
+	if( std::ranges::none_of( pathlist, [&path]( const CopiedString& str ){ return path_equal( str.c_str(), path.c_str() ); } ) )
 		pathlist.emplace_back( std::move( path ) );
 }
 
@@ -155,7 +154,7 @@ public:
 	DirectoryListVisitor( StrList& matches, const char* directory )
 		: m_matches( matches ), m_directory( directory )
 	{}
-	void visit( const char* name ){
+	void visit( const char* name ) override {
 		const char* subname = path_make_relative( name, m_directory );
 		if ( subname != name ) {
 			if ( subname[0] == '/' ) {
@@ -179,7 +178,7 @@ public:
 	FileListVisitor( StrList& matches, const char* directory, const char* extension )
 		: m_matches( matches ), m_directory( directory ), m_extension( extension )
 	{}
-	void visit( const char* name ){
+	void visit( const char* name ) override {
 		const char* subname = path_make_relative( name, m_directory );
 		if ( subname != name ) {
 			if ( subname[0] == '/' ) {
@@ -364,18 +363,18 @@ void InitDirectory( const char* directory, ArchiveModules& archiveModules ){
 			g_dir_close( dir );
 
 			// add the entries to the vfs
-			for ( Archives::iterator i = archivesOverride.begin(); i != archivesOverride.end(); ++i )
+			for ( const auto& archive : archivesOverride )
 			{
 				char filename[PATH_MAX];
 				strcpy( filename, path );
-				strcat( filename, ( *i ).c_str() );
+				strcat( filename, archive.c_str() );
 				InitPakFile( archiveModules, filename );
 			}
-			for ( Archives::iterator i = archives.begin(); i != archives.end(); ++i )
+			for ( const auto& archive : archives )
 			{
 				char filename[PATH_MAX];
 				strcpy( filename, path );
-				strcat( filename, ( *i ).c_str() );
+				strcat( filename, archive.c_str() );
 				InitPakFile( archiveModules, filename );
 			}
 		}
@@ -429,7 +428,7 @@ int GetFileCount( const char *filename, int flag ){
 }
 
 ArchiveFile* OpenFile( const char* filename ){
-	ASSERT_MESSAGE( strchr( filename, '\\' ) == 0, "path contains invalid separator '\\': " << makeQuoted( filename ) );
+	ASSERT_MESSAGE( strchr( filename, '\\' ) == 0, "path contains invalid separator '\\': " << Quoted( filename ) );
 	for ( archive_entry_t& arch : g_archives )
 	{
 		ArchiveFile* file = arch.archive->openFile( filename );
@@ -442,7 +441,7 @@ ArchiveFile* OpenFile( const char* filename ){
 }
 
 ArchiveTextFile* OpenTextFile( const char* filename ){
-	ASSERT_MESSAGE( strchr( filename, '\\' ) == 0, "path contains invalid separator '\\': " << makeQuoted( filename ) );
+	ASSERT_MESSAGE( strchr( filename, '\\' ) == 0, "path contains invalid separator '\\': " << Quoted( filename ) );
 	for ( archive_entry_t& arch : g_archives )
 	{
 		ArchiveTextFile* file = arch.archive->openTextFile( filename );
@@ -519,14 +518,14 @@ const char* FindPath( const char* absolute ){
 class Quake3FileSystem : public VirtualFileSystem
 {
 public:
-	void initDirectory( const char *path ){
+	void initDirectory( const char *path ) override {
 		InitDirectory( path, FileSystemQ3API_getArchiveModules() );
 	}
-	void initialise(){
+	void initialise() override {
 		globalOutputStream() << "filesystem initialised\n";
 		g_observers.realise();
 	}
-	void shutdown(){
+	void shutdown() override {
 		g_observers.unrealise();
 		globalOutputStream() << "filesystem shutdown\n";
 		Shutdown();
@@ -535,20 +534,20 @@ public:
 	int getFileCount( const char *filename, int flags ){
 		return GetFileCount( filename, flags );
 	}
-	ArchiveFile* openFile( const char* filename ){
+	ArchiveFile* openFile( const char* filename ) override {
 		return OpenFile( filename );
 	}
-	ArchiveTextFile* openTextFile( const char* filename ){
+	ArchiveTextFile* openTextFile( const char* filename ) override {
 		return OpenTextFile( filename );
 	}
-	std::size_t loadFile( const char *filename, void **buffer ){
+	std::size_t loadFile( const char *filename, void **buffer ) override {
 		return LoadFile( filename, buffer, 0 );
 	}
-	void freeFile( void *p ){
+	void freeFile( void *p ) override {
 		FreeFile( p );
 	}
 
-	void forEachDirectory( const char* basedir, const FileNameCallback& callback, std::size_t depth ){
+	void forEachDirectory( const char* basedir, const FileNameCallback& callback, std::size_t depth ) override {
 		StrList list = GetDirList( basedir, depth );
 
 		for ( const CopiedString& str : list )
@@ -556,7 +555,7 @@ public:
 			callback( str.c_str() );
 		}
 	}
-	void forEachFile( const char* basedir, const char* extension, const FileNameCallback& callback, std::size_t depth ){
+	void forEachFile( const char* basedir, const char* extension, const FileNameCallback& callback, std::size_t depth ) override {
 		StrList list = GetFileList( basedir, extension, depth );
 
 		for ( const CopiedString& str : list )
@@ -575,21 +574,21 @@ public:
 		return GetFileList( basedir, extension, 1 );
 	}
 
-	const char* findFile( const char *name ){
+	const char* findFile( const char *name ) override {
 		return FindFile( name );
 	}
-	const char* findRoot( const char *name ){
+	const char* findRoot( const char *name ) override {
 		return FindPath( name );
 	}
 
-	void attach( ModuleObserver& observer ){
+	void attach( ModuleObserver& observer ) override {
 		g_observers.attach( observer );
 	}
-	void detach( ModuleObserver& observer ){
+	void detach( ModuleObserver& observer ) override {
 		g_observers.detach( observer );
 	}
 
-	Archive* getArchive( const char* archiveName, bool pakonly ){
+	Archive* getArchive( const char* archiveName, bool pakonly ) override {
 		for ( archive_entry_t& arch : g_archives )
 		{
 			if ( pakonly && !arch.is_pakfile ) {
@@ -602,7 +601,7 @@ public:
 		}
 		return 0;
 	}
-	void forEachArchive( const ArchiveNameCallback& callback, bool pakonly, bool reverse ){
+	void forEachArchive( const ArchiveNameCallback& callback, bool pakonly, bool reverse ) override {
 		if ( reverse ) {
 			g_archives.reverse();
 		}

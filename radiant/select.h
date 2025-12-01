@@ -21,12 +21,15 @@
 
 #pragma once
 
-#include "math/vector.h"
+#include "generic/vector.h"
 
 void Select_GetBounds( Vector3& mins, Vector3& maxs );
 
 void Select_Delete();
 void deleteSelection();
+
+void Scene_BrushPatchSelectByShader( const char *shader );
+void Select_FacesAndPatchesByShader( const char *shader );
 
 void Select_EntitiesByKeyValue( const char* key, const char* value );
 

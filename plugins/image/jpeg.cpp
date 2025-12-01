@@ -224,7 +224,7 @@ static void jpeg_buffer_src( j_decompress_ptr cinfo, void* buffer, int bufsize )
 	 * This makes it unsafe to use this manager and a different source
 	 * manager serially with the same JPEG object.  Caveat programmer.
 	 */
-	if ( cinfo->src == NULL ) { /* first time for this JPEG object? */
+	if ( cinfo->src == nullptr ) { /* first time for this JPEG object? */
 		cinfo->src = (struct jpeg_source_mgr *)
 		             ( *cinfo->mem->alloc_small )( (j_common_ptr) cinfo, JPOOL_PERMANENT,
 		                                           sizeof( my_source_mgr ) );
@@ -243,7 +243,7 @@ static void jpeg_buffer_src( j_decompress_ptr cinfo, void* buffer, int bufsize )
 	src->src_buffer = (JOCTET *)buffer;
 	src->src_size = bufsize;
 	src->pub.bytes_in_buffer = 0; /* forces fill_input_buffer on first read */
-	src->pub.next_input_byte = NULL; /* until buffer loaded */
+	src->pub.next_input_byte = nullptr; /* until buffer loaded */
 }
 
 // =============================================================================
@@ -269,7 +269,7 @@ static void j_putRGBScanline( unsigned char* jpegline, int widthPix, unsigned ch
 	int offset = row * widthPix * 4;
 	int count;
 
-	for ( count = 0; count < widthPix; count++ )
+	for ( count = 0; count < widthPix; ++count )
 	{
 		unsigned char iRed, iBlu, iGrn;
 		unsigned char *oRed, *oBlu, *oGrn, *oAlp;
@@ -295,7 +295,7 @@ static void j_putRGBAScanline( unsigned char* jpegline, int widthPix, unsigned c
 	int offset = row * widthPix * 4;
 	int count;
 
-	for ( count = 0; count < widthPix; count++ )
+	for ( count = 0; count < widthPix; ++count )
 	{
 		unsigned char iRed, iBlu, iGrn, iAlp;
 		unsigned char *oRed, *oBlu, *oGrn, *oAlp;
@@ -328,7 +328,7 @@ static void j_putGrayScanlineToRGB( unsigned char* jpegline, int widthPix, unsig
 	int offset = row * widthPix * 4;
 	int count;
 
-	for ( count = 0; count < widthPix; count++ )
+	for ( count = 0; count < widthPix; ++count )
 	{
 		unsigned char iGray;
 		unsigned char *oRed, *oBlu, *oGrn, *oAlp;
@@ -368,7 +368,7 @@ static Image* LoadJPGBuff_( const void *src_buffer, int src_size ){
 
 	int row_stride = cinfo.output_width * cinfo.output_components;
 
-	RGBAImage* image = new RGBAImage( cinfo.output_width, cinfo.output_height );
+	auto *image = new RGBAImage( cinfo.output_width, cinfo.output_height );
 
 	JSAMPARRAY buffer = ( *cinfo.mem->alloc_sarray )( ( j_common_ptr ) & cinfo, JPOOL_IMAGE, row_stride, 1 );
 

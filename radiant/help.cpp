@@ -23,7 +23,6 @@
 
 #include "debugging/debugging.h"
 
-#include <vector>
 #include <list>
 
 #include <libxml/parser.h>
@@ -55,7 +54,7 @@ void process_xlink( const char* filename, const char *menu_name, const char *bas
 	if ( file_exists( filename ) ) {
 		xmlDocPtr pDoc = xmlParseFile( filename );
 		if ( pDoc ) {
-			globalOutputStream() << "Processing .xlink file '" << filename << "'\n";
+			globalOutputStream() << "Processing .xlink file " << SingleQuoted( filename ) << '\n';
 			// create sub menu
 			menu = menu->addMenu( menu_name );
 
@@ -101,12 +100,12 @@ void process_xlink( const char* filename, const char *menu_name, const char *bas
 		}
 		else
 		{
-			globalWarningStream() << "'" << filename << "' parse failed\n";
+			globalWarningStream() << SingleQuoted( filename ) << " parse failed\n";
 		}
 	}
 	else
 	{
-		globalWarningStream() << "'" << filename << "' not found\n";
+		globalWarningStream() << SingleQuoted( filename ) << " not found\n";
 	}
 }
 
@@ -117,10 +116,10 @@ void create_game_help_menu( QMenu *menu ){
 	filename( g_pGameDescription->mGameToolsPath, "game.xlink" );
 	process_xlink( filename, g_pGameDescription->getRequiredKeyValue( "name" ), g_pGameDescription->mGameToolsPath.c_str(), menu );
 #else
-	for ( std::list<CGameDescription *>::iterator iGame = g_GamesDialog.mGames.begin(); iGame != g_GamesDialog.mGames.end(); ++iGame )
+	for ( const auto *game : g_GamesDialog.mGames )
 	{
-		filename( ( *iGame )->mGameToolsPath.c_str(), "game.xlink" );
-		process_xlink( filename, ( *iGame )->getRequiredKeyValue( "name" ), ( *iGame )->mGameToolsPath.c_str(), menu );
+		filename( game->mGameToolsPath.c_str(), "game.xlink" );
+		process_xlink( filename, game->getRequiredKeyValue( "name" ), game->mGameToolsPath.c_str(), menu );
 	}
 #endif
 }

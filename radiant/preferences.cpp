@@ -31,22 +31,19 @@
 #include "debugging/debugging.h"
 
 #include "generic/callback.h"
-#include "math/vector.h"
 #include "string/string.h"
 #include "stream/stringstream.h"
 #include "os/file.h"
 #include "os/path.h"
 #include "os/dir.h"
-#include "gtkutil/filechooser.h"
 #include "gtkutil/messagebox.h"
 #include "commandlib.h"
 
 #include "error.h"
-#include "console.h"
 #include "xywindow.h"
 #include "mainframe.h"
-#include "qe3.h"
 #include "gtkdlgs.h"
+#include "theme.h"
 
 #include <QCoreApplication>
 #include <QGridLayout>
@@ -61,7 +58,6 @@
 
 
 void Global_constructPreferences( PreferencesPage& page ){
-	page.appendCheckBox( "Console", "Enable Logging", g_Console_enableLogging );
 }
 
 void Interface_constructPreferences( PreferencesPage& page ){
@@ -101,14 +97,14 @@ CGameDescription::CGameDescription( xmlDocPtr pDoc, const CopiedString& gameFile
 
 	mGameToolsPath = StringStream( AppPath_get(), "gamepacks/", gameFile, '/' );
 
-	ASSERT_MESSAGE( file_exists( mGameToolsPath.c_str() ), "game directory not found: " << makeQuoted( mGameToolsPath ) );
+	ASSERT_MESSAGE( file_exists( mGameToolsPath.c_str() ), "game directory not found: " << Quoted( mGameToolsPath ) );
 
 	mGameFile = gameFile;
 
 	{
 		GameDescription::iterator i = m_gameDescription.find( "type" );
 		if ( i == m_gameDescription.end() ) {
-			globalWarningStream() << "Warning, 'type' attribute not found in '" << reinterpret_cast<const char*>( pDoc->URL ) << "'\n";
+			globalWarningStream() << "Warning, 'type' attribute not found in " << SingleQuoted( reinterpret_cast<const char*>( pDoc->URL ) ) << '\n';
 			// default
 			mGameType = "q3";
 		}
@@ -120,10 +116,10 @@ CGameDescription::CGameDescription( xmlDocPtr pDoc, const CopiedString& gameFile
 }
 
 void CGameDescription::Dump(){
-	globalOutputStream() << "game description file: " << makeQuoted( mGameFile ) << '\n';
-	for ( GameDescription::iterator i = m_gameDescription.begin(); i != m_gameDescription.end(); ++i )
+	globalOutputStream() << "game description file: " << Quoted( mGameFile ) << '\n';
+	for ( const auto& [ key, value ] : m_gameDescription )
 	{
-		globalOutputStream() << ( *i ).first << " = " << makeQuoted( ( *i ).second ) << '\n';
+		globalOutputStream() << key << " = " << Quoted( value ) << '\n';
 	}
 }
 
@@ -131,15 +127,13 @@ CGameDescription *g_pGameDescription;
 
 
 #include "stream/textfilestream.h"
-#include "container/array.h"
-#include "xml/ixml.h"
 #include "xml/xmlparser.h"
 #include "xml/xmlwriter.h"
 
 #include "preferencedictionary.h"
 #include "stringio.h"
 
-const char* const PREFERENCES_VERSION = "1.0";
+constexpr const char* PREFERENCES_VERSION = "1.0";
 
 bool Preferences_Load( PreferenceDictionary& preferences, const char* filename, const char *cmdline_prefix ){
 	bool ret = false;
@@ -150,14 +144,14 @@ bool Preferences_Load( PreferenceDictionary& preferences, const char* filename, 
 		parser.exportXML( importer );
 		ret = true;
 	}
-
-	int l = strlen( cmdline_prefix );
+	// set config settings from the command line, e.g.   -global-gamefile q4.game   -q4.game-CamHeight 944
+	const size_t len = strlen( cmdline_prefix );
 	for ( int i = 1; i < g_argc - 1; ++i )
 	{
 		if ( g_argv[i][0] == '-' ) {
-			if ( !strncmp( g_argv[i] + 1, cmdline_prefix, l ) ) {
-				if ( g_argv[i][l + 1] == '-' ) {
-					preferences.importPref( g_argv[i] + l + 2, g_argv[i + 1] );
+			if ( strncmp( g_argv[i] + 1, cmdline_prefix, len ) == 0 ) {
+				if ( g_argv[i][len + 1] == '-' ) {
+					preferences.importPref( g_argv[i] + len + 2, g_argv[i + 1] );
 				}
 			}
 			++i;
@@ -184,17 +178,10 @@ bool Preferences_Save_Safe( PreferenceDictionary& preferences, const char* filen
 }
 
 
-void LogConsole_importString( const char* string ){
-	g_Console_enableLogging = string_equal( string, "true" );
-	Sys_LogFile( g_Console_enableLogging );
-}
-typedef FreeCaller<void(const char*), LogConsole_importString> LogConsoleImportStringCaller;
-
-
 void RegisterGlobalPreferences( PreferenceSystem& preferences ){
 	preferences.registerPreference( "gamefile", makeCopiedStringStringImportCallback( LatchedAssignCaller( g_GamesDialog.m_sGameFile ) ), CopiedStringExportStringCaller( g_GamesDialog.m_sGameFile.m_latched ) );
 	preferences.registerPreference( "gamePrompt", BoolImportStringCaller( g_GamesDialog.m_bGamePrompt ), BoolExportStringCaller( g_GamesDialog.m_bGamePrompt ) );
-	preferences.registerPreference( "log console", LogConsoleImportStringCaller(), BoolExportStringCaller( g_Console_enableLogging ) );
+	theme_registerGlobalPreference( preferences );
 }
 
 
@@ -204,11 +191,13 @@ void GlobalPreferences_Init(){
 	RegisterGlobalPreferences( g_global_preferences );
 }
 
+constexpr const char* PREFS_GLOBAL_FILENAME = "global.pref";
+
 void CGameDialog::LoadPrefs(){
 	// load global .pref file
-	const auto strGlobalPref = StringStream( g_Preferences.m_global_rc_path, "global.pref" );
+	const auto strGlobalPref = StringStream( g_Preferences.m_global_rc_path, PREFS_GLOBAL_FILENAME );
 
-	globalOutputStream() << "loading global preferences from " << makeQuoted( strGlobalPref ) << '\n';
+	globalOutputStream() << "loading global preferences from " << Quoted( strGlobalPref ) << '\n';
 
 	if ( !Preferences_Load( g_global_preferences, strGlobalPref, "global" ) ) {
 		globalOutputStream() << "failed to load global preferences from " << strGlobalPref << '\n';
@@ -216,7 +205,7 @@ void CGameDialog::LoadPrefs(){
 }
 
 void CGameDialog::SavePrefs(){
-	const auto strGlobalPref = StringStream( g_Preferences.m_global_rc_path, "global.pref" );
+	const auto strGlobalPref = StringStream( g_Preferences.m_global_rc_path, PREFS_GLOBAL_FILENAME );
 
 	globalOutputStream() << "saving global preferences to " << strGlobalPref << '\n';
 
@@ -255,25 +244,17 @@ void CGameDialog::GameFileImport( int value ){
 
 void CGameDialog::GameFileExport( const IntImportCallback& importCallback ) const {
 	// use m_sGameFile to set value
-	std::list<CGameDescription *>::const_iterator iGame;
-	int i = 0;
-	for ( iGame = mGames.begin(); iGame != mGames.end(); ++iGame )
-	{
-		if ( ( *iGame )->mGameFile == m_sGameFile.m_latched ) {
-			m_nComboSelect = i;
-			break;
-		}
-		i++;
-	}
+	if( const auto found = std::ranges::find( mGames, m_sGameFile.m_latched, &CGameDescription::mGameFile ); found != mGames.cend() )
+		m_nComboSelect = std::distance( mGames.cbegin(), found );
 	importCallback( m_nComboSelect );
 }
 
 void CGameDialog::CreateGlobalFrame( PreferencesPage& page, bool global ){
 	std::vector<const char*> games;
 	games.reserve( mGames.size() );
-	for ( std::list<CGameDescription *>::iterator i = mGames.begin(); i != mGames.end(); ++i )
+	for ( const auto *game : mGames )
 	{
-		games.push_back( ( *i )->getRequiredKeyValue( "name" ) );
+		games.push_back( game->getRequiredKeyValue( "name" ) );
 	}
 	page.appendCombo(
 	    "Select the game",
@@ -289,13 +270,13 @@ void CGameDialog::CreateGlobalFrame( PreferencesPage& page, bool global ){
 void CGameDialog::BuildDialog(){
 	GetWidget()->setWindowTitle( "Global Preferences" );
 
-	auto vbox = new QVBoxLayout( GetWidget() );
+	auto *vbox = new QVBoxLayout( GetWidget() );
 	vbox->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 	{
-		auto frame = new QGroupBox( "Game settings" );
+		auto *frame = new QGroupBox( "Game settings" );
 		vbox->addWidget( frame );
 
-		auto grid = new QGridLayout( frame );
+		auto *grid = new QGridLayout( frame );
 		grid->setAlignment( Qt::AlignmentFlag::AlignTop );
 		grid->setColumnStretch( 0, 111 );
 		grid->setColumnStretch( 1, 333 );
@@ -306,7 +287,7 @@ void CGameDialog::BuildDialog(){
 		}
 	}
 	{
-		auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok );
+		auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok );
 		vbox->addWidget( buttons );
 		QObject::connect( buttons, &QDialogButtonBox::accepted, GetWidget(), &QDialog::accept );
 	}
@@ -337,7 +318,7 @@ void CGameDialog::ScanForGames(){
 		}
 		else
 		{
-			globalErrorStream() << "XML parser failed on '" << strPath << "'\n";
+			globalErrorStream() << "XML parser failed on " << SingleQuoted( strPath ) << '\n';
 		}
 	}));
 }
@@ -351,12 +332,13 @@ void CGameDialog::Reset(){
 		InitGlobalPrefPath();
 	}
 
-	file_remove( StringStream( g_Preferences.m_global_rc_path, "global.pref" ) );
+	file_remove( StringStream( g_Preferences.m_global_rc_path, PREFS_GLOBAL_FILENAME ) );
 }
 
 void CGameDialog::Init(){
 	InitGlobalPrefPath();
 	LoadPrefs();
+	theme_construct(); // after global prefs, b4 any normal windows
 	ScanForGames();
 	if ( mGames.empty() ) {
 		Error( "Didn't find any valid game file descriptions, aborting\n" );
@@ -372,18 +354,13 @@ void CGameDialog::Init(){
 
 	if ( !m_bGamePrompt ) {
 		// search by .game name
-		std::list<CGameDescription *>::iterator iGame;
-		for ( iGame = mGames.begin(); iGame != mGames.end(); ++iGame )
-		{
-			if ( ( *iGame )->mGameFile == m_sGameFile.m_value ) {
-				currentGameDescription = ( *iGame );
-				break;
-			}
-		}
+		if( auto found = std::ranges::find( mGames, m_sGameFile.m_value, &CGameDescription::mGameFile ); found != mGames.end() )
+			currentGameDescription = *found;
 	}
 	if ( !currentGameDescription ) {
 		Create( nullptr );
 		DoGameDialog();
+		Destroy(); // destroy the window immediately, doing so in destructor of static object is too late
 		// use m_nComboSelect to identify the game to run as and set the globals
 		currentGameDescription = GameDescriptionForComboItem();
 		ASSERT_NOTNULL( currentGameDescription );
@@ -395,11 +372,9 @@ void CGameDialog::Init(){
 
 CGameDialog::~CGameDialog(){
 	// free all the game descriptions
-	std::list<CGameDescription *>::iterator iGame;
-	for ( iGame = mGames.begin(); iGame != mGames.end(); ++iGame )
+	for ( auto& game : mGames )
 	{
-		delete ( *iGame );
-		*iGame = 0;
+		delete std::exchange( game, nullptr );
 	}
 	if ( GetWidget() != 0 ) {
 		Destroy();
@@ -459,7 +434,7 @@ static void OnButtonClean( PrefsDlg *dlg ){
    ========
  */
 
-#define PREFS_LOCAL_FILENAME "local.pref"
+constexpr const char* PREFS_LOCAL_FILENAME = "local.pref";
 
 void PrefsDlg::Init(){
 	// m_global_rc_path has been set above
@@ -479,9 +454,9 @@ void PrefsDlg::Init(){
 typedef std::list<PreferenceGroupCallback> PreferenceGroupCallbacks;
 
 inline void PreferenceGroupCallbacks_constructGroup( const PreferenceGroupCallbacks& callbacks, PreferenceGroup& group ){
-	for ( PreferenceGroupCallbacks::const_iterator i = callbacks.begin(); i != callbacks.end(); ++i )
+	for ( const auto& cb : callbacks )
 	{
-		( *i )( group );
+		cb( group );
 	}
 }
 
@@ -493,9 +468,9 @@ inline void PreferenceGroupCallbacks_pushBack( PreferenceGroupCallbacks& callbac
 typedef std::list<PreferencesPageCallback> PreferencesPageCallbacks;
 
 inline void PreferencesPageCallbacks_constructPage( const PreferencesPageCallbacks& callbacks, PreferencesPage& page ){
-	for ( PreferencesPageCallbacks::const_iterator i = callbacks.begin(); i != callbacks.end(); ++i )
+	for ( const auto& cb : callbacks )
 	{
-		( *i )( page );
+		cb( page );
 	}
 }
 
@@ -568,15 +543,15 @@ void Widget_connectToggleDependency( QCheckBox* self, QCheckBox* toggleButton ){
 
 
 QStandardItem* PreferenceTree_appendPage( QStandardItemModel* model, QStandardItem* parent, const char* name, int pageIndex ){
-	auto item = new QStandardItem( name );
+	auto *item = new QStandardItem( name );
 	item->setData( pageIndex, Qt::ItemDataRole::UserRole );
 	parent->appendRow( item );
 	return item;
 }
 
 auto PreferencePages_addPage( QStackedWidget* notebook, const char* name ){
-	auto frame = new QGroupBox( name );
-	auto grid = new QGridLayout( frame );
+	auto *frame = new QGroupBox( name );
+	auto *grid = new QGridLayout( frame );
 	grid->setAlignment( Qt::AlignmentFlag::AlignTop );
 	grid->setColumnStretch( 0, 111 );
 	grid->setColumnStretch( 1, 333 );
@@ -609,10 +584,10 @@ void PrefsDlg::BuildDialog(){
 	GetWidget()->setWindowTitle( "NetRadiant Preferences" );
 
 	{
-		auto grid = new QGridLayout( GetWidget() );
+		auto *grid = new QGridLayout( GetWidget() );
 		grid->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
 			grid->addWidget( buttons, 1, 1 );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, GetWidget(), &QDialog::accept );
 			QObject::connect( buttons, &QDialogButtonBox::rejected, GetWidget(), &QDialog::reject );
@@ -637,7 +612,7 @@ void PrefsDlg::BuildDialog(){
 					grid->addWidget( m_treeview, 0, 0, 2, 1 );
 
 					// store display name in column #0 and page index in data( Qt::ItemDataRole::UserRole )
-					auto model = new QStandardItemModel( m_treeview );
+					auto *model = new QStandardItemModel( m_treeview );
 					m_treeview->setModel( model );
 
 					QObject::connect( m_treeview->selectionModel(), &QItemSelectionModel::currentChanged, [this]( const QModelIndex& current ){
@@ -751,8 +726,7 @@ public:
 	typedef PreferenceSystem Type;
 	STRING_CONSTANT( Name, "*" );
 
-	PreferenceSystemAPI(){
-		m_preferencesystem = &GetPreferenceSystem();
+	PreferenceSystemAPI() : m_preferencesystem( &GetPreferenceSystem() ){
 	}
 	PreferenceSystem* getTable(){
 		return m_preferencesystem;
@@ -814,7 +788,7 @@ void PreferencesDialog_showDialog(){
 	if ( g_Preferences.DoModal() == QDialog::DialogCode::Accepted ) {
 		if ( !g_restart_required.empty() ) {
 			auto message = StringStream( "Preference changes require a restart:\n\n" );
-			for ( const auto i : g_restart_required )
+			for ( const auto *i : g_restart_required )
 				message << i << '\n';
 			g_restart_required.clear();
 			message << "\nRestart now?";

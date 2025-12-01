@@ -38,16 +38,14 @@
 #include "preferencesystem.h"
 
 #include "signal/signal.h"
-#include "container/array.h"
 #include "scenelib.h"
 #include "render.h"
-#include "commandlib.h"
 #include "math/frustum.h"
 
 #include "gtkutil/widget.h"
-#include "gtkutil/toolbar.h"
 #include "gtkutil/glwidget.h"
 #include "gtkutil/xorrectangle.h"
+#include "gtkutil/cursor.h"
 #include "gtkutil/fbo.h"
 #include "gtkmisc.h"
 #include "selection.h"
@@ -110,7 +108,7 @@ public:
 	IdleDraw2( const Callback<void()>& redrawCallback ) : m_redraw( redrawCallback ){}
 	void queueDraw( const Callback<void()>& func, bool redrawDo ){
 		if( !m_running ){
-			if( std::find( m_funcs.cbegin(), m_funcs.cend(), func ) == m_funcs.cend() ){
+			if( std::ranges::find( m_funcs, func ) == m_funcs.cend() ){
 				m_funcs.push_back( func );
 				// globalOutputStream() << m_funcs.size() << " m_funcs.size()\n";
 			}
@@ -154,8 +152,8 @@ struct camwindow_globals_private_t
 	int m_time_toMaxSpeed = 200;
 	int m_nScrollMoveSpeed = 100;
 	bool m_bZoomToPointer = true;
-	float m_strafeSpeed = 1.f;
-	float m_angleSpeed = 3.f;
+	float m_strafeSpeed = 1;
+	float m_angleSpeed = 3;
 	bool m_bCamInverseMouse = false;
 	bool m_bCamDiscrete = true;
 	bool m_bCubicClipping = false;
@@ -255,7 +253,7 @@ struct camera_t
 		angles( 0, 0, 0 ),
 		color( 0, 0, 0 ),
 		movementflags( 0 ),
-		m_keymove_speed_current( 0.f ),
+		m_keymove_speed_current( 0 ),
 		m_mouseMove( [this]( int x, int y, const QMouseEvent& event ){ Camera_mouseMove( *this, x, y, event ); } ),
 		m_view( view ),
 		m_update( update ),
@@ -265,11 +263,11 @@ struct camera_t
 };
 
 float camera_t::fieldOfView = 100.0f;
-const float camera_t::near_z = 1.f;
+const float camera_t::near_z = 1;
 camera_draw_mode camera_t::draw_mode = cd_texture;
 
 inline Matrix4 projection_for_camera( float near_z, float far_z, float fieldOfView, int width, int height ){
-	float half_width = static_cast<float>( near_z * tan( degrees_to_radians( fieldOfView * 0.5 ) ) );
+	float half_width = near_z * tan( degrees_to_radians( fieldOfView * 0.5 ) );
 	const bool swap = height > width;
 	if( swap )
 		std::swap( width, height );
@@ -302,7 +300,7 @@ void Camera_updateProjection( camera_t& camera ){
 }
 
 void Camera_updateVectors( camera_t& camera ){
-	for ( int i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 	{
 		camera.vright[i] = camera.modelview[( i << 2 ) + 0];
 		camera.vup[i] = camera.modelview[( i << 2 ) + 1];
@@ -331,8 +329,8 @@ void Camera_Move_updateAxes( camera_t& camera ){
 	double ya = degrees_to_radians( camera.angles[CAMERA_YAW] );
 
 	// the movement matrix is kept 2d
-	camera.forward[0] = static_cast<float>( cos( ya ) );
-	camera.forward[1] = static_cast<float>( sin( ya ) );
+	camera.forward[0] = cos( ya );
+	camera.forward[1] = sin( ya );
 	camera.forward[2] = 0;
 	camera.right[0] = camera.forward[1];
 	camera.right[1] = -camera.forward[0];
@@ -390,12 +388,7 @@ void Camera_FreeMove( camera_t& camera, int dx, int dy ){
 
 		camera.angles[CAMERA_YAW] += dx * dtime * g_camwindow_globals_private.m_angleSpeed;
 
-		if ( camera.angles[CAMERA_PITCH] > 90 ) {
-			camera.angles[CAMERA_PITCH] = 90;
-		}
-		else if ( camera.angles[CAMERA_PITCH] < -90 ) {
-			camera.angles[CAMERA_PITCH] = -90;
-		}
+		camera.angles[CAMERA_PITCH] = std::clamp( camera.angles[CAMERA_PITCH], -90.f, 90.f );
 
 		if ( camera.angles[CAMERA_YAW] >= 360 ) {
 			camera.angles[CAMERA_YAW] -= 360;
@@ -704,14 +697,14 @@ public:
 		m_view->Construct( m_camera.projection, m_camera.modelview, m_camera.width, m_camera.height );
 		m_update();
 	}
-	void setModelview( const Matrix4& modelview ){
+	void setModelview( const Matrix4& modelview ) override {
 		m_camera.modelview = modelview;
 		matrix4_multiply_by_matrix4( m_camera.modelview, g_radiant2opengl );
 		matrix4_affine_invert( m_camera.modelview );
 		Camera_updateVectors( m_camera );
 		update();
 	}
-	void setFieldOfView( float fieldOfView ){
+	void setFieldOfView( float fieldOfView ) override {
 		float farClip = Camera_getFarClipPlane( m_camera );
 		m_camera.projection = projection_for_camera( camera_t::near_z, farClip, fieldOfView, m_camera.width, m_camera.height );
 		update();
@@ -822,7 +815,7 @@ class RenderableCamWorkzone : public OpenGLRenderable
 	mutable std::array<Colour4b, 9999> m_colorarr0[3];
 	mutable std::array<Colour4b, 9999> m_colorarr1[3];
 public:
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		gl().glEnableClientState( GL_EDGE_FLAG_ARRAY );
 
 		const AABB bounds = GlobalSelectionSystem().getBoundsSelected();
@@ -1219,7 +1212,7 @@ static void selection_button_release_freemove( QWidget* widget, const QMouseEven
 }
 
 void CamWnd::selection_motion_freemove( const MotionDeltaValues& delta ){
-	m_rightClickMove += sqrt( static_cast<double>( delta.x * delta.x + delta.y * delta.y ) );
+	m_rightClickMove += sqrt( delta.x * delta.x + delta.y * delta.y );
 	m_window_observer->incMouseMove( WindowVector( delta.x, delta.y ) );
 	m_window_observer->onMouseMotion( windowvector_for_widget_centre( m_gl_widget ), modifiers_for_state( delta.mouseMoveEvent.modifiers() ) );
 }
@@ -1233,7 +1226,7 @@ void camera_orbit_scroll( camera_t& camera ){
 	float offset = vector3_length( camera.m_orbit_center - camera.m_orbit_initial_pos );
 	const int off = camera.m_orbit_offset;
 	if( off < 0 || off > 16 ){
-		offset -= offset * off / 8 * pow( 2.0f, static_cast<float>( off < 0 ? -off : off - 16 ) / 8.f );
+		offset -= offset * off / 8 * pow( 2.0f, ( off < 0 ? -off : off - 16 ) / 8.f );
 	}
 	else if( off == 8 ){
 		offset = std::min( 8.f, offset / 16.f ); //prevent zero offset, resulting in NAN viewvector in the next scroll step
@@ -1257,7 +1250,7 @@ two alt solutions:
 		Vector3 normalized;
 		normalized[0] = ( ( 2.0f * x ) / cam.width ) - 1.0f; // window_to_normalised_device
 		normalized[1] = ( ( 2.0f * ( cam.height - 1 - y ) ) / cam.height ) - 1.0f;
-		normalized[2] = -1.f;
+		normalized[2] = -1;
 		normalized = vector4_projected( matrix4_transformed_vector4( screen2world, Vector4( normalized, 1 ) ) );
 */
 static void camera_zoom( CamWnd& camwnd, float x, float y, float step ){
@@ -1271,10 +1264,10 @@ static void camera_zoom( CamWnd& camwnd, float x, float y, float step ){
 
 		Vector3 normalized;
 
-		normalized[0] = 2.0f * x / cam.width - 1.0f;
-		normalized[1] = 2.0f * y / cam.height - 1.0f;
-		normalized[1] *= -1.f;
-		normalized[2] = 0.f;
+		normalized[0] = 2.f * x / cam.width - 1.f;
+		normalized[1] = 2.f * y / cam.height - 1.f;
+		normalized[1] *= -1;
+		normalized[2] = 0;
 
 		normalized *= ( camera_t::near_z * 2.f );
 			//globalOutputStream() << normalized << " normalized    ";
@@ -1722,7 +1715,7 @@ public:
 	FloorHeightWalker( const Vector3& current ) :
 		m_current( current ), m_bestUp( g_MaxWorldCoord ), m_bestDown( g_MinWorldCoord ), m_bottom( g_MaxWorldCoord ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if( !path.top().get().visible() )
 			return false;
 		if ( !path.top().get().isRoot() && !node_is_group( path.top() ) ) {
@@ -1844,31 +1837,31 @@ public:
 		m_state_stack.push_back( state_type() );
 	}
 
-	void SetState( Shader* state, EStyle style ){
+	void SetState( Shader* state, EStyle style ) override {
 		ASSERT_NOTNULL( state );
 		if ( style == eFullMaterials ) {
 			m_state_stack.back().m_state = state;
 		}
 	}
-	EStyle getStyle() const {
+	EStyle getStyle() const override {
 		return eFullMaterials;
 	}
-	void PushState(){
+	void PushState() override {
 		m_state_stack.push_back( m_state_stack.back() );
 	}
-	void PopState(){
+	void PopState() override {
 		ASSERT_MESSAGE( !m_state_stack.empty(), "popping empty stack" );
 		m_state_stack.pop_back();
 	}
-	void Highlight( EHighlightMode mode, bool bEnable = true ){
+	void Highlight( EHighlightMode mode, bool bEnable = true ) override {
 		( bEnable )
 		? m_state_stack.back().m_highlight |= mode
 		: m_state_stack.back().m_highlight &= ~mode;
 	}
-	void setLights( const LightList& lights ){
+	void setLights( const LightList& lights ) override {
 		m_state_stack.back().m_lights = &lights;
 	}
-	void addRenderable( const OpenGLRenderable& renderable, const Matrix4& world ){
+	void addRenderable( const OpenGLRenderable& renderable, const Matrix4& world ) override {
 		if ( m_state_stack.back().m_highlight & ePrimitive ) {
 			m_state_select0->addRenderable( renderable, world, m_state_stack.back().m_lights );
 		}
@@ -1971,11 +1964,11 @@ void CamWnd::Cam_Draw(){
 		GLfloat inverse_cam_dir[4], ambient[4], diffuse[4]; //, material[4];
 
 		ambient[0] = ambient[1] = ambient[2] = 0.4f;
-		ambient[3] = 1.0f;
+		ambient[3] = 1;
 		diffuse[0] = diffuse[1] = diffuse[2] = 0.4f;
-		diffuse[3] = 1.0f;
+		diffuse[3] = 1;
 		//material[0] = material[1] = material[2] = 0.8f;
-		//material[3] = 1.0f;
+		//material[3] = 1;
 
 		inverse_cam_dir[0] = m_Camera.vpn[0];
 		inverse_cam_dir[1] = m_Camera.vpn[1];
@@ -2065,9 +2058,9 @@ void CamWnd::Cam_Draw(){
 	gl().glDisable( GL_BLEND );
 	gl().glMatrixMode( GL_PROJECTION );
 	gl().glLoadIdentity();
-	gl().glOrtho( 0, (float)m_Camera.width, 0, (float)m_Camera.height, -100, 100 );
+	gl().glOrtho( 0, m_Camera.width, 0, m_Camera.height, -100, 100 );
 	gl().glScalef( 1, -1, 1 );
-	gl().glTranslatef( 0, -(float)m_Camera.height, 0 );
+	gl().glTranslatef( 0, -m_Camera.height, 0 );
 	gl().glMatrixMode( GL_MODELVIEW );
 	gl().glLoadIdentity();
 
@@ -2086,25 +2079,33 @@ void CamWnd::Cam_Draw(){
 
 	// draw the crosshair
 	if ( m_bFreeMove ) {
-		gl().glBegin( GL_LINES );
-		gl().glVertex2f( (float)m_Camera.width / 2.f, (float)m_Camera.height / 2.f + 6 );
-		gl().glVertex2f( (float)m_Camera.width / 2.f, (float)m_Camera.height / 2.f + 2 );
-		gl().glVertex2f( (float)m_Camera.width / 2.f, (float)m_Camera.height / 2.f - 6 );
-		gl().glVertex2f( (float)m_Camera.width / 2.f, (float)m_Camera.height / 2.f - 2 );
-		gl().glVertex2f( (float)m_Camera.width / 2.f + 6, (float)m_Camera.height / 2.f );
-		gl().glVertex2f( (float)m_Camera.width / 2.f + 2, (float)m_Camera.height / 2.f );
-		gl().glVertex2f( (float)m_Camera.width / 2.f - 6, (float)m_Camera.height / 2.f );
-		gl().glVertex2f( (float)m_Camera.width / 2.f - 2, (float)m_Camera.height / 2.f );
-		gl().glEnd();
+		 // .5 coords for exact pixel rendering
+		const Vector2 cent( ( m_Camera.width + 1 ) / 2 + .5f, ( m_Camera.height + 1 ) / 2 + .5f );
+		constexpr float a = 6.5, b = 2.5;
+		for( float f : { 0.f, 1.f } )
+		{
+			gl().glColor3f( f, f, f );
+			const Vector2 verts[]{
+				cent + Vector2(  0,  a ) - Vector2( f, f ),
+				cent + Vector2(  0,  b ) - Vector2( f, f ),
+				cent + Vector2(  0, -a ) - Vector2( f, f ),
+				cent + Vector2(  0, -b ) - Vector2( f, f ),
+				cent + Vector2(  a,  0 ) - Vector2( f, f ),
+				cent + Vector2(  b,  0 ) - Vector2( f, f ),
+				cent + Vector2( -a,  0 ) - Vector2( f, f ),
+				cent + Vector2( -b,  0 ) - Vector2( f, f ) };
+			gl().glVertexPointer( 2, GL_FLOAT, sizeof( *verts ), verts->data() );
+			gl().glDrawArrays( GL_LINES, 0, std::size( verts ) );
+		}
 	}
 
 	if ( g_camwindow_globals.m_showStats ) {
-		gl().glRasterPos3f( 1.0f, static_cast<float>( m_Camera.height ), 0.0f );
+		gl().glRasterPos3f( 1, m_Camera.height, 0 );
 		extern const char* Renderer_GetStats( int frame2frame );
 		GlobalOpenGL().drawString( Renderer_GetStats( m_render_time.elapsed_msec() ) );
 		m_render_time.start();
 
-		gl().glRasterPos3f( 1.0f, static_cast<float>( m_Camera.height ) - GlobalOpenGL().m_font->getPixelHeight(), 0.0f );
+		gl().glRasterPos3f( 1, m_Camera.height - GlobalOpenGL().m_font->getPixelHeight(), 0 );
 		extern const char* Cull_GetStats();
 		GlobalOpenGL().drawString( Cull_GetStats() );
 	}
@@ -2128,12 +2129,12 @@ void CamWnd::draw(){
 void CamWnd::BenchMark(){
 	Timer timer;
 	timer.start();
-	for ( int i = 0; i < 100; i++ )
+	for ( int i = 0; i < 100; ++i )
 	{
 		Vector3 angles;
 		angles[CAMERA_ROLL] = 0;
 		angles[CAMERA_PITCH] = 0;
-		angles[CAMERA_YAW] = static_cast<float>( i * ( 360.0 / 100.0 ) );
+		angles[CAMERA_YAW] = i * ( 360.0 / 100.0 );
 		Camera_setAngles( *this, angles );
 	}
 	globalOutputStream() << timer.elapsed_msec() << " milliseconds\n";
@@ -2144,7 +2145,7 @@ void GlobalCamera_ResetAngles(){
 	CamWnd& camwnd = *g_camwnd;
 	Vector3 angles;
 	angles[CAMERA_ROLL] = angles[CAMERA_PITCH] = 0;
-	angles[CAMERA_YAW] = static_cast<float>( 22.5 * floor( ( Camera_getAngles( camwnd )[CAMERA_YAW] + 11 ) / 22.5 ) );
+	angles[CAMERA_YAW] = 22.5 * floor( ( Camera_getAngles( camwnd )[CAMERA_YAW] + 11 ) / 22.5 );
 	Camera_setAngles( camwnd, angles );
 }
 
@@ -2168,10 +2169,10 @@ Vector3 Camera_getFocusPos( camera_t& camera ){
 #endif
 
 	const Plane3 frustumPlanes[4] = {
-		plane3_translated( view.getFrustum().left,   camorigin - aabb.origin ),
-		plane3_translated( view.getFrustum().right,  camorigin - aabb.origin ),
-		plane3_translated( view.getFrustum().top,    camorigin - aabb.origin ),
-		plane3_translated( view.getFrustum().bottom, camorigin - aabb.origin ),
+		plane3_translated( view.getFrustum().left,   aabb.origin - camorigin ),
+		plane3_translated( view.getFrustum().right,  aabb.origin - camorigin ),
+		plane3_translated( view.getFrustum().top,    aabb.origin - camorigin ),
+		plane3_translated( view.getFrustum().bottom, aabb.origin - camorigin ),
 	};
 	float offset = 64.0f;
 
@@ -2192,7 +2193,7 @@ Vector3 Camera_getFocusPos( camera_t& camera ){
 
 	const int off = camera.m_focus_offset;
 	if( off < 0 || off > 16 ){
-		offset -= offset * off / 8 * pow( 2.0f, static_cast<float>( off < 0 ? -off : off - 16 ) / 8.f );
+		offset -= offset * off / 8 * pow( 2.0f, ( off < 0 ? -off : off - 16 ) / 8.f );
 	}
 	else{
 		offset -= offset * off / 8;
@@ -2286,8 +2287,10 @@ camera_draw_mode CamWnd_GetMode(){
 	return camera_t::draw_mode;
 }
 void CamWnd_SetMode( camera_draw_mode mode ){
-	ShaderCache_setBumpEnabled( mode == cd_lighting );
-	camera_t::draw_mode = mode;
+	// workaround cd_lighting not being correctly applied on start (fixme?)
+	camera_t::draw_mode = ( g_camwnd == 0 && mode == cd_lighting )? cd_texture : mode;
+
+	ShaderCache_setBumpEnabled( camera_t::draw_mode == cd_lighting );
 	if ( g_camwnd != 0 ) {
 		CamWnd_Update( *g_camwnd );
 	}
@@ -2347,7 +2350,7 @@ void GlobalCamera_LookThroughCamera(){
 
 
 void RenderModeImport( int value ){
-	CamWnd_SetMode( static_cast<camera_draw_mode>( ( value < 0 || value >= camera_draw_mode_count)? 2 : value ) );
+	CamWnd_SetMode( static_cast<camera_draw_mode>( ( value < 0 || value >= camera_draw_mode_count )? cd_texture : value ) );
 }
 typedef FreeCaller<void(int), RenderModeImport> RenderModeImportCaller;
 
@@ -2503,8 +2506,8 @@ void CamWnd_Construct(){
 	GlobalCommands_insert( "CameraModeNext", makeCallbackF( CameraModeNext ), QKeySequence( "Shift+]" ) );
 	GlobalCommands_insert( "CameraModePrev", makeCallbackF( CameraModePrev ), QKeySequence( "Shift+[" ) );
 
-	GlobalCommands_insert( "CameraSpeedInc", makeCallbackF( CameraSpeed_increase ), QKeySequence( Qt::SHIFT + Qt::Key_Plus + Qt::KeypadModifier ) );
-	GlobalCommands_insert( "CameraSpeedDec", makeCallbackF( CameraSpeed_decrease ), QKeySequence( Qt::SHIFT + Qt::Key_Minus + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "CameraSpeedInc", makeCallbackF( CameraSpeed_increase ), QKeySequence( +Qt::SHIFT + Qt::Key_Plus + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "CameraSpeedDec", makeCallbackF( CameraSpeed_decrease ), QKeySequence( +Qt::SHIFT + Qt::Key_Minus + Qt::KeypadModifier ) );
 
 	GlobalShortcuts_insert( "CameraForward", QKeySequence( "Up" ) );
 	GlobalShortcuts_insert( "CameraBack", QKeySequence( "Down" ) );

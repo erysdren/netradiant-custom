@@ -30,7 +30,6 @@
 #include "debugging/debugging.h"
 
 #include "ifilesystem.h"
-#include "iundo.h"
 #include "igl.h"
 #include "iarchive.h"
 #include "moduleobserver.h"
@@ -54,6 +53,7 @@
 #include <QSplitter>
 #include <QOpenGLWidget>
 #include <QTabWidget>
+#include <QClipboard>
 
 #include "signal/signal.h"
 #include "math/vector.h"
@@ -62,38 +62,26 @@
 #include "shaderlib.h"
 #include "os/file.h"
 #include "os/path.h"
-#include "stream/memstream.h"
-#include "stream/textfilestream.h"
 #include "stream/stringstream.h"
-#include "commandlib.h"
-#include "texmanip.h"
 #include "textures.h"
 
-#include "gtkutil/menu.h"
-#include "gtkutil/nonmodal.h"
 #include "gtkutil/cursor.h"
 #include "gtkutil/widget.h"
 #include "gtkutil/glwidget.h"
 #include "gtkutil/messagebox.h"
 #include "gtkutil/toolbar.h"
+#include "gtkutil/image.h"
 #include "gtkutil/mousepresses.h"
 #include "gtkutil/guisettings.h"
 
 #include "error.h"
-#include "map.h"
 #include "qgl.h"
 #include "select.h"
-#include "brush_primit.h"
-#include "brushmanip.h"
-#include "patchmanip.h"
 #include "plugin.h"
-#include "qe3.h"
 #include "gtkdlgs.h"
 #include "gtkmisc.h"
 #include "mainframe.h"
 #include "findtexturedialog.h"
-#include "surfacedialog.h"
-#include "patchdialog.h"
 #include "groupdialog.h"
 #include "preferences.h"
 #include "commands.h"
@@ -179,10 +167,11 @@ public:
 	QStandardItemModel* m_treeViewModel;
 	QListWidget* m_tagsListWidget;
 	QMenu* m_tagsMenu;
-	QAction* m_shader_info_item{};
 	QLineEdit* m_filter_entry;
 	QAction* m_filter_action;
 	CopiedString m_filter_string;
+
+	std::vector<CopiedString> m_recent_folders;
 
 	std::set<CopiedString> m_all_tags;
 	std::vector<CopiedString> m_copied_tags;
@@ -219,6 +208,7 @@ public:
 	bool m_searchedTags;    // flag to show m_found_shaders
 	bool m_tags;            // whether to show tags gui
 	bool m_move_started;
+	int m_move_amount;
 	// The uniform size (in pixels) that textures are resized to when m_resizeTextures is true.
 	int m_uniformTextureSize;
 	int m_uniformTextureMinSize;
@@ -390,16 +380,6 @@ void TextureBrowser_SetSelectedShader( TextureBrowser& textureBrowser, const cha
 		FindTextureDialog_selectTexture( shader );
 	}
 
-	// disable the menu item "shader info" if no shader was selected
-	if ( textureBrowser.m_shader_info_item != nullptr ){
-		IShader* ishader = QERApp_Shader_ForName( shader );
-		CopiedString filename = ishader->getShaderFileName();
-
-		textureBrowser.m_shader_info_item->setDisabled( filename.empty() );
-
-		ishader->DecRef();
-	}
-
 	if( textureBrowser.m_tabs->currentIndex() == 1 )
 		TextureBrowser_tagsSetCheckboxesForShader( shader );
 }
@@ -555,10 +535,10 @@ class ShadersObserver : public ModuleObserver
 {
 	Signal0 m_realiseCallbacks;
 public:
-	void realise(){
+	void realise() override {
 		m_realiseCallbacks();
 	}
-	void unrealise(){
+	void unrealise() override {
 	}
 	void insert( const SignalHandler& handler ){
 		m_realiseCallbacks.connectLast( handler );
@@ -630,7 +610,7 @@ inline bool texture_name_ignore( const char* name ){
 class LoadShaderVisitor : public Archive::Visitor
 {
 public:
-	void visit( const char* name ){
+	void visit( const char* name ) override {
 		IShader* shader = QERApp_Shader_ForName( CopiedString( PathExtensionless( name ) ).c_str() );
 		shader->DecRef();
 	}
@@ -649,6 +629,22 @@ void TextureBrowser_updateTitle(){
 	GroupDialog_updatePageTitle( g_page_textures );
 }
 
+
+
+void TextureBrowser_trackRecentFolders( const char *folder ){
+	auto& fs = g_TexBro.m_recent_folders;
+	for( auto i = fs.begin(); i != fs.end(); ++i ){
+		if( string_equal( i->c_str(), folder ) ){
+			auto f = std::move( *i ); // note correct move is important here to not deallocate m_recent_folders string, it may be passed as input
+			fs.erase( i );
+			fs.push_back( std::move( f ) );
+			return;
+		}
+	}
+	if( fs.size() >= 25 )
+		fs.erase( fs.begin() );
+	fs.push_back( folder );
+}
 
 
 class TextureCategoryLoadShader
@@ -700,7 +696,7 @@ public:
 	LoadTexturesByTypeVisitor( const char* dirstring )
 		: m_dirstring( dirstring ){
 	}
-	void visit( const char* minor, const _QERPlugImageTable& table ) const {
+	void visit( const char* minor, const _QERPlugImageTable& table ) const override {
 		GlobalFileSystem().forEachFile( m_dirstring, minor, TextureDirectoryLoadTextureCaller( m_dirstring ) );
 	}
 };
@@ -711,12 +707,12 @@ void TextureBrowser_ShowDirectory( const char* directory ){
 		Archive* archive = GlobalFileSystem().getArchive( directory );
 		//ASSERT_NOTNULL( archive );
 		if( archive ){
-			globalOutputStream() << "Loading " << makeQuoted( directory ) << " wad file.\n";
+			globalOutputStream() << "Loading " << Quoted( directory ) << " wad file.\n";
 			LoadShaderVisitor visitor;
 			archive->forEachFile( Archive::VisitorFunc( visitor, Archive::eFiles, 0 ), "textures/" );
 		}
 		else{
-			globalErrorStream() << "Attempted to load " << makeQuoted( directory ) << " wad file.\n";
+			globalErrorStream() << "Attempted to load " << Quoted( directory ) << " wad file.\n";
 		}
 	}
 	else
@@ -733,9 +729,22 @@ void TextureBrowser_ShowDirectory( const char* directory ){
 		}
 	}
 
+	TextureBrowser_trackRecentFolders( directory );
+
 	TextureBrowser_SetHideUnused( g_TexBro, false );
 	g_TexBro.setOriginY( 0 );
 	TextureBrowser_updateTitle();
+}
+/* loads directory, containing a shader + focuses on it */
+void TextureBrowser_ShowDirectoryOfShader( TextureBrowser& texBro, const char* shader ){
+	const StringRange range( strchr( shader, '/' ) + 1, strrchr( shader, '/' ) + 1 );
+	if( !range.empty() ){
+		const CopiedString dir = range;
+		ScopeDisableScreenUpdates disableScreenUpdates( dir.c_str(), "Loading Textures" );
+		TextureBrowser_ShowDirectory( dir.c_str() );
+		TextureBrowser_Focus( texBro, shader );
+		texBro.queueDraw();
+	}
 }
 
 
@@ -865,9 +874,11 @@ void TextureBrowser_Tracking_MouseUp( TextureBrowser& textureBrowser ){
 void TextureBrowser_Tracking_MouseDown( TextureBrowser& textureBrowser ){
 	TextureBrowser_Tracking_MouseUp( textureBrowser );
 	textureBrowser.m_move_started = true;
+	textureBrowser.m_move_amount = 0;
 	textureBrowser.m_freezePointer.freeze_pointer( textureBrowser.m_gl_widget,
 		[&textureBrowser]( int x, int y, const QMouseEvent *event ){
 			if ( y != 0 ) {
+				textureBrowser.m_move_amount += std::abs( y );
 				const int scale = event->modifiers().testFlag( Qt::KeyboardModifier::ShiftModifier )? 4 : 1;
 				const int originy = textureBrowser.getOriginY() + y * scale;
 				textureBrowser.setOriginY( originy );
@@ -1091,7 +1102,7 @@ void TextureBrowser_ToggleHideUnused(){
 }
 
 void TextureGroups_constructTreeModel( TextureGroups groups, QStandardItemModel* model ){
-	auto root = model->invisibleRootItem();
+	auto *root = model->invisibleRootItem();
 
 	TextureGroups::const_iterator i = groups.begin();
 	while ( i != groups.end() )
@@ -1104,13 +1115,13 @@ void TextureGroups_constructTreeModel( TextureGroups groups, QStandardItemModel*
 		if ( firstUnderscore != 0
 		  && next != groups.end()
 		  && string_equal_start( ( *next ).c_str(), dirRoot ) ) {
-			auto subroot = new QStandardItem( CopiedString( StringRange( dirName, firstUnderscore ) ).c_str() );
+			auto *subroot = new QStandardItem( CopiedString( StringRange( dirName, firstUnderscore ) ).c_str() );
 			root->appendRow( subroot );
 
 			// keep going...
 			while ( i != groups.end() && string_equal_start( ( *i ).c_str(), dirRoot ) )
 			{
-				auto item = new QStandardItem( ( *i ).c_str() );
+				auto *item = new QStandardItem( ( *i ).c_str() );
 				item->setData( ( *i ).c_str(), Qt::ItemDataRole::ToolTipRole );
 				subroot->appendRow( item );
 				++i;
@@ -1118,7 +1129,7 @@ void TextureGroups_constructTreeModel( TextureGroups groups, QStandardItemModel*
 		}
 		else
 		{
-			auto item = new QStandardItem( dirName );
+			auto *item = new QStandardItem( dirName );
 			item->setData( dirName, Qt::ItemDataRole::ToolTipRole );
 			root->appendRow( item );
 			++i;
@@ -1127,7 +1138,7 @@ void TextureGroups_constructTreeModel( TextureGroups groups, QStandardItemModel*
 }
 
 void TextureGroups_constructTreeModel_childless( TextureGroups groups, QStandardItemModel* model ){
-	auto root = model->invisibleRootItem();
+	auto *root = model->invisibleRootItem();
 
 	TextureGroups::const_iterator i = groups.begin();
 	while ( i != groups.end() )
@@ -1137,7 +1148,7 @@ void TextureGroups_constructTreeModel_childless( TextureGroups groups, QStandard
 		const char* pakNameEnd = strrchr( dirName, '.' );
 		ASSERT_MESSAGE( pakName != 0 && pakNameEnd != 0 && pakNameEnd > pakName, "interesting wad path" );
 		{
-			auto item = new QStandardItem( CopiedString( StringRange( pakName + 1, pakNameEnd ) ).c_str() );
+			auto *item = new QStandardItem( CopiedString( StringRange( pakName + 1, pakNameEnd ) ).c_str() );
 			item->setData( dirName, Qt::ItemDataRole::ToolTipRole );
 			root->appendRow( item );
 			++i;
@@ -1164,7 +1175,7 @@ void TextureBrowser_constructTreeStore(){
 	TextureGroups groups;
 	TextureGroups_constructTreeView( groups );
 
-	auto model = new QStandardItemModel( g_TexBro.m_treeView ); //. ? delete old or clear() & reuse
+	auto *model = new QStandardItemModel( g_TexBro.m_treeView ); //. ? delete old or clear() & reuse
 
 	// store display name in column #0 and load path in data( Qt::ItemDataRole::ToolTipRole )
 	// tooltips are only wanted for TextureBrowser::wads, but well
@@ -1221,7 +1232,7 @@ void TextureBrowser_createTreeViewTree(){
 }
 
 static QMenu* TextureBrowser_constructViewMenu(){
-	QMenu *menu = new QMenu( "View" );
+	auto *menu = new QMenu( "View" );
 
 	menu->setTearOffEnabled( g_Layout_enableDetachableMenus.m_value );
 
@@ -1255,12 +1266,6 @@ static QMenu* TextureBrowser_constructViewMenu(){
 	menu->addSeparator();
 	create_check_menu_item_with_mnemonic( menu, "Tags GUI", "TagsToggleGui" );
 
-	if ( !TextureBrowser::wads ) {
-		menu->addSeparator();
-		g_TexBro.m_shader_info_item = create_menu_item_with_mnemonic( menu, "Shader Info", "ShaderInfo" );
-		g_TexBro.m_shader_info_item->setDisabled( true );
-	}
-
 	return menu;
 }
 
@@ -1270,7 +1275,7 @@ XmlTagBuilder TagBuilder;
 
 
 static QMenu* TextureBrowser_constructTagsMenu(){
-	auto menu = new QMenu( "Tags" );
+	auto *menu = new QMenu( "Tags" );
 
 	menu->setTearOffEnabled( g_Layout_enableDetachableMenus.m_value );
 
@@ -1325,7 +1330,7 @@ void TextureBrowser_tagsSetCheckboxesForShader( const char *shader ){
 
 	for( int i = 0; i < g_TexBro.m_tagsListWidget->count(); ++i )
 	{
-		auto item = g_TexBro.m_tagsListWidget->item( i );
+		auto *item = g_TexBro.m_tagsListWidget->item( i );
 		item->setCheckState( contains( item->data( Qt::ItemDataRole::DisplayRole ).toByteArray() )? Qt::CheckState::Checked : Qt::CheckState::Unchecked );
 	}
 }
@@ -1382,7 +1387,7 @@ protected:
 		}
 	}
 	bool editorEvent( QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option, const QModelIndex &index ) override {
-		/* let's do some infamous juggling to track user unduced CheckState change */
+		/* let's do some infamous juggling to track user induced CheckState change */
 		if( event->type() == QEvent::MouseButtonRelease || event->type() == QEvent::KeyPress ){
 			if( const QVariant value = index.data( Qt::ItemDataRole::CheckStateRole ); value.isValid() ){
 				const bool ret = QItemDelegate::editorEvent( event, model, option, index );
@@ -1495,7 +1500,7 @@ void TextureBrowser_addTag(){
 	while( g_TexBro.m_all_tags.contains( tag.c_str() ) )
 		tag( "NewTag", ++index );
 
-	auto item = new QListWidgetItem( tag.c_str() );
+	auto *item = new QListWidgetItem( tag.c_str() );
 	item->setFlags( Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemNeverHasChildren );
 	item->setCheckState( Qt::CheckState::Unchecked ); // is needed to see checkbox
 	g_TexBro.m_tagsListWidget->addItem( item );
@@ -1518,7 +1523,7 @@ void TextureBrowser_deleteTag(){
 	const auto selected = g_TexBro.m_tagsListWidget->selectedItems();
 	if ( !selected.empty() ) {
 		if ( eIDYES == qt_MessageBox( g_TexBro.m_parent, "Are you sure you want to delete the selected tags?", "Delete Tag", EMessageBoxType::Question ) ) {
-			for( auto item : selected ){
+			for( auto *item : selected ){
 				auto tag = item->text().toLatin1();
 				delete item;
 				TagBuilder.DeleteTag( tag.constData() );
@@ -1569,6 +1574,74 @@ void TextureBrowser_pasteTag(){
 }
 
 
+void TextureBrowser_ContextMenu( TextureBrowser& texBro, qreal deviceScale ){
+	// find click pos this way, because mouse release event occurs in the widget center due to freezepointer
+	const QPoint cursorPos = QCursor::pos();
+	const QPoint clickPos = texBro.m_gl_widget->mapFromGlobal( cursorPos ) * deviceScale;
+	// get either clicked or active shader
+	IShader* shader = Texture_At( texBro, clickPos.x(), clickPos.y() );
+	if( shader != nullptr )
+		shader->IncRef();
+	else
+		shader = QERApp_Shader_ForName( texBro.m_shader.c_str() );
+
+	auto *menu = new QMenu( texBro.m_parent );
+	menu->setAttribute( Qt::WA_DeleteOnClose );
+	// copyable shader name
+	menu->addAction( new_local_icon( "copy.png" ), shader->getName(), [&](){
+		QApplication::clipboard()->setText( shader->getName() );
+	} );
+
+	menu->addSeparator();
+
+	menu->addAction( "Open Shader", [&](){
+		DoShaderView( shader->getShaderFileName(), shader->getName(), false );
+	} )->setDisabled( shader->IsDefault() );
+
+	menu->addAction( "Open Shader Externally", [&](){
+		DoShaderView( shader->getShaderFileName(), shader->getName(), true );
+	} )->setDisabled( shader->IsDefault() );
+
+	menu->addAction( "Shader Info", [&](){
+		DoShaderInfoDlg( shader->getName(), shader->getShaderFileName(), "Shader Info" );
+	} )->setDisabled( shader->IsDefault() );
+
+	menu->addSeparator();
+
+	menu->addAction( "Select Textured Objects", [&](){
+		Scene_BrushPatchSelectByShader( shader->getName() );
+	} );
+	menu->addAction( "Select Textured Surfaces", [&](){
+		Select_FacesAndPatchesByShader( shader->getName() );
+	} );
+
+	menu->addSeparator();
+
+	auto *subMenu = menu->addMenu( "-> Recent" );
+	for( const auto& folder : texBro.m_recent_folders ){
+		subMenu->addAction( folder.c_str(), [&texBro, folder = folder.c_str()](){
+			ScopeDisableScreenUpdates disableScreenUpdates( folder, "Loading Textures" );
+			TextureBrowser_ShowDirectory( folder );
+			texBro.queueDraw();
+		} );
+	}
+	subMenu->setDisabled( texBro.m_recent_folders.empty() ); // click empty submenu, then normal = qt warning
+
+	menu->addAction( "-> Shader's Folder", [&](){
+		TextureBrowser_ShowDirectoryOfShader( texBro, shader->getName() );
+	} )->setDisabled( TextureBrowser::wads );
+	// -> common/
+	menu->addAction( QString( "-> " ) + TextureBrowser_getCommonShadersDir(), [&](){
+		ScopeDisableScreenUpdates disableScreenUpdates( TextureBrowser_getCommonShadersDir(), "Loading Textures" );
+		TextureBrowser_ShowDirectory( TextureBrowser_getCommonShadersDir() );
+		texBro.queueDraw();
+	} );
+
+	menu->exec( cursorPos ); // ->popup() kills *&shader
+	shader->DecRef();
+}
+
+
 void TextureBrowser_SetNotex(){
 	g_notex = StringStream( GlobalRadiant().getAppPath(), "bitmaps/notex.png" );
 	g_shadernotex = StringStream( GlobalRadiant().getAppPath(), "bitmaps/shadernotex.png" );
@@ -1586,7 +1659,7 @@ protected:
 	}
 	bool event( QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ){
-			QKeyEvent *keyEvent = static_cast<QKeyEvent*>( event );
+			auto *keyEvent = static_cast<QKeyEvent*>( event );
 			if( keyEvent->key() == Qt::Key_Escape ){
 				clear();
 				event->accept();
@@ -1597,13 +1670,12 @@ protected:
 };
 
 void TextureBrowser_filterSetModeIcon( QAction *action ){
-	action->setIcon( QApplication::style()->standardIcon(
+	action->setIcon( new_local_icon(
 		g_TextureBrowser_filter_searchFromStart
-		? QStyle::StandardPixmap::SP_CommandLink
-		: QStyle::StandardPixmap::SP_FileDialogContentsView ) );
+		? "search_from_start.png"
+		: "search.png" ) );
 }
 
-#include "timer.h"
 
 class TexWndGLWidget : public QOpenGLWidget
 {
@@ -1655,27 +1727,19 @@ protected:
 		}
 	}
 	void mouseDoubleClick( MousePresses::Result press ){
-		/* loads directory, containing active shader + focuses on it */
+		/* load directory, containing active shader + focus on it */
 		if ( press == MousePresses::Left2x && !TextureBrowser::wads ) {
-			const StringRange range( strchr( m_texBro.m_shader.c_str(), '/' ) + 1, strrchr( m_texBro.m_shader.c_str(), '/' ) + 1 );
-			if( !range.empty() ){
-				const CopiedString dir = range;
-				ScopeDisableScreenUpdates disableScreenUpdates( dir.c_str(), "Loading Textures" );
-				TextureBrowser_ShowDirectory( dir.c_str() );
-				TextureBrowser_Focus( m_texBro, m_texBro.m_shader.c_str() );
-				m_texBro.queueDraw();
-			}
+			TextureBrowser_ShowDirectoryOfShader( m_texBro, m_texBro.m_shader.c_str() );
 		}
 		else if ( press == MousePresses::Right2x ) {
-			ScopeDisableScreenUpdates disableScreenUpdates( TextureBrowser_getCommonShadersDir(), "Loading Textures" );
-			TextureBrowser_ShowDirectory( TextureBrowser_getCommonShadersDir() );
-			m_texBro.queueDraw();
 		}
 	}
 	void mouseReleaseEvent( QMouseEvent *event ) override {
 		const auto release = m_mouse.release( event );
 		if ( release == MousePresses::Right ) {
 			TextureBrowser_Tracking_MouseUp( m_texBro );
+			if( m_texBro.m_move_amount < 16 )
+				TextureBrowser_ContextMenu( m_texBro, m_scale );
 		}
 		else if ( release == MousePresses::Left && event->modifiers().testFlag( Qt::KeyboardModifier::ShiftModifier ) ) {
 			TextureBrowser_ViewShader( m_texBro, event->modifiers(), event->x() * m_scale, event->y() * m_scale );
@@ -1703,13 +1767,13 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 
 	g_TexBro.m_parent = toplevel;
 
-	QSplitter *splitter = new QSplitter;
-	QWidget *containerWidgetLeft = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
-	QWidget *containerWidgetRight = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
+	auto *splitter = new QSplitter;
+	auto *containerWidgetLeft = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
+	auto *containerWidgetRight = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
 	splitter->addWidget( containerWidgetLeft );
 	splitter->addWidget( containerWidgetRight );
-	QVBoxLayout *vbox = new QVBoxLayout( containerWidgetLeft );
-	QHBoxLayout *hbox = new QHBoxLayout( containerWidgetRight );
+	auto *vbox = new QVBoxLayout( containerWidgetLeft );
+	auto *hbox = new QHBoxLayout( containerWidgetRight );
 
 	hbox->setContentsMargins( 0, 0, 0, 0 );
 	vbox->setContentsMargins( 0, 0, 0, 0 );
@@ -1718,8 +1782,10 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 
 
 	{	// menu bar
-		QToolBar *toolbar = new QToolBar;
+		auto *toolbar = new QToolBar;
 		vbox->addWidget( toolbar );
+		const int iconSize = toolbar->style()->pixelMetric( QStyle::PixelMetric::PM_SmallIconSize );
+		toolbar->setIconSize( QSize( iconSize, iconSize ) );
 
 		QMenu* menu_view = TextureBrowser_constructViewMenu();
 
@@ -1729,7 +1795,7 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 		//view menu button
 		toolbar_append_button( toolbar, "View", "texbro_view.png", PointerCaller<QMenu, void(), +[]( QMenu *menu ){ menu->popup( QCursor::pos() ); }>( menu_view ) );
 
-		toolbar_append_button( toolbar, "Find / Replace...", "texbro_gtk-find-and-replace.png", "FindReplaceTextures" );
+		toolbar_append_button( toolbar, "Find / Replace...", "texbro_find-replace.png", "FindReplaceTextures" );
 
 		toolbar_append_button( toolbar, "Flush & Reload Shaders", "texbro_refresh.png", "RefreshShaders" );
 	}
@@ -1739,7 +1805,7 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 		entry->setClearButtonEnabled( true );
 		entry->setFocusPolicy( Qt::FocusPolicy::ClickFocus );
 
-		QAction *action = g_TexBro.m_filter_action = entry->addAction( QApplication::style()->standardIcon( QStyle::StandardPixmap::SP_CommandLink ), QLineEdit::LeadingPosition );
+		QAction *action = g_TexBro.m_filter_action = entry->addAction( QIcon(), QLineEdit::LeadingPosition );
 		TextureBrowser_filterSetModeIcon( action );
 		action->setToolTip( "toggle match mode ( start / any position )" );
 
@@ -1759,7 +1825,7 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 		hbox->addWidget( g_TexBro.m_gl_widget );
 	}
 	{	// gl_widget scrollbar
-		auto scroll = g_TexBro.m_texture_scroll = new QScrollBar;
+		auto *scroll = g_TexBro.m_texture_scroll = new QScrollBar;
 		hbox->addWidget( scroll );
 
 		QObject::connect( scroll, &QAbstractSlider::valueChanged, []( int value ){
@@ -1783,7 +1849,7 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 
 		TagBuilder.GetAllTags( g_TexBro.m_all_tags );
 		for ( const CopiedString& tag : g_TexBro.m_all_tags ){
-			auto item = new QListWidgetItem( tag.c_str() );
+			auto *item = new QListWidgetItem( tag.c_str() );
 			item->setFlags( Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemNeverHasChildren );
 			item->setCheckState( Qt::CheckState::Unchecked ); // is needed to see checkbox
 			g_TexBro.m_tagsListWidget->addItem( item );
@@ -1829,15 +1895,6 @@ const Vector3& TextureBrowser_getBackgroundColour(){
 void TextureBrowser_setBackgroundColour( const Vector3& colour ){
 	g_TexBro.m_color_textureback = colour;
 	g_TexBro.queueDraw();
-}
-
-void TextureBrowser_shaderInfo(){
-	const char* name = TextureBrowser_GetSelectedShader();
-	IShader* shader = QERApp_Shader_ForName( name );
-
-	DoShaderInfoDlg( name, shader->getShaderFileName(), "Shader Info" );
-
-	shader->DecRef();
 }
 
 void RefreshShaders(){
@@ -2033,7 +2090,6 @@ typedef ReferenceCaller<TextureBrowser, void(std::size_t), TextureBrowser_setSca
 void TextureClipboard_textureSelected( const char* shader );
 
 void TextureBrowser_Construct(){
-	GlobalCommands_insert( "ShaderInfo", makeCallbackF( TextureBrowser_shaderInfo ) );
 	GlobalCommands_insert( "TagSearchUntagged", makeCallbackF( TextureBrowser_showUntagged ) );
 	GlobalCommands_insert( "TagSearch", makeCallbackF( TextureBrowser_searchTags ) );
 	GlobalCommands_insert( "TagAdd", makeCallbackF( TextureBrowser_addTag ) );

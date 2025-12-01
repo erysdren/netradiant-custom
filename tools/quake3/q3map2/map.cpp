@@ -67,10 +67,10 @@ bool PlaneEqual( const plane_t& p, const Plane3f& plane ){
 	// (the epsilons may be zero).  We want to use '<' instead of '<=' to be
 	// consistent with the true meaning of "epsilon", and also because other
 	// parts of the code uses this inequality.
-	if ( ( p.dist() == plane.dist() || fabs( p.dist() - plane.dist() ) < de ) &&
-	     ( p.normal()[0] == plane.normal()[0] || fabs( p.normal()[0] - plane.normal()[0] ) < ne ) &&
-	     ( p.normal()[1] == plane.normal()[1] || fabs( p.normal()[1] - plane.normal()[1] ) < ne ) &&
-	     ( p.normal()[2] == plane.normal()[2] || fabs( p.normal()[2] - plane.normal()[2] ) < ne ) ) {
+	if ( ( p.dist() == plane.dist() || std::fabs( p.dist() - plane.dist() ) < de ) &&
+	     ( p.normal()[0] == plane.normal()[0] || std::fabs( p.normal()[0] - plane.normal()[0] ) < ne ) &&
+	     ( p.normal()[1] == plane.normal()[1] || std::fabs( p.normal()[1] - plane.normal()[1] ) < ne ) &&
+	     ( p.normal()[2] == plane.normal()[2] || std::fabs( p.normal()[2] - plane.normal()[2] ) < ne ) ) {
 		return true;
 	}
 
@@ -85,7 +85,7 @@ bool PlaneEqual( const plane_t& p, const Plane3f& plane ){
  */
 
 inline void AddPlaneToHash( plane_t& p ){
-	const int hash = ( PLANE_HASHES - 1 ) & (int) fabs( p.dist() );
+	const int hash = ( PLANE_HASHES - 1 ) & (int) std::fabs( p.dist() );
 
 	p.hash_chain = planehash[hash];
 	planehash[hash] = &p - mapplanes.data() + 1;
@@ -138,7 +138,6 @@ static int CreateNewFloatPlane( const Plane3f& plane ){
 
 static bool SnapNormal( Vector3& normal ){
 #if Q3MAP2_EXPERIMENTAL_SNAP_NORMAL_FIX
-	int i;
 	bool adjusted = false;
 
 	// A change from the original SnapNormal() is that we snap each
@@ -152,22 +151,22 @@ static bool SnapNormal( Vector3& normal ){
 	//they cause precision errors
 
 
-	if ( ( normal[0] != 0.0 || normal[1] != 0.0 ) && fabs( normal[0] ) < 0.00025 && fabs( normal[1] ) < 0.00025){
-		normal[0] = normal[1] = 0.0;
+	if ( ( normal[0] != 0 || normal[1] != 0 ) && std::fabs( normal[0] ) < 0.00025f && std::fabs( normal[1] ) < 0.00025f ){
+		normal[0] = normal[1] = 0;
 		adjusted = true;
 	}
-	else if ( ( normal[0] != 0.0 || normal[2] != 0.0 ) && fabs( normal[0] ) < 0.00025 && fabs( normal[2] ) < 0.00025){
-		normal[0] = normal[2] = 0.0;
+	else if ( ( normal[0] != 0 || normal[2] != 0 ) && std::fabs( normal[0] ) < 0.00025f && std::fabs( normal[2] ) < 0.00025f ){
+		normal[0] = normal[2] = 0;
 		adjusted = true;
 	}
-	else if ( ( normal[2] != 0.0 || normal[1] != 0.0 ) && fabs( normal[2] ) < 0.00025 && fabs( normal[1] ) < 0.00025){
-		normal[2] = normal[1] = 0.0;
+	else if ( ( normal[2] != 0 || normal[1] != 0 ) && std::fabs( normal[2] ) < 0.00025f && std::fabs( normal[1] ) < 0.00025f ){
+		normal[2] = normal[1] = 0;
 		adjusted = true;
 	}
 
 
 	/*
-	for ( i = 0; i < 30; i++ )
+	for ( int i = 0; i < 30; ++i )
 	{
 		double x, y, z, length;
 		x = (double) 1.0;
@@ -186,19 +185,18 @@ static bool SnapNormal( Vector3& normal ){
 	Error( "vectorNormalize test completed" );
 	*/
 
-	for ( i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 	{
-		if ( normal[i] != 0.0 && -normalEpsilon < normal[i] && normal[i] < normalEpsilon ) {
-			normal[i] = 0.0;
+		if ( normal[i] != 0 && -normalEpsilon < normal[i] && normal[i] < normalEpsilon ) {
+			normal[i] = 0;
 			adjusted = true;
 		}
 	}
 
-	if ( adjusted ) {
+	if ( adjusted )
 		VectorNormalize( normal );
-		return true;
-	}
-	return false;
+
+	return adjusted;
 #else
 	int i;
 
@@ -207,7 +205,7 @@ static bool SnapNormal( Vector3& normal ){
 
 	/*
 	   Sys_Printf( "normalEpsilon is %f\n", normalEpsilon );
-	   for ( i = 0;; i++ )
+	   for ( i = 0;; ++i )
 	   {
 	    normal[0] = 1.0;
 	    normal[1] = 0.0;
@@ -235,14 +233,14 @@ static bool SnapNormal( Vector3& normal ){
 	// We may consider adjusting the epsilon to a larger value when we make this
 	// code fix.
 
-	for ( i = 0; i < 3; i++ )
+	for ( i = 0; i < 3; ++i )
 	{
-		if ( fabs( normal[ i ] - 1 ) < normalEpsilon ) {
+		if ( std::fabs( normal[ i ] - 1 ) < normalEpsilon ) {
 			normal.set( 0 );
 			normal[ i ] = 1;
 			return true;
 		}
-		if ( fabs( normal[ i ] - -1 ) < normalEpsilon ) {
+		if ( std::fabs( normal[ i ] - -1 ) < normalEpsilon ) {
 			normal.set( 0 );
 			normal[ i ] = -1;
 			return true;
@@ -290,7 +288,7 @@ static void SnapPlane( Plane3f& plane ){
 	// solve so that we can better engineer it (I'm not saying that SnapPlane()
 	// should be removed altogether).  Fix all this snapping code at some point!
 
-	if ( fabs( plane.dist() - std::rint( plane.dist() ) ) < distanceEpsilon ) {
+	if ( std::fabs( plane.dist() - std::rint( plane.dist() ) ) < distanceEpsilon ) {
 		plane.dist() = std::rint( plane.dist() );
 	}
 }
@@ -299,16 +297,19 @@ static void SnapPlane( Plane3f& plane ){
    SnapPlaneImproved()
    snaps a plane to normal/distance epsilons, improved code
  */
-static void SnapPlaneImproved( Plane3f& plane, int numPoints, const Vector3 *points ){
-	if ( SnapNormal( plane.normal() ) ) {
-		if ( numPoints > 0 ) {
+template<class T>
+bool SnapPlaneImproved( Plane3f& plane, const Span<const BasicVector3<T>>& points ){
+	bool adjusted;
+
+	if ( ( adjusted = SnapNormal( plane.normal() ) ) ) {
+		if ( !points.empty() ) {
 			// Adjust the dist so that the provided points don't drift away.
 			DoubleVector3 center( 0 );
-			for ( const Vector3& point : Span( points, numPoints ) )
+			for ( const BasicVector3<T>& point : points )
 			{
 				center += point;
 			}
-			center /= numPoints;
+			center /= points.size();
 			plane.dist() = vector3_dot( plane.normal(), center );
 		}
 	}
@@ -319,9 +320,14 @@ static void SnapPlaneImproved( Plane3f& plane, int numPoints, const Vector3 *poi
 		const float distNearestInt = std::rint( plane.dist() );
 		if ( -distanceEpsilon < plane.dist() - distNearestInt && plane.dist() - distNearestInt < distanceEpsilon ) {
 			plane.dist() = distNearestInt;
+			adjusted = true;
 		}
 	}
+
+	return adjusted;
 }
+template bool SnapPlaneImproved<float>( Plane3f& plane, const Span<const BasicVector3<float>>& points );
+template bool SnapPlaneImproved<double>( Plane3f& plane, const Span<const BasicVector3<double>>& points );
 
 
 
@@ -330,23 +336,23 @@ static void SnapPlaneImproved( Plane3f& plane, int numPoints, const Vector3 *poi
    ydnar: changed to allow a number of test points to be supplied that
    must be within an epsilon distance of the plane
  */
-
-int FindFloatPlane( const Plane3f& inplane, int numPoints, const Vector3 *points ) // NOTE: this has a side effect on the normal. Good or bad?
+template<class T>
+int FindFloatPlane___( const Plane3f& inplane, const Span<const BasicVector3<T>>& points ) // NOTE: this has a side effect on the normal. Good or bad?
 
 #ifdef USE_HASHING
 
 {
 	Plane3f plane( inplane );
 #if Q3MAP2_EXPERIMENTAL_SNAP_PLANE_FIX
-	SnapPlaneImproved( plane, numPoints, points );
+	SnapPlaneImproved( plane, points );
 #else
 	SnapPlane( plane );
 #endif
 	/* hash the plane */
-	const int hash = ( PLANE_HASHES - 1 ) & (int) fabs( plane.dist() );
+	const int hash = ( PLANE_HASHES - 1 ) & (int) std::fabs( plane.dist() );
 
 	/* search the border bins as well */
-	for ( int i = -1; i <= 1; i++ )
+	for ( int i = -1; i <= 1; ++i )
 	{
 		const int h = ( hash + i ) & ( PLANE_HASHES - 1 );
 		for ( int pidx = planehash[ h ] - 1; pidx != -1; pidx = mapplanes[pidx].hash_chain - 1 )
@@ -362,24 +368,17 @@ int FindFloatPlane( const Plane3f& inplane, int numPoints, const Vector3 *points
 			//%	return p - mapplanes;
 
 			/* ydnar: test supplied points against this plane */
-			int j;
-			for ( j = 0; j < numPoints; j++ )
-			{
+			if( std::ranges::all_of( points, [&]( const BasicVector3<T>& point ){ // true for empty
 				// NOTE: When dist approaches 2^16, the resolution of 32 bit floating
 				// point number is greatly decreased.  The distanceEpsilon cannot be
 				// very small when world coordinates extend to 2^16.  Making the
 				// dot product here in 64 bit land will not really help the situation
 				// because the error will already be carried in dist.
-				const double d = fabs( plane3_distance_to_point( p.plane, points[ j ] ) );
-				if ( d != 0.0 && d >= distanceEpsilon ) {
-					break; // Point is too far from plane.
-				}
-			}
-
-			/* found a matching plane */
-			if ( j >= numPoints ) {
-				return pidx;
-			}
+				const double d = std::fabs( plane3_distance_to_point( p.plane, point ) );
+				//% if( d > 0.2 ) Sys_Warning( "plane3_distance_to_point( p.plane, point ) %f\n", d );
+				return d == 0 || d < distanceEpsilon; // Point is not too far from plane.
+			} ) )
+				return pidx; /* found a matching plane */
 		}
 	}
 
@@ -390,16 +389,16 @@ int FindFloatPlane( const Plane3f& inplane, int numPoints, const Vector3 *points
 #else
 
 {
-	int i, j;
+	int i;
 	plane_t *p;
-	Plane3f plane( innormal, dist );
+	Plane3f plane( inplane );
 
 #if Q3MAP2_EXPERIMENTAL_SNAP_PLANE_FIX
-	SnapPlaneImproved( plane, numPoints, points );
+	SnapPlaneImproved( plane, points );
 #else
 	SnapPlane( plane );
 #endif
-	for ( i = 0, p = mapplanes; i < nummapplanes; i++, p++ )
+	for ( i = 0, p = mapplanes.data(); i < mapplanes.size(); ++i, ++p )
 	{
 		if ( !PlaneEqual( *p, plane ) ) {
 			continue;
@@ -409,17 +408,11 @@ int FindFloatPlane( const Plane3f& inplane, int numPoints, const Vector3 *points
 		//%	return i;
 
 		/* ydnar: test supplied points against this plane */
-		for ( j = 0; j < numPoints; j++ )
-		{
-			if ( fabs( plane3_distance_to_point( p->plane, points[ j ] ) ) > distanceEpsilon ) {
-				break;
-			}
-		}
+		if( std::ranges::all_of( points, [&]( const Vector3& point ){ // true for empty
+			return std::fabs( plane3_distance_to_point( p->plane, point ) ) <= distanceEpsilon;
+		} ) )
+			return i; /* found a matching plane */
 
-		/* found a matching plane */
-		if ( j >= numPoints ) {
-			return i;
-		}
 		// TODO: Note that the non-USE_HASHING code does not compute epsilons
 		// for the provided points.  It should do that.  I think this code
 		// is unmaintained because nobody sets USE_HASHING to off.
@@ -429,6 +422,12 @@ int FindFloatPlane( const Plane3f& inplane, int numPoints, const Vector3 *points
 }
 
 #endif
+int FindFloatPlane( const Plane3f& inplane, const Span<const Vector3>& points ){
+	return FindFloatPlane___( inplane, points );
+}
+int FindFloatPlane( const Plane3f& inplane, const Span<const DoubleVector3>& points ){
+	return FindFloatPlane___( inplane, points );
+}
 
 
 
@@ -437,20 +436,13 @@ int FindFloatPlane( const Plane3f& inplane, int numPoints, const Vector3 *points
    takes 3 points and finds the plane they lie in
  */
 
-inline int MapPlaneFromPoints( DoubleVector3 p[3] ){
-#if Q3MAP2_EXPERIMENTAL_HIGH_PRECISION_MATH_FIXES
+inline std::pair<int, Plane3> MapPlaneFromPoints( const DoubleVector3 (&p)[3] ){
 	Plane3 plane;
 	PlaneFromPoints( plane, p );
 	// TODO: A 32 bit float for the plane distance isn't enough resolution
 	// if the plane is 2^16 units away from the origin (the "epsilon" approaches
 	// 0.01 in that case).
-	const Vector3 points[3] = { p[0], p[1], p[2] };
-	return FindFloatPlane( Plane3f( plane ), 3, points );
-#else
-	Plane3f plane;
-	PlaneFromPoints( plane, p );
-	return FindFloatPlane( plane, 3, p );
-#endif
+	return { FindFloatPlane( Plane3f( plane ), p ), plane };
 }
 
 
@@ -474,7 +466,7 @@ static void SetBrushContents( brush_t& b ){
 	/* get the content/compile flags for every side in the brush */
 	for ( ++s; s != b.sides.cend(); ++s )
 	{
-		if ( s->shaderInfo == NULL ) {
+		if ( s->shaderInfo == nullptr ) {
 			continue;
 		}
 		//%	if( s->contentFlags != contentFlags || s->compileFlags != compileFlags )
@@ -542,12 +534,7 @@ static void SetBrushContents( brush_t& b ){
 	}
 
 	/* opaque? */
-	if ( compileFlags & C_TRANSLUCENT ) {
-		b.opaque = false;
-	}
-	else{
-		b.opaque = true;
-	}
+	b.opaque = !( compileFlags & C_TRANSLUCENT );
 
 	/* areaportal? */
 	if ( compileFlags & C_AREAPORTAL ) {
@@ -576,8 +563,8 @@ void AddBrushBevels(){
 	// add the axial planes
 	//
 	size_t order = 0;
-	for ( size_t axis = 0; axis < 3; axis++ ) {
-		for ( int dir = -1; dir <= 1; dir += 2, order++ ) {
+	for ( size_t axis = 0; axis < 3; ++axis ) {
+		for ( int dir = -1; dir <= 1; dir += 2, ++order ) {
 			// see if the plane is already present
 			size_t i = 0;
 			for ( ; i < sides.size(); ++i )
@@ -595,8 +582,8 @@ void AddBrushBevels(){
 					}
 				}
 				#else
-				if ( ( dir > 0 && mapplanes[ sides[i].planenum ].normal()[ axis ] == 1.0f ) ||
-				     ( dir < 0 && mapplanes[ sides[i].planenum ].normal()[ axis ] == -1.0f ) ) {
+				if ( ( dir > 0 && mapplanes[ sides[i].planenum ].normal()[ axis ] == 1 ) ||
+				     ( dir < 0 && mapplanes[ sides[i].planenum ].normal()[ axis ] == -1 ) ) {
 					break;
 				}
 				#endif
@@ -632,12 +619,12 @@ void AddBrushBevels(){
 					}
 				}
 
-				s.planenum = FindFloatPlane( plane, 0, NULL );
+				s.planenum = FindFloatPlane( plane );
 				s.contentFlags = sides[ 0 ].contentFlags;
 				/* handle bevel surfaceflags */
 				for ( const side_t& side : sides ) {
 					for ( const Vector3& point : side.winding ) {
-						if ( fabs( plane.dist() - point[axis] ) < .1f ) {
+						if ( std::fabs( plane.dist() - point[axis] ) < .1f ) {
 							s.surfaceFlags |= ( side.surfaceFlags & surfaceFlagsMask );
 							break;
 						}
@@ -663,15 +650,15 @@ void AddBrushBevels(){
 
 	// test the non-axial plane edges
 	for ( size_t i = 6; i < sides.size(); ++i ) {
-		for ( size_t j = 0; j < sides[i].winding.size(); j++ ) {
-			Vector3 vec = sides[i].winding[j] - sides[i].winding[winding_next( sides[i].winding, j )];
+		for ( size_t j = 0; j < sides[i].winding.size(); ++j ) {
+			Vector3 vec = sides[i].winding[j] - winding_next_point( sides[i].winding, j );
 			if ( VectorNormalize( vec ) < 0.5f ) {
 				continue;
 			}
 			SnapNormal( vec );
-			if ( vec[0] == -1.0f || vec[0] == 1.0f || ( vec[0] == 0.0f && vec[1] == 0.0f )
-			  || vec[1] == -1.0f || vec[1] == 1.0f || ( vec[1] == 0.0f && vec[2] == 0.0f )
-			  || vec[2] == -1.0f || vec[2] == 1.0f || ( vec[2] == 0.0f && vec[0] == 0.0f ) ) {
+			if ( vec[0] == -1 || vec[0] == 1 || ( vec[0] == 0 && vec[1] == 0 )
+			  || vec[1] == -1 || vec[1] == 1 || ( vec[1] == 0 && vec[2] == 0 )
+			  || vec[2] == -1 || vec[2] == 1 || ( vec[2] == 0 && vec[0] == 0 ) ) {
 				continue; // axial, only test non-axial edges
 			}
 
@@ -679,7 +666,7 @@ void AddBrushBevels(){
 			//%	Sys_Printf( "-------------\n" );
 
 			// try the six possible slanted axials from this edge
-			for ( int axis = 0; axis < 3; axis++ ) {
+			for ( int axis = 0; axis < 3; ++axis ) {
 				for ( int dir = -1; dir <= 1; dir += 2 ) {
 					// construct a plane
 					Vector3 vec2( 0 );
@@ -708,7 +695,7 @@ void AddBrushBevels(){
 						if ( w2.empty() ) {
 							continue;
 						}
-						float minBack = 0.0f;
+						float minBack = 0;
 						const auto point_in_front = [&w2, &plane, &minBack](){
 							for ( const Vector3& point : w2 ) {
 								const float d = plane3_distance_to_point( plane, point );
@@ -744,7 +731,7 @@ void AddBrushBevels(){
 					}
 					side_t& s2 = sides.emplace_back();
 
-					s2.planenum = FindFloatPlane( plane, 1, &sides[i].winding[ j ] );
+					s2.planenum = FindFloatPlane( plane, Span( &sides[i].winding[ j ], 1 ) );
 					s2.contentFlags = sides[0].contentFlags;
 					s2.surfaceFlags = ( sides[i].surfaceFlags & surfaceFlagsMask ); /* handle bevel surfaceflags */
 					s2.bevel = true;
@@ -758,15 +745,34 @@ void AddBrushBevels(){
 
 
 static void MergeOrigin( entity_t& ent, const Vector3& origin ){
-	char string[128];
-
 	/* we have not parsed the brush completely yet... */
 	ent.origin = ent.vectorForKey( "origin" ) + origin - ent.originbrush_origin;
 
 	ent.originbrush_origin = origin;
 
-	sprintf( string, "%f %f %f", ent.origin[0], ent.origin[1], ent.origin[2] );
-	ent.setKeyValue( "origin", string );
+	ent.setKeyValue( "origin", ent.origin );
+}
+
+static void FixAreaportalBrush( brush_t& brush, const entity_t& mapEnt ){
+	if( std::ranges::count_if( brush.sides, []( const side_t& side ){ return side.compileFlags & C_AREAPORTAL; } ) > 1 ){
+		Sys_FPrintf( SYS_WRN, "Entity %i, Brush %i: areaportal brush with > 1 areaportal faces\nLeaving one biggest face\n",
+		             mapEnt.mapEntityNum, brush.brushNum );
+
+		side_t *bestSide{};
+		float bestArea{};
+		for( auto& side : brush.sides ){
+			if( side.compileFlags & C_AREAPORTAL ){
+				const float area = WindingArea( side.winding );
+				if( bestArea < area ){
+					bestArea = area;
+					bestSide = &side;
+				}
+			}
+		}
+		for( auto& side : brush.sides )
+			if( bestSide != &side )
+				side.compileFlags &= ~C_AREAPORTAL;
+	}
 }
 
 /*
@@ -805,6 +811,7 @@ static void FinishBrush( bool noCollapseGroups, entity_t& mapEnt ){
 			xml_Select( "areaportals only allowed in world", mapEnt.mapEntityNum, buildBrush.brushNum, false );
 			return;
 		}
+		FixAreaportalBrush( buildBrush, mapEnt );
 	}
 
 	/* add bevel planes */
@@ -821,9 +828,9 @@ static void FinishBrush( bool noCollapseGroups, entity_t& mapEnt ){
 	b.original = &b;
 
 	/* link colorMod volume brushes to the entity directly */
-	if ( b.contentShader != NULL &&
-	     b.contentShader->colorMod != NULL &&
-	     b.contentShader->colorMod->type == EColorMod::Volume ) {
+	if ( b.contentShader != nullptr
+	 && !b.contentShader->colorMod.empty()
+	 &&  b.contentShader->colorMod.front().type == EColorMod::Volume ) {
 		mapEnt.colorModBrushes.push_back( &b );
 	}
 }
@@ -990,8 +997,7 @@ static void ParseRawBrush( bool onlyLights ){
 		Parse1DMatrix( 3, planePoints[ 2 ].data() );
 
 		/* find the plane number */
-		side.planenum = MapPlaneFromPoints( planePoints );
-		PlaneFromPoints( side.plane, planePoints );
+		std::tie( side.planenum, side.plane ) = MapPlaneFromPoints( planePoints );
 
 		/* bp: read the texture matrix */
 		if ( g_brushType == EBrushType::Bp ) {
@@ -1003,13 +1009,13 @@ static void ParseRawBrush( bool onlyLights ){
 		const String64 shader( "textures/", token );
 
 		/* set default flags and values */
-		shaderInfo_t *si = onlyLights? &shaderInfo[ 0 ]
+		shaderInfo_t& si = onlyLights? *shaderInfo.begin()
 		                             : ShaderInfoForShader( shader );
-		side.shaderInfo = si;
-		side.surfaceFlags = si->surfaceFlags;
-		side.contentFlags = si->contentFlags;
-		side.compileFlags = si->compileFlags;
-		side.value = si->value;
+		side.shaderInfo = &si;
+		side.surfaceFlags = si.surfaceFlags;
+		side.contentFlags = si.contentFlags;
+		side.compileFlags = si.compileFlags;
+		side.value        = si.value;
 
 		/* AP or 220? */
 		if ( g_brushType == EBrushType::Undefined ){
@@ -1040,9 +1046,9 @@ static void ParseRawBrush( bool onlyLights ){
 			scale[ 1 ] = atof( token );
 
 			/* ydnar: gs mods: bias texture shift */
-			if ( !si->globalTexture ) {
-				shift[ 0 ] -= ( floor( shift[ 0 ] / si->shaderWidth ) * si->shaderWidth );
-				shift[ 1 ] -= ( floor( shift[ 1 ] / si->shaderHeight ) * si->shaderHeight );
+			if ( !si.globalTexture ) {
+				shift[ 0 ] -= ( floor( shift[ 0 ] / si.shaderWidth ) * si.shaderWidth );
+				shift[ 1 ] -= ( floor( shift[ 1 ] / si.shaderHeight ) * si.shaderHeight );
 			}
 
 			/* get the texture mapping for this texturedef / plane combination */
@@ -1064,8 +1070,8 @@ static void ParseRawBrush( bool onlyLights ){
 			GetToken( false );
 			scale[ 1 ] = atof( token );
 
-			if ( !scale[0] ) scale[0] = 1.f;
-			if ( !scale[1] ) scale[1] = 1.f;
+			if ( !scale[0] ) scale[0] = 1;
+			if ( !scale[1] ) scale[1] = 1;
 			for ( int axis = 0; axis < 2; ++axis )
 				side.vecs[axis].vec3() /= scale[axis];
 		}
@@ -1166,9 +1172,6 @@ static void ParseBrush( bool onlyLights, bool noCollapseGroups, entity_t& mapEnt
 		return;
 	}
 
-	/* set some defaults */
-	buildBrush.portalareas[ 0 ] = -1;
-	buildBrush.portalareas[ 1 ] = -1;
 	/* set map entity and brush numbering */
 	buildBrush.entityNum = mapEnt.mapEntityNum;
 	buildBrush.brushNum = mapPrimitiveNum;
@@ -1206,30 +1209,33 @@ static void ParseBrush( bool onlyLights, bool noCollapseGroups, entity_t& mapEnt
    AdjustBrushesForOrigin()
  */
 
-static void AdjustBrushesForOrigin( entity_t& ent ){
+static void AdjustBrushesForOrigin( entity_t& ent, const Vector3& offset ){
+	if( offset == g_vector3_identity )
+		return;
+
 	/* walk brush list */
 	for ( brush_t& b : ent.brushes )
 	{
-		/* offset brush planes */
+		/* offset brush planes */ // note this leaves potentially unused planes in 'mapplanes' array
 		for ( side_t& side : b.sides )
 		{
-			/* offset side plane */
-			const float newdist = -plane3_distance_to_point( mapplanes[ side.planenum ].plane, ent.originbrush_origin );
-
 			/* find a new plane */
-			side.planenum = FindFloatPlane( mapplanes[ side.planenum ].normal(), newdist, 0, NULL );
-			side.plane.dist() = -plane3_distance_to_point( side.plane, ent.originbrush_origin );
+			side.planenum = FindFloatPlane( plane3_translated( mapplanes[ side.planenum ].plane, offset ) );
+			side.plane = plane3_translated( side.plane, offset );
+
+			for( Vector3& v : side.winding )
+				v += offset;
 		}
 
 		/* rebuild brush windings (ydnar: just offsetting the winding above should be fine) */
-		CreateBrushWindings( b );
+		// CreateBrushWindings( b ); // can be desirable for higher windings precision, but handle already created bevel sides
 	}
 
 	/* walk patch list */
-	for ( parseMesh_t *p = ent.patches; p != NULL; p = p->next )
+	for ( parseMesh_t& p : ent.patches )
 	{
-		for ( bspDrawVert_t& vert : Span( p->mesh.verts, p->mesh.width * p->mesh.height ) )
-			vert.xyz -= ent.originbrush_origin;
+		for ( bspDrawVert_t& vert : Span( p.mesh.verts, p.mesh.numVerts() ) )
+			vert.xyz += offset;
 	}
 }
 
@@ -1244,9 +1250,7 @@ static void AdjustBrushesForOrigin( entity_t& ent ){
 
 static void MoveBrushesToWorld( entity_t& ent ){
 	/* we need to undo the common/origin adjustment, and instead shift them by the entity key origin */
-	ent.originbrush_origin = -ent.origin;
-	AdjustBrushesForOrigin( ent );
-	ent.originbrush_origin.set( 0 );
+	AdjustBrushesForOrigin( ent, ent.origin );
 
 	/* move brushes */
 	for ( brushlist_t::const_iterator next, b = ent.brushes.begin(); b != ent.brushes.end(); b = next )
@@ -1271,15 +1275,7 @@ static void MoveBrushesToWorld( entity_t& ent ){
 	}
 
 	/* move patches */
-	if ( ent.patches != NULL ) {
-		parseMesh_t *pm;
-		for ( pm = ent.patches; pm->next != NULL; pm = pm->next ){};
-
-		pm->next = entities[ 0 ].patches;
-		entities[ 0 ].patches = ent.patches;
-
-		ent.patches = NULL;
-	}
+	entities[ 0 ].patches.splice_after( entities[ 0 ].patches.cbefore_begin(), ent.patches );
 }
 
 
@@ -1297,9 +1293,9 @@ static void SetEntityBounds( entity_t& e ){
 	{
 		minmax.extend( b.minmax );
 	}
-	for ( const parseMesh_t *p = e.patches; p; p = p->next )
+	for ( const parseMesh_t& p : e.patches )
 	{
-		for ( const bspDrawVert_t& vert : Span( p->mesh.verts, p->mesh.width * p->mesh.height ) )
+		for ( const bspDrawVert_t& vert : Span( p.mesh.verts, p.mesh.numVerts() ) )
 			minmax.extend( vert.xyz );
 	}
 
@@ -1312,9 +1308,9 @@ static void SetEntityBounds( entity_t& e ){
 	{
 		b.eMinmax = minmax;
 	}
-	for ( parseMesh_t *p = e.patches; p; p = p->next )
+	for ( parseMesh_t& p : e.patches )
 	{
-		p->eMinmax = minmax;
+		p.eMinmax = minmax;
 	}
 }
 
@@ -1332,7 +1328,7 @@ static void LoadEntityIndexMap( entity_t& e ){
 
 
 	/* this only works with bmodel ents */
-	if ( e.brushes.empty() && e.patches == NULL ) {
+	if ( e.brushes.empty() && e.patches.empty() ) {
 		return;
 	}
 
@@ -1371,7 +1367,7 @@ static void LoadEntityIndexMap( entity_t& e ){
 		/* convert to bytes */
 		const int size = w * h;
 		pixels = safe_malloc( size );
-		for ( int i = 0; i < size; i++ )
+		for ( int i = 0; i < size; ++i )
 		{
 			pixels[ i ] = ( ( pixels32[ i ] & 0xFF ) * numLayers ) / 256;
 			if ( pixels[ i ] >= numLayers ) {
@@ -1385,14 +1381,14 @@ static void LoadEntityIndexMap( entity_t& e ){
 	else
 	{
 		/* load it */
-		Load256Image( indexMapFilename, &pixels, NULL, &w, &h );
+		Load256Image( indexMapFilename, &pixels, nullptr, &w, &h );
 
 		/* debug code */
 		//%	Sys_Printf( "-------------------------------" );
 
 		/* fix up out-of-range values */
 		const int size = w * h;
-		for ( int i = 0; i < size; i++ )
+		for ( int i = 0; i < size; ++i )
 		{
 			if ( pixels[ i ] >= numLayers ) {
 				pixels[ i ] = numLayers - 1;
@@ -1417,8 +1413,7 @@ static void LoadEntityIndexMap( entity_t& e ){
 	}
 
 	/* create a new index map */
-	indexMap_t *im = safe_malloc( sizeof( *im ) );
-	new ( im ) indexMap_t{}; // placement new
+	indexMap_t *im = new indexMap_t{};
 
 	/* set it up */
 	im->w = w;
@@ -1435,11 +1430,11 @@ static void LoadEntityIndexMap( entity_t& e ){
 		for ( int i = 0; i < 256 && !strEmpty( offset ); ++i )
 		{
 			const char *space = strchr( offset, ' ' );
-			if ( space == NULL ) {
+			if ( space == nullptr ) {
 				space = offset + strlen( offset );
 			}
 			im->offsets[ i ] = atof( String64( StringRange( offset, space ) ) );
-			if ( space == NULL ) {
+			if ( space == nullptr ) {
 				break;
 			}
 			offset = space + 1;
@@ -1449,10 +1444,69 @@ static void LoadEntityIndexMap( entity_t& e ){
 	/* store the index map in every brush/patch in the entity */
 	for ( brush_t& b : e.brushes )
 		b.im = im;
-	for ( parseMesh_t *p = e.patches; p != NULL; p = p->next )
-		p->im = im;
+	for ( parseMesh_t& p : e.patches )
+		p.im = im;
 }
 
+EntityCompileParams ParseEntityCompileParams( const entity_t& e, const entity_t *eparent, bool worldShadowGroup ){
+	EntityCompileParams params;
+	const char *classname = e.classname();
+
+	/* worldspawn (and func_groups) default to cast/recv shadows in worldspawn group */
+	if ( worldShadowGroup ) { // or misc_model without non world "_target", "target"
+		//%	Sys_Printf( "World:  %d\n", e.mapEntityNum );
+		params.castShadows = WORLDSPAWN_CAST_SHADOWS;
+		params.recvShadows = WORLDSPAWN_RECV_SHADOWS;
+	}
+	else{    /* other entities don't cast any shadows, but recv worldspawn shadows */
+		//%	Sys_Printf( "Entity: %d\n", e.mapEntityNum );
+		params.castShadows = ENTITY_CAST_SHADOWS;
+		params.recvShadows = ENTITY_RECV_SHADOWS;
+	}
+
+	/* get explicit shadow flags */
+	GetEntityShadowFlags( &e, eparent, &params.castShadows, &params.recvShadows );
+
+	/* ydnar: get lightmap scaling value for this entity */
+	params.lightmapScale = std::max( 0.f, e.floatForKey( "lightmapscale", "_lightmapscale", "_ls" ) );
+	if ( params.lightmapScale != 0 )
+		Sys_Printf( "Entity %d (%s) has lightmap scale of %.4f\n", e.mapEntityNum, classname, params.lightmapScale );
+
+	/* ydnar: get cel shader :) for this entity */
+	if( const char *value; e.read_keyvalue( value, "_celshader" ) ||
+	           entities[ 0 ].read_keyvalue( value, "_celshader" ) ){
+		params.celShader = &ShaderInfoForShader( String64( "textures/", value ) );
+		Sys_Printf( "Entity %d (%s) has cel shader %s\n", e.mapEntityNum, classname, params.celShader->shader.c_str() );
+	}
+	else{
+		params.celShader = globalCelShader.empty() ? nullptr : &ShaderInfoForShader( globalCelShader );
+	}
+
+	/* jal : entity based _shadeangle */
+	params.shadeAngle = std::max( 0.f, e.floatForKey( "_shadeangle",
+	                                      "_smoothnormals", "_sn", "_sa", "_smooth" ) ); /* vortex' aliases */
+	if ( params.shadeAngle != 0 )
+		Sys_Printf( "Entity %d (%s) has shading angle of %.4f\n", e.mapEntityNum, classname, params.shadeAngle );
+
+	/* jal : entity based _samplesize */
+	params.lightmapSampleSize = std::max( 0, e.intForKey( "_lightmapsamplesize", "_samplesize", "_ss" ) );
+	if ( params.lightmapSampleSize != 0 )
+		Sys_Printf( "Entity %d (%s) has lightmap sample size of %d\n", e.mapEntityNum, classname, params.lightmapSampleSize );
+
+	/* ambient */
+	params.ambientColor = e.vectorForKey( "_color" );
+	if ( params.ambientColor == g_vector3_identity )
+		params.ambientColor.set( 1 );
+	else
+		ColorFromSRGB( params.ambientColor );
+
+	params.ambientColor *= e.floatForKey( "_ambient", "ambient" );
+	if ( params.ambientColor != g_vector3_identity )
+		Sys_Printf( "Entity %d (%s) has ambient of %f %f %f\n", e.mapEntityNum, classname,
+		            params.ambientColor[0], params.ambientColor[1], params.ambientColor[2] );
+
+	return params;
+}
 
 
 
@@ -1486,7 +1540,7 @@ static bool ParseMapEntity( bool onlyLights, bool noCollapseGroups, int mapEntit
 	mapEnt.mapEntityNum = mapEntityNum;
 
 	/* loop */
-	while ( 1 )
+	while ( true )
 	{
 		/* get initial token */
 		if ( !GetToken( true ) ) {
@@ -1548,70 +1602,33 @@ static bool ParseMapEntity( bool onlyLights, bool noCollapseGroups, int mapEntit
 	/* ydnar: determine if this is a func_group */
 	const bool funcGroup = striEqual( "func_group", classname );
 
-	/* worldspawn (and func_groups) default to cast/recv shadows in worldspawn group */
-	int castShadows, recvShadows;
-	if ( funcGroup || mapEnt.mapEntityNum == 0 ) {
-		//%	Sys_Printf( "World:  %d\n", mapEnt.mapEntityNum );
-		castShadows = WORLDSPAWN_CAST_SHADOWS;
-		recvShadows = WORLDSPAWN_RECV_SHADOWS;
-	}
-	else{    /* other entities don't cast any shadows, but recv worldspawn shadows */
-		//%	Sys_Printf( "Entity: %d\n", mapEnt.mapEntityNum );
-		castShadows = ENTITY_CAST_SHADOWS;
-		recvShadows = ENTITY_RECV_SHADOWS;
-	}
+	const EntityCompileParams params = ParseEntityCompileParams( mapEnt, nullptr, funcGroup || mapEnt.mapEntityNum == 0 );
 
-	/* get explicit shadow flags */
-	GetEntityShadowFlags( &mapEnt, NULL, &castShadows, &recvShadows );
-
-	/* ydnar: get lightmap scaling value for this entity */
-	const float lightmapScale = std::max( 0.f, mapEnt.floatForKey( "lightmapscale", "_lightmapscale", "_ls" ) );
-	if ( lightmapScale != 0 )
-		Sys_Printf( "Entity %d (%s) has lightmap scale of %.4f\n", mapEnt.mapEntityNum, classname, lightmapScale );
-
-	/* ydnar: get cel shader :) for this entity */
-	shaderInfo_t *celShader;
-	const char *value;
-	if( mapEnt.read_keyvalue( value, "_celshader" ) ||
-	    entities[ 0 ].read_keyvalue( value, "_celshader" ) ){
-		celShader = ShaderInfoForShader( String64( "textures/", value ) );
-		Sys_Printf( "Entity %d (%s) has cel shader %s\n", mapEnt.mapEntityNum, classname, celShader->shader.c_str() );
-	}
-	else{
-		celShader = globalCelShader.empty() ? NULL : ShaderInfoForShader( globalCelShader );
-	}
-
-	/* jal : entity based _shadeangle */
-	const float shadeAngle = std::max( 0.f, mapEnt.floatForKey( "_shadeangle",
-	                                      "_smoothnormals", "_sn", "_sa", "_smooth" ) ); /* vortex' aliases */
-	if ( shadeAngle != 0 )
-		Sys_Printf( "Entity %d (%s) has shading angle of %.4f\n", mapEnt.mapEntityNum, classname, shadeAngle );
-
-	/* jal : entity based _samplesize */
-	const int lightmapSampleSize = std::max( 0, mapEnt.intForKey( "_lightmapsamplesize", "_samplesize", "_ss" ) );
-	if ( lightmapSampleSize != 0 )
-		Sys_Printf( "Entity %d (%s) has lightmap sample size of %d\n", mapEnt.mapEntityNum, classname, lightmapSampleSize );
+	if( mapEnt.mapEntityNum == 0 )
+		SetDefaultAmbientColor( params.ambientColor );
 
 	/* attach stuff to everything in the entity */
 	for ( brush_t& brush : mapEnt.brushes )
 	{
 		brush.entityNum = mapEnt.mapEntityNum;
-		brush.castShadows = castShadows;
-		brush.recvShadows = recvShadows;
-		brush.lightmapSampleSize = lightmapSampleSize;
-		brush.lightmapScale = lightmapScale;
-		brush.celShader = celShader;
-		brush.shadeAngleDegrees = shadeAngle;
+		brush.castShadows        = params.castShadows;
+		brush.recvShadows        = params.recvShadows;
+		brush.lightmapSampleSize = params.lightmapSampleSize;
+		brush.lightmapScale      = params.lightmapScale;
+		brush.celShader          = params.celShader;
+		brush.shadeAngleDegrees  = params.shadeAngle;
+		brush.ambientColor       = params.ambientColor;
 	}
 
-	for ( parseMesh_t *patch = mapEnt.patches; patch != NULL; patch = patch->next )
+	for ( parseMesh_t& patch : mapEnt.patches )
 	{
-		patch->entityNum = mapEnt.mapEntityNum;
-		patch->castShadows = castShadows;
-		patch->recvShadows = recvShadows;
-		patch->lightmapSampleSize = lightmapSampleSize;
-		patch->lightmapScale = lightmapScale;
-		patch->celShader = celShader;
+		patch.entityNum = mapEnt.mapEntityNum;
+		patch.castShadows        = params.castShadows;
+		patch.recvShadows        = params.recvShadows;
+		patch.lightmapSampleSize = params.lightmapSampleSize;
+		patch.lightmapScale      = params.lightmapScale;
+		patch.celShader          = params.celShader;
+		patch.ambientColor       = params.ambientColor;
 	}
 
 	/* ydnar: gs mods: set entity bounds */
@@ -1622,9 +1639,7 @@ static bool ParseMapEntity( bool onlyLights, bool noCollapseGroups, int mapEntit
 
 	/* get entity origin and adjust brushes */
 	mapEnt.origin = mapEnt.vectorForKey( "origin" );
-	if ( mapEnt.originbrush_origin != g_vector3_identity ) {
-		AdjustBrushesForOrigin( mapEnt );
-	}
+	AdjustBrushesForOrigin( mapEnt, -mapEnt.originbrush_origin );
 
 	/* group_info entities are just for editor grouping (fixme: leak!) */
 	if ( !noCollapseGroups && striEqual( "group_info", classname ) ) {
@@ -1697,7 +1712,7 @@ void LoadMapFile( const char *filename, bool onlyLights, bool noCollapseGroups )
 
 		/* get brush counts */
 		const int numMapBrushes = entities[ 0 ].brushes.size();
-		if ( (float) c_detail / (float) numMapBrushes < 0.10f && numMapBrushes > 500 ) {
+		if ( (float) c_detail / numMapBrushes < 0.10f && numMapBrushes > 500 ) {
 			Sys_Warning( "Over 90 percent structural map detected. Compile time may be adversely affected.\n" );
 		}
 

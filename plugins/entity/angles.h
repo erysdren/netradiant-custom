@@ -37,9 +37,9 @@ inline void default_angles( Vector3& angles ){
 	angles = ANGLESKEY_IDENTITY;
 }
 inline void normalise_angles( Vector3& angles ){
-	angles[0] = static_cast<float>( float_mod( angles[0], 360 ) );
-	angles[1] = static_cast<float>( float_mod( angles[1], 360 ) );
-	angles[2] = static_cast<float>( float_mod( angles[2], 360 ) );
+	angles[0] = float_mod( angles[0], 360 );
+	angles[1] = float_mod( angles[1], 360 );
+	angles[2] = float_mod( angles[2], 360 );
 }
 inline void read_angle( Vector3& angles, const char* value ){
 	if ( !string_parse_float( value, angles[2] ) ) {
@@ -93,45 +93,39 @@ inline void write_angles( const Vector3& angles, Entity* entity ){
 }
 
 inline Matrix4 matrix4_rotation_for_euler_xyz_degrees_quantised( const Vector3& angles ){
-	if( angles[0] == 0.f && angles[1] == 0.f ){
+	if( angles[0] == 0 && angles[1] == 0 ){
 		return matrix4_rotation_for_z_degrees( angles[2] );
 	}
-	else if( angles[0] == 0.f && angles[2] == 0.f ){
+	else if( angles[0] == 0 && angles[2] == 0 ){
 		return matrix4_rotation_for_y_degrees( angles[1] );
 	}
-	else if( angles[1] == 0.f && angles[2] == 0.f ){
+	else if( angles[1] == 0 && angles[2] == 0 ){
 		return matrix4_rotation_for_x_degrees( angles[0] );
 	}
 	return matrix4_rotation_for_euler_xyz_degrees( angles );
 }
 
-inline Vector3 angles_snapped_to_zero( const Vector3& angles ){
-	const float epsilon = ( fabs( angles[0] ) > 0.001f || fabs( angles[1] ) > 0.001f || fabs( angles[2] ) > 0.001f ) ? 5e-5 : 1e-6;
-	return Vector3( fabs( angles[0] ) < epsilon ? 0.f : angles[0],
-	                fabs( angles[1] ) < epsilon ? 0.f : angles[1],
-	                fabs( angles[2] ) < epsilon ? 0.f : angles[2]
-	              );
-}
-
 inline Vector3 angles_rotated( const Vector3& angles, const Quaternion& rotation ){
-	return angles_snapped_to_zero(
+	return vector3_snapped_to_zero(
 	           matrix4_get_rotation_euler_xyz_degrees(
 	               matrix4_multiplied_by_matrix4(
 	                   matrix4_rotation_for_quaternion_quantised( rotation ),
 	                   matrix4_rotation_for_euler_xyz_degrees_quantised( angles )
 	               )
-	           )
+	           ),
+	           ANGLEKEY_SMALLEST
 	       );
 }
 #if 0
 inline Vector3 angles_rotated_for_rotated_pivot( const Vector3& angles, const Quaternion& rotation ){
-	return angles_snapped_to_zero(
+	return vector3_snapped_to_zero(
 	           matrix4_get_rotation_euler_xyz_degrees(
 	               matrix4_multiplied_by_matrix4(
 	                   matrix4_rotation_for_euler_xyz_degrees_quantised( angles ),
 	                   matrix4_rotation_for_quaternion_quantised( rotation )
 	               )
-	           )
+	           ),
+	           ANGLEKEY_SMALLEST
 	       );
 }
 #endif

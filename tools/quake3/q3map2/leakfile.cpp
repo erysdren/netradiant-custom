@@ -63,7 +63,7 @@ static xmlNodePtr LeakFile( const tree_t& tree ){
 	xmlNodePtr xml_node, point;
 
 	if ( !tree.outside_node.occupied ) {
-		return NULL;
+		return nullptr;
 	}
 
 	Sys_FPrintf( SYS_VRB, "--- LeakFile ---\n" );
@@ -74,26 +74,25 @@ static xmlNodePtr LeakFile( const tree_t& tree ){
 	const auto filename = StringStream( source, ".lin" );
 	linefile = SafeOpenWrite( filename, "wt" );
 
-	xml_node = xmlNewNode( NULL, (const xmlChar*)"polyline" );
+	xml_node = xmlNewNode( nullptr, (const xmlChar*)"polyline" );
 
 	count = 0;
 	node = &tree.outside_node;
 	while ( node->occupied > 1 )
 	{
-		int next;
-		const portal_t    *p, *nextportal = NULL;
-		const node_t      *nextnode = NULL;
-		int s;
+		int next = node->occupied;
+		const portal_t    *nextportal = nullptr;
+		const node_t      *nextnode = nullptr;
 
 		// find the best portal exit
-		next = node->occupied;
-		for ( p = node->portals; p; p = p->next[!s] )
+		ESide side;
+		for ( const portal_t *p = node->portals; p; p = p->next[!side] )
 		{
-			s = ( p->nodes[0] == node );
-			if ( p->nodes[s]->occupied
-			     && p->nodes[s]->occupied < next ) {
+			side = ( p->nodes[eFront] == node );
+			if ( p->nodes[side]->occupied
+			  && p->nodes[side]->occupied < next ) {
 				nextportal = p;
-				nextnode = p->nodes[s];
+				nextnode = p->nodes[side];
 				next = nextnode->occupied;
 			}
 		}
@@ -124,7 +123,7 @@ void Leak_feedback( const tree_t& tree ){
 	Sys_FPrintf( SYS_NOXMLflag | SYS_ERR, "******* leaked *******\n" );
 	Sys_FPrintf( SYS_NOXMLflag | SYS_ERR, "**********************\n" );
 	xmlNodePtr polyline = LeakFile( tree );
-	xmlNodePtr leaknode = xmlNewNode( NULL, (const xmlChar*)"message" );
+	xmlNodePtr leaknode = xmlNewNode( nullptr, (const xmlChar*)"message" );
 	xmlNodeAddContent( leaknode, (const xmlChar*)"MAP LEAKED\n" );
 	xmlAddChild( leaknode, polyline );
 	char level[ 2 ];

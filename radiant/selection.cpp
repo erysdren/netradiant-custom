@@ -37,7 +37,6 @@
 
 #include "math/frustum.h"
 #include "signal/signal.h"
-#include "generic/object.h"
 #include "selectionlib.h"
 #include "render.h"
 #include "view.h"
@@ -144,10 +143,10 @@ inline Vector3 point_on_plane( const Plane3& plane, const Matrix4& object2device
 
 //! a and b are unit vectors .. returns angle in radians
 inline float angle_between( const Vector3& a, const Vector3& b ){
-	return static_cast<float>( 2.0 * atan2(
-	                               vector3_length( vector3_subtracted( a, b ) ),
-	                               vector3_length( vector3_added( a, b ) )
-	                           ) );
+	return 2.0 * atan2(
+	           vector3_length( vector3_subtracted( a, b ) ),
+	           vector3_length( vector3_added( a, b ) )
+	       );
 }
 
 
@@ -172,7 +171,7 @@ inline void constrain_to_axis( Vector3& vec, const Vector3& axis ){
 
 //! a and b are unit vectors .. a and b must be orthogonal to axis .. returns angle in radians
 inline float angle_for_axis( const Vector3& a, const Vector3& b, const Vector3& axis ){
-	if ( vector3_dot( axis, vector3_cross( a, b ) ) > 0.0 ) {
+	if ( vector3_dot( axis, vector3_cross( a, b ) ) > 0 ) {
 		return angle_between( a, b );
 	}
 	else{
@@ -181,7 +180,7 @@ inline float angle_for_axis( const Vector3& a, const Vector3& b, const Vector3& 
 }
 
 inline float distance_for_axis( const Vector3& a, const Vector3& b, const Vector3& axis ){
-	return static_cast<float>( vector3_dot( b, axis ) - vector3_dot( a, axis ) );
+	return vector3_dot( b, axis ) - vector3_dot( a, axis );
 }
 
 
@@ -255,7 +254,7 @@ public:
 
 		if( g_modifiers.shift() )
 			for( std::size_t i = 0; i < 3; ++i )
-				if( current[i] == 0.f )
+				if( current[i] == 0 )
 					return m_rotatable.rotate( quaternion_for_axisangle( g_vector3_axes[i], float_snapped( angle_for_axis( m_start, current, g_vector3_axes[i] ), static_cast<float>( c_pi / 12.0 ) ) ) );
 
 		m_rotatable.rotate( quaternion_for_unit_vectors( m_start, current ) );
@@ -278,7 +277,7 @@ public:
 	}
 	void Construct( const Matrix4& device2manip, const DeviceVector device_point, const AABB& bounds, const Vector3& transform_origin ) override {
 		const float dot = vector3_dot( m_axis, m_view->fill()? vector3_normalised( m_view->getViewer() - transform_origin ) : m_view->getViewDir() );
-		m_plane_way = fabs( dot ) > 0.1;
+		m_plane_way = std::fabs( dot ) > 0.1f;
 
 		if( m_plane_way ){
 			m_origin = transform_origin;
@@ -326,12 +325,12 @@ void aabb_snap_translation( Vector3& move, const AABB& bounds ){
 	const Vector3 mins( bounds.origin - bounds.extents );
 //	globalOutputStream() << "move: " << move << '\n';
 	for( std::size_t i = 0; i < 3; ++i ){
-		if( fabs( move[i] ) > 1e-2f ){
+		if( std::fabs( move[i] ) > 1e-2f ){
 			const float snapto1 = float_snapped( maxs[i] + move[i], GetSnapGridSize() );
 			const float snapto2 = float_snapped( mins[i] + move[i], GetSnapGridSize() );
 
-			const float dist1 = fabs( fabs( maxs[i] + move[i] ) - fabs( snapto1 ) );
-			const float dist2 = fabs( fabs( mins[i] + move[i] ) - fabs( snapto2 ) );
+			const float dist1 = std::fabs( std::fabs( maxs[i] + move[i] ) - std::fabs( snapto1 ) );
+			const float dist2 = std::fabs( std::fabs( mins[i] + move[i] ) - std::fabs( snapto2 ) );
 
 //			globalOutputStream() << "maxs[i] + move[i]: " << maxs[i] + move[i]  << "    snapto1: " << snapto1 << "   dist1: " << dist1 << '\n';
 //			globalOutputStream() << "mins[i] + move[i]: " << mins[i] + move[i]  << "    snapto2: " << snapto2 << "   dist2: " << dist2 << '\n';
@@ -540,7 +539,7 @@ public:
 		float bestDist = FLT_MAX;
 		for( size_t axis : { 0, 1, 2 } )
 			for( int sign : { -1, 1 } )
-				if( const float dist = fabs( m_0[axis] - ( m_bounds.origin[axis] + std::copysign( m_bounds.extents[axis], sign ) ) ); dist < bestDist ){
+				if( const float dist = std::fabs( m_0[axis] - ( m_bounds.origin[axis] + std::copysign( m_bounds.extents[axis], sign ) ) ); dist < bestDist ){
 					bestDist = dist;
 					m_roatateAxis = axis;
 					m_rotateSign = sign;
@@ -726,9 +725,9 @@ public:
 		vector3_snap( delta, GetSnapGridSize() );
 		vector3_scale( delta, m_axis );
 
-		Vector3 start( vector3_snapped( m_start, GetSnapGridSize() != 0.f ? GetSnapGridSize() : 1e-3f ) );
+		Vector3 start( vector3_snapped( m_start, GetSnapGridSize() != 0 ? GetSnapGridSize() : 1e-3f ) );
 		for ( std::size_t i = 0; i < 3; ++i ){ //prevent snapping to 0 with big gridsize
-			if( float_snapped( m_start[i], 1e-3f ) != 0.f && start[i] == 0.f ){
+			if( float_snapped( m_start[i], 1e-3f ) != 0 && start[i] == 0 ){
 				start[i] = GetSnapGridSize();
 			}
 		}
@@ -740,8 +739,8 @@ public:
 		    start[2] == 0 ? 1 : 1 + delta[2] / start[2]
 		);
 		/* try bbox way */
-		for( std::size_t i = 0; i < 3; i++ ){
-			if( m_chosen_extent[i] > 0.0625f && m_axis[i] != 0.f ){ //epsilon to prevent super high scale for set of models, having really small extent, formed by origins
+		for( std::size_t i = 0; i < 3; ++i ){
+			if( m_chosen_extent[i] > 0.0625f && m_axis[i] != 0 ){ //epsilon to prevent super high scale for set of models, having really small extent, formed by origins
 				scale[i] = ( m_chosen_extent[i] + delta[i] ) / m_chosen_extent[i];
 				if( g_modifiers.ctrl() ){ // snap bbox dimension size to grid
 					const float snappdwidth = float_snapped( scale[i] * m_bounds.extents[i] * 2.f, GetSnapGridSize() );
@@ -750,8 +749,8 @@ public:
 			}
 		}
 		if( g_modifiers.shift() ){ // scale all axes equally
-			for( std::size_t i = 0; i < 3; i++ ){
-				if( m_axis[i] == 0.f ){
+			for( std::size_t i = 0; i < 3; ++i ){
+				if( m_axis[i] == 0 ){
 					scale[i] = vector3_dot( scale, vector3_scaled( m_axis, m_axis ) );
 				}
 			}
@@ -799,16 +798,16 @@ public:
 		if( m_axis != g_vector3_identity )
 			delta = vector3_scaled( delta, m_axis ) + vector3_scaled( delta, m_axis2 );
 
-		Vector3 start( vector3_snapped( m_start, GetSnapGridSize() != 0.f ? GetSnapGridSize() : 1e-3f ) );
+		Vector3 start( vector3_snapped( m_start, GetSnapGridSize() != 0 ? GetSnapGridSize() : 1e-3f ) );
 		for ( std::size_t i = 0; i < 3; ++i ){ //prevent snapping to 0 with big gridsize
-			if( float_snapped( m_start[i], 1e-3f ) != 0.f && start[i] == 0.f ){
+			if( float_snapped( m_start[i], 1e-3f ) != 0 && start[i] == 0 ){
 				start[i] = GetSnapGridSize();
 			}
 		}
 
 		const std::size_t ignore_axis = vector3_min_abs_component_index( m_start );
 		if( g_modifiers.shift() )
-			start[ignore_axis] = 0.f;
+			start[ignore_axis] = 0;
 
 		Vector3 scale(
 		    start[0] == 0 ? 1 : 1 + delta[0] / start[0],
@@ -817,8 +816,8 @@ public:
 		);
 
 		//globalOutputStream() << "m_start: " << m_start << "   start: " << start << "   delta: " << delta << '\n';
-		for( std::size_t i = 0; i < 3; i++ ){
-			if( m_chosen_extent[i] > 0.0625f && start[i] != 0.f ){
+		for( std::size_t i = 0; i < 3; ++i ){
+			if( m_chosen_extent[i] > 0.0625f && start[i] != 0 ){
 				scale[i] = ( m_chosen_extent[i] + delta[i] ) / m_chosen_extent[i];
 				if( g_modifiers.ctrl() ){ // snap bbox dimension size to grid
 					const float snappdwidth = float_snapped( scale[i] * m_bounds.extents[i] * 2.f, GetSnapGridSize() );
@@ -829,15 +828,15 @@ public:
 		//globalOutputStream() << "pre snap scale: " << scale << '\n';
 		if( g_modifiers.shift() ){ // snap 2 axes equally
 			float bestscale = ignore_axis != 0 ? scale[0] : scale[1];
-			for( std::size_t i = ignore_axis != 0 ? 1 : 2; i < 3; i++ ){
-				if( ignore_axis != i && fabs( scale[i] ) < fabs( bestscale ) ){
+			for( std::size_t i = ignore_axis != 0 ? 1 : 2; i < 3; ++i ){
+				if( ignore_axis != i && std::fabs( scale[i] ) < std::fabs( bestscale ) ){
 					bestscale = scale[i];
 				}
 				//globalOutputStream() << "bestscale: " << bestscale << '\n';
 			}
-			for( std::size_t i = 0; i < 3; i++ ){
+			for( std::size_t i = 0; i < 3; ++i ){
 				if( ignore_axis != i ){
-					scale[i] = ( scale[i] < 0.f ) ? -fabs( bestscale ) : fabs( bestscale );
+					scale[i] = ( scale[i] < 0 ) ? -std::fabs( bestscale ) : fabs( bestscale );
 				}
 			}
 		}
@@ -889,7 +888,7 @@ public:
 	void Transform( const Matrix4& manip2object, const Matrix4& device2manip, const DeviceVector device_point ) override {
 		const Vector3 current = point_on_plane( m_planeZ, m_view->GetViewMatrix(), device_point ) - m_0;
 	//	globalOutputStream() << m_axis_which << " by axis " << m_axis_by << '\n';
-		m_skewable.skew( Skew( m_axis_by * 4 + m_axis_which, m_axis_by_extent != 0.f? float_snapped( current[m_axis_which], GetSnapGridSize() ) / m_axis_by_extent : 0 ) );
+		m_skewable.skew( Skew( m_axis_by * 4 + m_axis_which, m_axis_by_extent != 0? float_snapped( current[m_axis_which], GetSnapGridSize() ) / m_axis_by_extent : 0 ) );
 	}
 	void SetAxes( int axis_which, int axis_by, int axis_by_sign ){
 		m_axis_which = axis_which;
@@ -913,8 +912,6 @@ private:
 	float m_setSizeZ; /* store separately for fine square/cube modes handling */
 	scene::Node* m_newBrushNode;
 public:
-	DragNewBrush(){
-	}
 	void Construct( const Matrix4& device2manip, const DeviceVector device_point, const AABB& bounds, const Vector3& transform_origin ) override {
 		m_setSizeZ = m_size[0] = m_size[1] = m_size[2] = GetGridSize();
 		m_newBrushNode = 0;
@@ -942,11 +939,11 @@ public:
 			return;
 
 		if( g_modifiers.shift() || g_modifiers.ctrl() ){ // square or cube
-			const float squaresize = std::max( fabs( diff.x() ), fabs( diff.y() ) );
-			diff.x() = diff.x() > 0? squaresize : -squaresize; //square
-			diff.y() = diff.y() > 0? squaresize : -squaresize;
+			const float squaresize = std::max( std::fabs( diff.x() ), std::fabs( diff.y() ) );
+			diff.x() = std::copysign( squaresize, diff.x() ); //square
+			diff.y() = std::copysign( squaresize, diff.y() );
 			if( g_modifiers.ctrl() && !g_modifiers.alt() ) //cube
-				diff.z() = diff.z() > 0? squaresize : -squaresize;
+				diff.z() = std::copysign( squaresize, diff.z() );
 		}
 
 		m_size = diff;
@@ -992,14 +989,10 @@ public:
 		};
 		std::vector<InFaceOutBrush> m_faces;
 		std::vector<InFaceOutBrush>::iterator faceFind( const Face* face ){
-			return std::find_if( m_faces.begin(), m_faces.end(), [face]( const InFaceOutBrush& infaceoutbrush ){
-				return face == infaceoutbrush.m_face;
-			} );
+			return std::ranges::find( m_faces, face, &InFaceOutBrush::m_face );
 		}
 		std::vector<InFaceOutBrush>::const_iterator faceFind( const Face* face ) const {
-			return std::find_if( m_faces.begin(), m_faces.end(), [face]( const InFaceOutBrush& infaceoutbrush ){
-				return face == infaceoutbrush.m_face;
-			} );
+			return std::ranges::find( m_faces, face, &InFaceOutBrush::m_face );
 		}
 		bool faceExcluded( const Face* face ) const {
 			return faceFind( face ) == m_faces.end();
@@ -1007,8 +1000,7 @@ public:
 	};
 	std::vector<ExtrudeSource> m_extrudeSources;
 
-	DragExtrudeFaces(){
-	}
+	DragExtrudeFaces() = default;
 	void Construct( const Matrix4& device2manip, const DeviceVector device_point, const AABB& bounds, const Vector3& transform_origin ) override {
 		m_axisZ = vector3_max_abs_component_index( m_planeSelected.normal() );
 		Vector3 xydir( m_view->getViewer() - m_0 );
@@ -1065,7 +1057,7 @@ public:
 
 		vector3_snap( current, GetSnapGridSize() );
 
-		const float offset = fabs( m_planeSelected.normal()[m_axisZ] ) * std::copysign(
+		const float offset = std::fabs( m_planeSelected.normal()[m_axisZ] ) * std::copysign(
 		                              std::max( static_cast<double>( GetGridSize() ), vector3_length( current ) ),
 		                              vector3_dot( current, m_planeSelected.normal() ) );
 
@@ -1084,7 +1076,7 @@ public:
 			for( ExtrudeSource& source : m_extrudeSources ){
 				Brush& brush0 = source.m_brushInstance->getBrush();
 				if( source.m_faces.size() > 1 ){
-					Brush* tmpbrush = new Brush( brush0 );
+					auto *tmpbrush = new Brush( brush0 );
 					offsetFaces( source, *tmpbrush, offset );
 					brush_extrudeDiag( brush0, *tmpbrush, source );
 					delete tmpbrush;
@@ -1130,7 +1122,7 @@ public:
 					face->planeChanged();
 				}
 				if( source.m_faces.size() > 1 ){
-					Brush* tmpbrush = new Brush( brush0 );
+					auto *tmpbrush = new Brush( brush0 );
 					tmpbrush->evaluateBRep();
 					offsetFaces( source, brush0, offset );
 					if( brush0.hasContributingFaces() )
@@ -1356,7 +1348,7 @@ bool point_test_polygon_2d( const point_t& P, point_iterator_t start, point_iter
 		if ( ( ( ( *prev )[1] <= P[1] ) && ( ( *cur )[1] > P[1] ) ) // an upward crossing
 		  || ( ( ( *prev )[1] > P[1] ) && ( ( *cur )[1] <= P[1] ) ) ) { // a downward crossing
 			// compute the actual edge-ray intersect x-coordinate
-			float vt = (float)( P[1] - ( *prev )[1] ) / ( ( *cur )[1] - ( *prev )[1] );
+			const float vt = ( P[1] - ( *prev )[1] ) / ( ( *cur )[1] - ( *prev )[1] );
 			if ( P[0] < ( *prev )[0] + vt * ( ( *cur )[0] - ( *prev )[0] ) ) { // P[0] < intersect
 				++crossings; // a valid crossing of y=P[1] right of P[0]
 			}
@@ -1378,7 +1370,7 @@ enum clipcull_t
 
 
 inline SelectionIntersection select_point_from_clipped( Vector4& clipped ){
-	return SelectionIntersection( clipped[2] / clipped[3], static_cast<float>( vector3_length_squared( Vector3( clipped[0] / clipped[3], clipped[1] / clipped[3], 0 ) ) ) );
+	return SelectionIntersection( clipped[2] / clipped[3], vector3_length_squared( Vector3( clipped[0] / clipped[3], clipped[1] / clipped[3], 0 ) ) );
 }
 
 void BestPoint( std::size_t count, Vector4 clipped[9], SelectionIntersection& best, clipcull_t cull, const Plane3* plane = 0 ){
@@ -1417,9 +1409,9 @@ void BestPoint( std::size_t count, Vector4 clipped[9], SelectionIntersection& be
 		for ( point_iterator_t previous = end - 1, current = normalised; current != end; previous = current, ++current )
 		{
 			Vector3 point = line_closest_point( Line( *previous, *current ), Vector3( 0, 0, 0 ) );
-			float depth = point.z();
+			const float depth = point.z();
 			point.z() = 0;
-			float distance = static_cast<float>( vector3_length_squared( point ) );
+			const float distance = vector3_length_squared( point );
 
 			if( plane->c == 0 ){
 				assign_if_closer( best, SelectionIntersection( depth, distance ) );
@@ -1429,10 +1421,10 @@ void BestPoint( std::size_t count, Vector4 clipped[9], SelectionIntersection& be
 				                      Ray( Vector3( 0, 0, 0 ), Vector3( 0, 0, 1 ) ),
 				                      *plane
 				                  ) ) );
-//										globalOutputStream() << static_cast<float>( ray_distance_to_plane(
+//										globalOutputStream() << ray_distance_to_plane(
 //										Ray( Vector3( 0, 0, 0 ), Vector3( 0, 0, 1 ) ),
 //										plane
-//										) ) << '\n';
+//										) << '\n';
 			}
 		}
 	}
@@ -1566,9 +1558,6 @@ struct FlatShadedVertex
 	Vertex3f vertex;
 	Colour4b colour;
 	Normal3f normal;
-
-	FlatShadedVertex(){
-	}
 };
 
 
@@ -1659,11 +1648,12 @@ public:
 			best = select_point_from_clipped( clipped );
 		}
 	}
-	void TestPolygon( const VertexPointer& vertices, std::size_t count, SelectionIntersection& best, const DoubleVector3 planepoints[3] ) override {
-		DoubleVector3 pts[3];
-		pts[0] = vector4_projected( matrix4_transformed_vector4( m_local2view, BasicVector4<double>( planepoints[0], 1 ) ) );
-		pts[1] = vector4_projected( matrix4_transformed_vector4( m_local2view, BasicVector4<double>( planepoints[1], 1 ) ) );
-		pts[2] = vector4_projected( matrix4_transformed_vector4( m_local2view, BasicVector4<double>( planepoints[2], 1 ) ) );
+	void TestPolygon( const VertexPointer& vertices, std::size_t count, SelectionIntersection& best, const PlanePoints& planepoints ) override {
+		const PlanePoints pts {
+			vector4_projected( matrix4_transformed_vector4( m_local2view, BasicVector4<double>( planepoints[0], 1 ) ) ),
+			vector4_projected( matrix4_transformed_vector4( m_local2view, BasicVector4<double>( planepoints[1], 1 ) ) ),
+			vector4_projected( matrix4_transformed_vector4( m_local2view, BasicVector4<double>( planepoints[2], 1 ) ) )
+		};
 		const Plane3 planeTransformed( plane3_for_points( pts ) );
 
 		Vector4 clipped[9];
@@ -1930,8 +1920,8 @@ inline void draw_semicircle( const std::size_t segments, const float radius, Poi
 
 		{
 			const double theta = increment * count;
-			x = static_cast<float>( radius * cos( theta ) );
-			y = static_cast<float>( radius * sin( theta ) );
+			x = radius * cos( theta );
+			y = radius * sin( theta );
 		}
 
 		remap_policy::set( j->vertex, y,-x, 0 );
@@ -1977,9 +1967,9 @@ class RotateManipulator : public Manipulator, public ManipulatorSelectionChangea
 			gl().glDrawArrays( GL_LINE_LOOP, 0, GLsizei( m_vertices.size() ) );
 		}
 		void setColour( const Colour4b& colour ){
-			for ( Array<PointVertex>::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+			for ( auto& v : m_vertices )
 			{
-				( *i ).colour = colour;
+				v.colour = colour;
 			}
 		}
 	};
@@ -1996,9 +1986,9 @@ class RotateManipulator : public Manipulator, public ManipulatorSelectionChangea
 			gl().glDrawArrays( GL_LINE_STRIP, 0, GLsizei( m_vertices.size() ) );
 		}
 		void setColour( const Colour4b& colour ){
-			for ( Array<PointVertex>::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+			for ( auto& v : m_vertices )
 			{
-				( *i ).colour = colour;
+				v.colour = colour;
 			}
 		}
 	};
@@ -2244,11 +2234,11 @@ inline void draw_arrowhead( const std::size_t segments, const float length, Flat
 		{
 			FlatShadedVertex& point = vertices[i * 6 + 0];
 			VertexRemap::x( point.vertex ) = length - arrowhead_length;
-			VertexRemap::y( point.vertex ) = arrowhead_radius * static_cast<float>( cos( i * head_segment ) );
-			VertexRemap::z( point.vertex ) = arrowhead_radius * static_cast<float>( sin( i * head_segment ) );
+			VertexRemap::y( point.vertex ) = arrowhead_radius * cos( i * head_segment );
+			VertexRemap::z( point.vertex ) = arrowhead_radius * sin( i * head_segment );
 			NormalRemap::x( point.normal ) = arrowhead_radius / arrowhead_length;
-			NormalRemap::y( point.normal ) = static_cast<float>( cos( i * head_segment ) );
-			NormalRemap::z( point.normal ) = static_cast<float>( sin( i * head_segment ) );
+			NormalRemap::y( point.normal ) = cos( i * head_segment );
+			NormalRemap::z( point.normal ) = sin( i * head_segment );
 		}
 		{
 			FlatShadedVertex& point = vertices[i * 6 + 1];
@@ -2256,17 +2246,17 @@ inline void draw_arrowhead( const std::size_t segments, const float length, Flat
 			VertexRemap::y( point.vertex ) = 0;
 			VertexRemap::z( point.vertex ) = 0;
 			NormalRemap::x( point.normal ) = arrowhead_radius / arrowhead_length;
-			NormalRemap::y( point.normal ) = static_cast<float>( cos( ( i + 0.5 ) * head_segment ) );
-			NormalRemap::z( point.normal ) = static_cast<float>( sin( ( i + 0.5 ) * head_segment ) );
+			NormalRemap::y( point.normal ) = cos( ( i + 0.5 ) * head_segment );
+			NormalRemap::z( point.normal ) = sin( ( i + 0.5 ) * head_segment );
 		}
 		{
 			FlatShadedVertex& point = vertices[i * 6 + 2];
 			VertexRemap::x( point.vertex ) = length - arrowhead_length;
-			VertexRemap::y( point.vertex ) = arrowhead_radius * static_cast<float>( cos( ( i + 1 ) * head_segment ) );
-			VertexRemap::z( point.vertex ) = arrowhead_radius * static_cast<float>( sin( ( i + 1 ) * head_segment ) );
+			VertexRemap::y( point.vertex ) = arrowhead_radius * cos( ( i + 1 ) * head_segment );
+			VertexRemap::z( point.vertex ) = arrowhead_radius * sin( ( i + 1 ) * head_segment );
 			NormalRemap::x( point.normal ) = arrowhead_radius / arrowhead_length;
-			NormalRemap::y( point.normal ) = static_cast<float>( cos( ( i + 1 ) * head_segment ) );
-			NormalRemap::z( point.normal ) = static_cast<float>( sin( ( i + 1 ) * head_segment ) );
+			NormalRemap::y( point.normal ) = cos( ( i + 1 ) * head_segment );
+			NormalRemap::z( point.normal ) = sin( ( i + 1 ) * head_segment );
 		}
 
 		{
@@ -2281,8 +2271,8 @@ inline void draw_arrowhead( const std::size_t segments, const float length, Flat
 		{
 			FlatShadedVertex& point = vertices[i * 6 + 4];
 			VertexRemap::x( point.vertex ) = length - arrowhead_length;
-			VertexRemap::y( point.vertex ) = arrowhead_radius * static_cast<float>( cos( i * head_segment ) );
-			VertexRemap::z( point.vertex ) = arrowhead_radius * static_cast<float>( sin( i * head_segment ) );
+			VertexRemap::y( point.vertex ) = arrowhead_radius * cos( i * head_segment );
+			VertexRemap::z( point.vertex ) = arrowhead_radius * sin( i * head_segment );
 			NormalRemap::x( point.normal ) = -1;
 			NormalRemap::y( point.normal ) = 0;
 			NormalRemap::z( point.normal ) = 0;
@@ -2290,8 +2280,8 @@ inline void draw_arrowhead( const std::size_t segments, const float length, Flat
 		{
 			FlatShadedVertex& point = vertices[i * 6 + 5];
 			VertexRemap::x( point.vertex ) = length - arrowhead_length;
-			VertexRemap::y( point.vertex ) = arrowhead_radius * static_cast<float>( cos( ( i + 1 ) * head_segment ) );
-			VertexRemap::z( point.vertex ) = arrowhead_radius * static_cast<float>( sin( ( i + 1 ) * head_segment ) );
+			VertexRemap::y( point.vertex ) = arrowhead_radius * cos( ( i + 1 ) * head_segment );
+			VertexRemap::z( point.vertex ) = arrowhead_radius * sin( ( i + 1 ) * head_segment );
 			NormalRemap::x( point.normal ) = -1;
 			NormalRemap::y( point.normal ) = 0;
 			NormalRemap::z( point.normal ) = 0;
@@ -2352,8 +2342,6 @@ class TranslateManipulator : public Manipulator, public ManipulatorSelectionChan
 	{
 		PointVertex m_line[2];
 
-		RenderableArrowLine(){
-		}
 		void render( RenderStateFlags state ) const override {
 			gl().glColorPointer( 4, GL_UNSIGNED_BYTE, sizeof( PointVertex ), &m_line[0].colour );
 			gl().glVertexPointer( 3, GL_FLOAT, sizeof( PointVertex ), &m_line[0].vertex );
@@ -2378,9 +2366,9 @@ class TranslateManipulator : public Manipulator, public ManipulatorSelectionChan
 			gl().glDrawArrays( GL_TRIANGLES, 0, GLsizei( m_vertices.size() ) );
 		}
 		void setColour( const Colour4b& colour ){
-			for ( Array<FlatShadedVertex>::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+			for ( auto& v : m_vertices )
 			{
-				( *i ).colour = colour;
+				v.colour = colour;
 			}
 		}
 	};
@@ -2445,7 +2433,7 @@ public:
 	}
 
 	bool manipulator_show_axis( const Pivot2World& pivot, const Vector3& axis ){
-		return fabs( vector3_dot( pivot.m_axis_screen, axis ) ) < 0.95;
+		return std::fabs( vector3_dot( pivot.m_axis_screen, axis ) ) < 0.95;
 	}
 
 	void render( Renderer& renderer, const VolumeTest& volume, const Matrix4& pivot2world ) override {
@@ -2776,8 +2764,8 @@ class SkewManipulator : public Manipulator, public ManipulatorSelectionChangeabl
 			gl().glDrawArrays( GL_TRIANGLES, 0, GLsizei( m_vertices.size() ) );
 		}
 		void setColour( const Colour4b & colour ) {
-			for( Array<FlatShadedVertex>::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i ) {
-				( *i ).colour = colour;
+			for( auto& v : m_vertices ) {
+				v.colour = colour;
 			}
 		}
 	};
@@ -3010,7 +2998,7 @@ public:
 								m_pivot2world = matrix4_translation_for_vec3( origin );
 							}
 							/* set radius */
-							if( fabs( vector3_dot( m_pivot.m_axis_screen, g_vector3_axes[i] ) ) < 0.2 ){
+							if( std::fabs( vector3_dot( m_pivot.m_axis_screen, g_vector3_axes[i] ) ) < 0.2 ){
 								Vector3 origin = matrix4_get_translation_vec3( m_pivot2world );
 								Vector3 point = m_bounds_draw.origin + m_point.m_point.vertex * m_bounds_draw.extents;
 								const Matrix4 inv = matrix4_affine_inverse( m_pivot.m_worldSpace );
@@ -3403,7 +3391,7 @@ bool Scene_forEachBrush_setupExtrude( SelectionTest& test, DragExtrudeFaces& ext
 						}
 						extrudeFaces.m_extrudeSources.back().m_faces.emplace_back();
 						extrudeFaces.m_extrudeSources.back().m_faces.back().m_face = &face.getFace();
-						planepts_assign( extrudeFaces.m_extrudeSources.back().m_faces.back().m_planepoints, face.getFace().getPlane().getPlanePoints() );
+						extrudeFaces.m_extrudeSources.back().m_faces.back().m_planepoints = face.getFace().getPlane().getPlanePoints();
 					}
 				};
 				Brush_ForEachFaceInstance( brushInstance, gatherFaceInstances );
@@ -4118,8 +4106,7 @@ namespace detail
 {
 inline void testselect_scene_point__brush( BrushInstance* brush, ScenePointSelector& m_selector, SelectionTest& m_test ){
 	m_test.BeginMesh( brush->localToWorld() );
-	for( Brush::const_iterator i = brush->getBrush().begin(); i != brush->getBrush().end(); ++i ) {
-		Face* face = *i;
+	for( const auto& face : brush->getBrush() ) {
 		if( !face->isFiltered() ) {
 			SelectionIntersection intersection;
 			face->testSelect( m_test, intersection );
@@ -4213,7 +4200,7 @@ DoubleVector3 testSelected_scene_snapped_point( const SelectionVolume& test, Sce
 				}
 			}
 		}
-		if( selector.best().distance() == 0.f ){ /* try plane, if pointing inside of polygon */
+		if( selector.best().distance() == 0 ){ /* try plane, if pointing inside of polygon */
 			const std::size_t maxi = vector3_max_abs_component_index( face.plane3().normal() );
 			DoubleVector3 planePoint( vector3_snapped( point, GetSnapGridSize() ) );
 			// face.plane3().normal().dot( point snapped ) = face.plane3().dist()
@@ -4525,7 +4512,6 @@ public:
 							};
 							Scene_forEachVisibleSelectedPlaneselectable( gatherPolygonsByPlane );
 						}
-
 					}
 					else{ // alt vertices drag
 						SelectionIntersection intersection;
@@ -4669,10 +4655,10 @@ public:
 		m_viewdir = ( viewdir[maxi] > 0 )? g_vector3_axes[maxi] : -g_vector3_axes[maxi];
 	}
 	void viewdir_fixup(){
-		if( fabs( vector3_length( m_points[1].m_point - m_points[0].m_point ) ) > 1e-3 //two non coincident points
-		 && fabs( vector3_dot( m_viewdir, vector3_normalised( m_points[1].m_point - m_points[0].m_point ) ) ) > 0.999 ){ //on axis = m_viewdir
+		if( std::fabs( vector3_length( m_points[1].m_point - m_points[0].m_point ) ) > 1e-3 //two non coincident points
+		 && std::fabs( vector3_dot( m_viewdir, vector3_normalised( m_points[1].m_point - m_points[0].m_point ) ) ) > 0.999 ){ //on axis = m_viewdir
 			viewdir_set( m_view->getViewDir() );
-			if( fabs( vector3_dot( m_viewdir, vector3_normalised( m_points[1].m_point - m_points[0].m_point ) ) ) > 0.999 ){
+			if( std::fabs( vector3_dot( m_viewdir, vector3_normalised( m_points[1].m_point - m_points[0].m_point ) ) ) > 0.999 ){
 				const Matrix4 screen2world( matrix4_full_inverse( m_view->GetViewMatrix() ) );
 				Vector3 p[2];
 				for( std::size_t i = 0; i < 2; ++i ){
@@ -4691,7 +4677,7 @@ public:
 		const std::size_t maxi = vector3_max_abs_component_index( plane.normal() );
 		if( plane3_valid( plane )
 		 && aabb_valid( m_bounds )
-		 && fabs( plane.normal()[maxi] ) > 0.999 ){ //axial plane
+		 && std::fabs( plane.normal()[maxi] ) > 0.999 ){ //axial plane
 			const double anchor = plane.normal()[maxi] * plane.dist();
 			if( anchor > m_bounds.origin[maxi] ){
 				if( ( anchor - ( m_bounds.origin[maxi] + m_bounds.extents[maxi] ) ) > -0.1 )
@@ -4999,8 +4985,6 @@ class UVManipulator : public Manipulator, public Manipulatable
 	struct RenderablePoints : public OpenGLRenderable
 	{
 		std::vector<PointVertex> m_points;
-		RenderablePoints(){
-		}
 		void render( RenderStateFlags state ) const override {
 			gl().glColorPointer( 4, GL_UNSIGNED_BYTE, sizeof( PointVertex ), &m_points[0].colour );
 			gl().glVertexPointer( 3, GL_FLOAT, sizeof( PointVertex ), &m_points[0].vertex );
@@ -5010,8 +4994,7 @@ class UVManipulator : public Manipulator, public Manipulatable
 	struct RenderableLines : public OpenGLRenderable
 	{
 		std::vector<PointVertex> m_lines;
-		RenderableLines(){
-		}
+
 		void render( RenderStateFlags state ) const override {
 			if( m_lines.size() != 0 ){
 				gl().glColorPointer( 4, GL_UNSIGNED_BYTE, sizeof( PointVertex ), &m_lines[0].colour );
@@ -5032,9 +5015,9 @@ class UVManipulator : public Manipulator, public Manipulatable
 			gl().glDrawArrays( GL_LINE_LOOP, 0, GLsizei( m_vertices.size() ) );
 		}
 		void setColour( const Colour4b& colour ){
-			for ( Array<PointVertex>::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+			for ( auto& v : m_vertices )
 			{
-				( *i ).colour = colour;
+				v.colour = colour;
 			}
 		}
 	};
@@ -5043,8 +5026,7 @@ class UVManipulator : public Manipulator, public Manipulatable
 	{
 		std::vector<RenderIndex> m_trianglesIndices;
 		const PatchControlArray* m_patchControlArray;
-		RenderablePatchTexture(){
-		}
+
 		void render( RenderStateFlags state ) const override {
 			if( state & RENDER_FILL ){
 				const std::vector<Vector3> normals( m_patchControlArray->size(), g_vector3_axis_z );
@@ -5248,7 +5230,7 @@ private:
 	bool projection_valid() const {
 		return !( !std::isfinite( m_local2tex[0] ) //nan
 		       || !std::isfinite( m_tex2local[0] ) //nan
-		       || fabs( vector3_dot( m_plane.normal(), m_tex2local.z().vec3() ) ) < 1e-6 //projected along face
+		       || std::fabs( vector3_dot( m_plane.normal(), m_tex2local.z().vec3() ) ) < 1e-6 //projected along face
 		       || vector3_length_squared( m_tex2local.x().vec3() ) < .01 //srsly scaled down, limit at max 10 textures per world unit
 		       || vector3_length_squared( m_tex2local.y().vec3() ) < .01
 		       || vector3_length_squared( m_tex2local.x().vec3() ) > 1e9 //very upscaled or product of nearly nan
@@ -5337,7 +5319,7 @@ private:
 						p1 = &m_patch->ctrlAt( m_patchHeight - 1, col );
 						p2 = distW0 > distW1? &m_patch->ctrlAt( row, 0 ) : &m_patch->ctrlAt( row, m_patchWidth - 1 );
 						v0 = m_patch->localAABB().origin
-						     + hDir * vector3_dot( m_patch->localAABB().extents, Vector3( fabs( hDir.x() ), fabs( hDir.y() ), fabs( hDir.z() ) ) ) * 1.1
+						     + hDir * vector3_dot( m_patch->localAABB().extents, Vector3( std::fabs( hDir.x() ), std::fabs( hDir.y() ), std::fabs( hDir.z() ) ) ) * 1.1
 						     + wDir * ( distW0 - wLength / 2 );
 						v1 = v0 + hDir * hLength;
 						v2 = v0 + hDir * distH0 + ( distW0 > distW1? ( wDir * -distW0 ) : ( wDir * distW1 ) );
@@ -5347,7 +5329,7 @@ private:
 						p1 = &m_patch->ctrlAt( row, m_patchWidth - 1 );
 						p2 = distH0 > distH1? &m_patch->ctrlAt( 0, col ) : &m_patch->ctrlAt( m_patchHeight - 1, col );
 						v0 = m_patch->localAABB().origin
-						     + wDir * vector3_dot( m_patch->localAABB().extents, Vector3( fabs( wDir.x() ), fabs( wDir.y() ), fabs( wDir.z() ) ) ) * 1.1
+						     + wDir * vector3_dot( m_patch->localAABB().extents, Vector3( std::fabs( wDir.x() ), std::fabs( wDir.y() ), std::fabs( wDir.z() ) ) ) * 1.1
 						     + hDir * ( distH0 - hLength / 2 );
 						v1 = v0 + wDir * wLength;
 						v2 = v0 + wDir * distW0 + ( distH0 > distH1? ( hDir * -distH0 ) : ( hDir * distH1 ) );
@@ -5358,7 +5340,7 @@ private:
 						std::swap( v0, v1 );
 					}
 				}
-				const DoubleVector3 vertices[3]{ v0, v1, v2 };
+				const PlanePoints vertices{ v0, v1, v2 };
 				const DoubleVector3 sts[3]{ DoubleVector3( p0->m_texcoord ),
 				                            DoubleVector3( p1->m_texcoord ),
 				                            DoubleVector3( p2->m_texcoord ) };
@@ -5598,7 +5580,6 @@ private:
 			}
 		}
 		return false;
-
 	}
 public:
 	void render( Renderer& renderer, const VolumeTest& volume, const Matrix4& pivot2world ) override {
@@ -5719,7 +5700,7 @@ V line center| - -  tex U center - -
 			                                      vector4_projected( matrix4_transformed_vector4( screen2world, BasicVector4<double>( 0, 0, 1, 1 ) ) ) );
 			const DoubleVector3 hit = ray_intersect_plane( ray, m_plane );
 			const Vector3 uvhit = matrix4_transformed_point( m_faceLocal2tex, hit );
-			if( fabs( vector3_dot( ray.direction, m_plane.normal() ) ) > 1e-6
+			if( std::fabs( vector3_dot( ray.direction, m_plane.normal() ) ) > 1e-6
 			 && !m_Ulines.m_lines.empty()
 			 && !m_Vlines.m_lines.empty()
 			 && matrix4_transformed_vector4( view.GetViewMatrix(), Vector4( hit, 1 ) ).w() > 0 ){
@@ -6024,26 +6005,26 @@ public:
 				float snapToU = 0;
 				float snapToV = 0;
 				for( std::vector<PointVertex>::const_iterator i = m_Ulines.m_lines.begin(); i != m_Ulines.m_lines.end(); ++++i ){
-					const float dist = fabs( ( *i ).vertex.y() - uv_origin.y() );
+					const float dist = std::fabs( ( *i ).vertex.y() - uv_origin.y() );
 					if( dist < bestDistU ){
 						bestDistU = dist;
 						snapToU = ( *i ).vertex.y();
 					}
 				}
 				for( std::vector<PointVertex>::const_iterator i = m_Vlines.m_lines.begin(); i != m_Vlines.m_lines.end(); ++++i ){
-					const float dist = fabs( ( *i ).vertex.x() - uv_origin.x() );
+					const float dist = std::fabs( ( *i ).vertex.x() - uv_origin.x() );
 					if( dist < bestDistV ){
 						bestDistV = dist;
 						snapToV = ( *i ).vertex.x();
 					}
 				}
 				forEachUVPoint( [&]( const Vector3& point ){
-					const float distU = fabs( point.y() - uv_origin.y() );
+					const float distU = std::fabs( point.y() - uv_origin.y() );
 					if( distU < bestDistU ){
 						bestDistU = distU;
 						snapToU = point.y();
 					}
-					const float distV = fabs( point.x() - uv_origin.x() );
+					const float distV = std::fabs( point.x() - uv_origin.x() );
 					if( distV < bestDistV ){
 						bestDistV = distV;
 						snapToV = point.x();
@@ -6074,14 +6055,14 @@ public:
 				float bestDist = FLT_MAX;
 				float snapTo = 0;
 				for( std::vector<PointVertex>::const_iterator i = m_Ulines.m_lines.begin(); i != m_Ulines.m_lines.end(); ++++i ){
-					const float dist = fabs( ( *i ).vertex.y() - uv_origin.y() );
+					const float dist = std::fabs( ( *i ).vertex.y() - uv_origin.y() );
 					if( dist < bestDist ){
 						bestDist = dist;
 						snapTo = ( *i ).vertex.y();
 					}
 				}
 				forEachUVPoint( [&]( const Vector3& point ){
-					const float dist = fabs( point.y() - uv_origin.y() );
+					const float dist = std::fabs( point.y() - uv_origin.y() );
 					if( dist < bestDist ){
 						bestDist = dist;
 						snapTo = point.y();
@@ -6106,14 +6087,14 @@ public:
 				float bestDist = FLT_MAX;
 				float snapTo = 0;
 				for( std::vector<PointVertex>::const_iterator i = m_Vlines.m_lines.begin(); i != m_Vlines.m_lines.end(); ++++i ){
-					const float dist = fabs( ( *i ).vertex.x() - uv_origin.x() );
+					const float dist = std::fabs( ( *i ).vertex.x() - uv_origin.x() );
 					if( dist < bestDist ){
 						bestDist = dist;
 						snapTo = ( *i ).vertex.x();
 					}
 				}
 				forEachUVPoint( [&]( const Vector3& point ){
-					const float dist = fabs( point.x() - uv_origin.x() );
+					const float dist = std::fabs( point.x() - uv_origin.x() );
 					if( dist < bestDist ){
 						bestDist = dist;
 						snapTo = point.x();
@@ -6213,13 +6194,13 @@ public:
 					forEachEdge( [&]( const Vector3& point0, const Vector3& point1 ){
 						Vector3 vec( point1 - point0 );
 						constrain_to_axis( vec, m_tex2local.z().vec3() );
-						const float dotU = fabs( vector3_dot( uvec, vec ) );
+						const float dotU = std::fabs( vector3_dot( uvec, vec ) );
 						if( dotU > bestDot ){
 							bestDot = dotU;
 							bestTo = vector3_dot( uvec, vec ) > 0? vec : -vec;
 							V = false;
 						}
-						const float dotV = fabs( vector3_dot( vvec, vec ) );
+						const float dotV = std::fabs( vector3_dot( vvec, vec ) );
 						if( dotV > bestDot ){
 							bestDot = dotV;
 							bestTo = vector3_dot( vvec, vec ) > 0? vec : -vec;
@@ -6260,7 +6241,7 @@ public:
 				float bestDist = FLT_MAX;
 				float snapTo = 0;
 				forEachUVPoint( [&]( const Vector3& point ){
-					const float dist = fabs( point.y() - uv_current.y() );
+					const float dist = std::fabs( point.y() - uv_current.y() );
 					if( dist < bestDist ){
 						bestDist = dist;
 						snapTo = point.y();
@@ -6273,7 +6254,7 @@ public:
 				result.y() = ( result.y() - uv_origin.y() ) / ( uv_start.y() - uv_origin.y() );
 
 				if( snap )
-					result.x() = fabs( result.y() );
+					result.x() = std::fabs( result.y() );
 
 				/* prevent scaling to 0, limit at max 10 textures per world unit */
 				if( vector3_length_squared( m_tex2local.y().vec3() * result.y() ) < .01 )
@@ -6300,7 +6281,7 @@ public:
 				float bestDist = FLT_MAX;
 				float snapTo = 0;
 				forEachUVPoint( [&]( const Vector3& point ){
-					const float dist = fabs( point.x() - uv_current.x() );
+					const float dist = std::fabs( point.x() - uv_current.x() );
 					if( dist < bestDist ){
 						bestDist = dist;
 						snapTo = point.x();
@@ -6313,7 +6294,7 @@ public:
 				result.x() = ( result.x() - uv_origin.x() ) / ( uv_start.x() - uv_origin.x() );
 
 				if( snap )
-					result.y() = fabs( result.x() );
+					result.y() = std::fabs( result.x() );
 
 				/* prevent scaling to 0, limit at max 10 textures per world unit */
 				if( vector3_length_squared( m_tex2local.x().vec3() * result.x() ) < .01 )
@@ -6344,12 +6325,12 @@ public:
 				float bestDistV = FLT_MAX;
 				float snapToV = 0;
 				forEachUVPoint( [&]( const Vector3& point ){
-					const float distU = fabs( point.y() - uv_current.y() );
+					const float distU = std::fabs( point.y() - uv_current.y() );
 					if( distU < bestDistU ){
 						bestDistU = distU;
 						snapToU = point.y();
 					}
-					const float distV = fabs( point.x() - uv_current.x() );
+					const float distV = std::fabs( point.x() - uv_current.x() );
 					if( distV < bestDistV ){
 						bestDistV = distV;
 						snapToV = point.x();
@@ -6368,7 +6349,7 @@ public:
 				result.x() = ( result.x() - uv_origin.x() ) / ( uv_start.x() - uv_origin.x() );
 
 				if( snap ){
-					const std::size_t best = fabs( result.x() ) > fabs( result.y() )? 0 : 1;
+					const std::size_t best = std::fabs( result.x() ) > std::fabs( result.y() )? 0 : 1;
 					result[( best + 1 ) % 2] = std::copysign( result[best], result[( best + 1 ) % 2] );
 				}
 
@@ -6402,8 +6383,8 @@ public:
 				float bestDist = FLT_MAX;
 				Vector3 bestTo;
 				const auto snap_to_edge = [&]( const Vector3 edge ){
-					if( fabs( edge.y() ) > 1e-5 ){ // don't snap so, that one axis = the other
-						const float dist = fabs( edge.x() * uv_y_measure_dist / edge.y() - skewed.x() * uv_y_measure_dist / skewed.y() );
+					if( std::fabs( edge.y() ) > 1e-5f ){ // don't snap so, that one axis = the other
+						const float dist = std::fabs( edge.x() * uv_y_measure_dist / edge.y() - skewed.x() * uv_y_measure_dist / skewed.y() );
 						if( dist < bestDist ){
 							bestDist = dist;
 							bestTo = edge;
@@ -6452,8 +6433,8 @@ public:
 				float bestDist = FLT_MAX;
 				Vector3 bestTo;
 				const auto snap_to_edge = [&]( const Vector3 edge ){
-					if( fabs( edge.x() ) > 1e-5 ){ // don't snap so, that one axis = the other
-						const float dist = fabs( edge.y() * uv_x_measure_dist / edge.x() - skewed.y() * uv_x_measure_dist / skewed.x() );
+					if( std::fabs( edge.x() ) > 1e-5f ){ // don't snap so, that one axis = the other
+						const float dist = std::fabs( edge.y() * uv_x_measure_dist / edge.x() - skewed.y() * uv_x_measure_dist / skewed.x() );
 						if( dist < bestDist ){
 							bestDist = dist;
 							bestTo = edge;
@@ -6501,17 +6482,17 @@ public:
 				float snapMoveV = 0;
 				// snap uvmove
 				const auto functor = [&]( const Vector3& point ){
-					for( std::vector<PointVertex>::const_iterator i = m_Ulines.m_lines.begin(); i != m_Ulines.m_lines.end(); ++++i ){
-						const float dist = point.y() - ( ( *i ).vertex.y() + uvmove.y() );
-						if( fabs( dist ) < bestDistU ){
-							bestDistU = fabs( dist );
+					for( auto it = m_Ulines.m_lines.cbegin(); it != m_Ulines.m_lines.cend(); ++++it ){
+						const float dist = point.y() - ( ( *it ).vertex.y() + uvmove.y() );
+						if( std::fabs( dist ) < bestDistU ){
+							bestDistU = std::fabs( dist );
 							snapMoveU = uvmove.y() + dist;
 						}
 					}
-					for( std::vector<PointVertex>::const_iterator i = m_Vlines.m_lines.begin(); i != m_Vlines.m_lines.end(); ++++i ){
-						const float dist = point.x() - ( ( *i ).vertex.x() + uvmove.x() );
-						if( fabs( dist ) < bestDistV ){
-							bestDistV = fabs( dist );
+					for( auto it = m_Vlines.m_lines.cbegin(); it != m_Vlines.m_lines.cend(); ++++it ){
+						const float dist = point.x() - ( ( *it ).vertex.x() + uvmove.x() );
+						if( std::fabs( dist ) < bestDistV ){
+							bestDistV = std::fabs( dist );
 							snapMoveV = uvmove.x() + dist;
 						}
 					}
@@ -6528,8 +6509,8 @@ public:
 				}
 
 				if( snap ){
-					auto& smaller = fabs( uvmove.x() * vector3_length( m_faceTex2local.x().vec3() ) ) <
-					                fabs( uvmove.y() * vector3_length( m_faceTex2local.y().vec3() ) )? result.x() : result.y();
+					auto& smaller = std::fabs( uvmove.x() * vector3_length( m_faceTex2local.x().vec3() ) ) <
+					                std::fabs( uvmove.y() * vector3_length( m_faceTex2local.y().vec3() ) )? result.x() : result.y();
 					smaller = 0;
 				}
 
@@ -6567,30 +6548,30 @@ public:
 				for( std::size_t index : indices ){
 					for( std::vector<PointVertex>::const_iterator i = m_Ulines.m_lines.begin(); i != m_Ulines.m_lines.end(); ++++i ){
 						const float dist = m_patchCtrl[index].m_texcoord.y() + uvmove.y() - ( *i ).vertex.y();
-						if( fabs( dist ) < bestDistU ){
-							bestDistU = fabs( dist );
+						if( std::fabs( dist ) < bestDistU ){
+							bestDistU = std::fabs( dist );
 							snapMoveU = uvmove.y() - dist;
 						}
 					}
 					for( std::vector<PointVertex>::const_iterator i = m_Vlines.m_lines.begin(); i != m_Vlines.m_lines.end(); ++++i ){
 						const float dist = m_patchCtrl[index].m_texcoord.x() + uvmove.x() - ( *i ).vertex.x();
-						if( fabs( dist ) < bestDistV ){
-							bestDistV = fabs( dist );
+						if( std::fabs( dist ) < bestDistV ){
+							bestDistV = std::fabs( dist );
 							snapMoveV = uvmove.x() - dist;
 						}
 					}
 					const Vector3 origin = matrix4_transformed_point( m_faceLocal2tex, m_origin );
 					{
 						const float dist = m_patchCtrl[index].m_texcoord.y() + uvmove.y() - origin.y();
-						if( fabs( dist ) < bestDistU ){
-							bestDistU = fabs( dist );
+						if( std::fabs( dist ) < bestDistU ){
+							bestDistU = std::fabs( dist );
 							snapMoveU = uvmove.y() - dist;
 						}
 					}
 					{
 						const float dist = m_patchCtrl[index].m_texcoord.x() + uvmove.x() - origin.x();
-						if( fabs( dist ) < bestDistV ){
-							bestDistV = fabs( dist );
+						if( std::fabs( dist ) < bestDistV ){
+							bestDistV = std::fabs( dist );
 							snapMoveV = uvmove.x() - dist;
 						}
 					}
@@ -6605,8 +6586,8 @@ public:
 				}
 
 				if( snap ){
-					auto& smaller = fabs( uvmove.x() * vector3_length( m_faceTex2local.x().vec3() ) ) <
-					                fabs( uvmove.y() * vector3_length( m_faceTex2local.y().vec3() ) )? result.x() : result.y();
+					auto& smaller = std::fabs( uvmove.x() * vector3_length( m_faceTex2local.x().vec3() ) ) <
+					                std::fabs( uvmove.y() * vector3_length( m_faceTex2local.y().vec3() ) )? result.x() : result.y();
 					smaller = 0;
 				}
 
@@ -6708,18 +6689,18 @@ public:
 
 		if( g_modifiers.shift() ){ // snap to axis
 			for ( std::size_t i = 0; i < 3; ++i ){
-				if( fabs( current[i] ) >= fabs( current[( i + 1 ) % 3] ) ){
-					current[( i + 1 ) % 3] = 0.f;
+				if( std::fabs( current[i] ) >= std::fabs( current[( i + 1 ) % 3] ) ){
+					current[( i + 1 ) % 3] = 0;
 				}
 				else{
-					current[i] = 0.f;
+					current[i] = 0;
 				}
 			}
 		}
 
 		bool set[3] = { true, true, true };
 		for ( std::size_t i = 0; i < 3; ++i ){
-			if( fabs( current[i] ) < 1e-3f ){
+			if( std::fabs( current[i] ) < 1e-3f ){
 				set[i] = false;
 			}
 		}
@@ -6953,7 +6934,7 @@ private:
 	UVManipulator m_uv_manipulator;
 	mutable TransformOriginManipulator m_transformOrigin_manipulator;
 
-	typedef SelectionList<scene::Instance> selection_t;
+	typedef UnsortedSet<scene::Instance*, false> selection_t;
 	selection_t m_selection;
 	selection_t m_component_selection;
 
@@ -7087,12 +7068,12 @@ public:
 	}
 	void onSelectedChanged( scene::Instance& instance, const Selectable& selectable ) override {
 		if ( selectable.isSelected() ) {
-			m_selection.append( instance );
+			m_selection.push_back( &instance );
 			m_count_stuff.increment( instance.path().top() );
 		}
 		else
 		{
-			m_selection.erase( instance );
+			m_selection.erase( &instance );
 			m_count_stuff.decrement( instance.path().top() );
 		}
 
@@ -7100,11 +7081,11 @@ public:
 	}
 	void onComponentSelection( scene::Instance& instance, const Selectable& selectable ) override {
 		if ( selectable.isSelected() ) {
-			m_component_selection.append( instance );
+			m_component_selection.push_back( &instance );
 		}
 		else
 		{
-			m_component_selection.erase( instance );
+			m_component_selection.erase( &instance );
 		}
 
 		ASSERT_MESSAGE( m_component_selection.size() == m_count_component.size(), "selection-tracking error" );
@@ -7115,7 +7096,7 @@ public:
 	}
 	scene::Instance& ultimateSelected() const override {
 		ASSERT_MESSAGE( m_selection.size() > 0, "no instance selected" );
-		return m_selection.back();
+		return *m_selection.back();
 	}
 	scene::Instance& penultimateSelected() const override {
 		ASSERT_MESSAGE( m_selection.size() > 1, "only one instance selected" );
@@ -7302,7 +7283,7 @@ public:
 
 	void SelectPoint( const View& view, const DeviceVector device_point, const DeviceVector device_epsilon, RadiantSelectionSystem::EModifier modifier, bool face ){
 		//globalOutputStream() << device_point[0] << "   " << device_point[1] << '\n';
-		ASSERT_MESSAGE( fabs( device_point[0] ) <= 1.f && fabs( device_point[1] ) <= 1.f, "point-selection error" );
+		ASSERT_MESSAGE( std::fabs( device_point[0] ) <= 1 && std::fabs( device_point[1] ) <= 1, "point-selection error" );
 
 		if ( modifier == eReplace ) {
 			deselectComponentsOrAll( face );
@@ -7419,7 +7400,7 @@ public:
 
 	RadiantSelectionSystem::EModifier
 	SelectPoint_InitPaint( const View& view, const DeviceVector device_point, const DeviceVector device_epsilon, bool face ){
-		ASSERT_MESSAGE( fabs( device_point[0] ) <= 1.f && fabs( device_point[1] ) <= 1.f, "point-selection error" );
+		ASSERT_MESSAGE( std::fabs( device_point[0] ) <= 1 && std::fabs( device_point[1] ) <= 1, "point-selection error" );
 #if defined ( DEBUG_SELECTION )
 		g_render_clipped.destroy();
 #endif
@@ -7488,9 +7469,11 @@ public:
 			Scene_TestSelect( pool, volume, scissored, Mode(), ComponentMode() );
 		}
 
-		for ( SelectionPool::iterator i = pool.begin(); i != pool.end(); ++i )
+		for ( auto& [ intersection, selectable ] : pool )
 		{
-			( *i ).second->setSelected( rect.modifier == rect_t::eSelect? true : rect.modifier == rect_t::eDeselect? false : !( *i ).second->isSelected() );
+			selectable->setSelected( rect.modifier == rect_t::eSelect? true
+			                       : rect.modifier == rect_t::eDeselect? false
+			                       : !selectable->isSelected() );
 		}
 	}
 
@@ -7529,13 +7512,13 @@ public:
 			if ( Mode() == eComponent ) {
 				Scene_Rotate_Component_Selected( GlobalSceneGraph(), m_rotation, m_pivot2world.t().vec3() );
 
-				matrix4_assign_rotation_for_pivot( m_pivot2world, m_component_selection.back() );
+				matrix4_assign_rotation_for_pivot( m_pivot2world, *m_component_selection.back() );
 			}
 			else
 			{
 				Scene_Rotate_Selected( GlobalSceneGraph(), m_rotation, m_pivot2world.t().vec3() );
 
-				matrix4_assign_rotation_for_pivot( m_pivot2world, m_selection.back() );
+				matrix4_assign_rotation_for_pivot( m_pivot2world, *m_selection.back() );
 			}
 #ifdef SELECTIONSYSTEM_AXIAL_PIVOTS
 			matrix4_assign_rotation( m_pivot2world, matrix4_rotation_for_quaternion_quantised( m_rotation ) );
@@ -8100,20 +8083,20 @@ void RadiantSelectionSystem::ConstructPivotRotation() const {
 		break;
 	case eRotate:
 		if ( Mode() == eComponent ) {
-			matrix4_assign_rotation_for_pivot( m_pivot2world, m_component_selection.back() );
+			matrix4_assign_rotation_for_pivot( m_pivot2world, *m_component_selection.back() );
 		}
 		else
 		{
-			matrix4_assign_rotation_for_pivot( m_pivot2world, m_selection.back() );
+			matrix4_assign_rotation_for_pivot( m_pivot2world, *m_selection.back() );
 		}
 		break;
 	case eScale:
 		if ( Mode() == eComponent ) {
-			matrix4_assign_rotation_for_pivot( m_pivot2world, m_component_selection.back() );
+			matrix4_assign_rotation_for_pivot( m_pivot2world, *m_component_selection.back() );
 		}
 		else
 		{
-			matrix4_assign_rotation_for_pivot( m_pivot2world, m_selection.back() );
+			matrix4_assign_rotation_for_pivot( m_pivot2world, *m_selection.back() );
 		}
 		break;
 	default:
@@ -8149,22 +8132,22 @@ void RadiantSelectionSystem::setCustomTransformOrigin( const Vector3& origin, co
 	if ( !nothingSelected() && transformOrigin_isTranslatable() ) {
 
 		//globalOutputStream() << origin << '\n';
-		for( std::size_t i = 0; i < 3; i++ ){
+		for( std::size_t i = 0; i < 3; ++i ){
 			float value = origin[i];
 			if( set[i] ){
-				float bestsnapDist = fabs( m_bounds.origin[i] - value );
+				float bestsnapDist = std::fabs( m_bounds.origin[i] - value );
 				float bestsnapTo = m_bounds.origin[i];
-				float othersnapDist = fabs( m_bounds.origin[i] + m_bounds.extents[i] - value );
+				float othersnapDist = std::fabs( m_bounds.origin[i] + m_bounds.extents[i] - value );
 				if( othersnapDist < bestsnapDist ){
 					bestsnapDist = othersnapDist;
 					bestsnapTo = m_bounds.origin[i] + m_bounds.extents[i];
 				}
-				othersnapDist = fabs( m_bounds.origin[i] - m_bounds.extents[i] - value );
+				othersnapDist = std::fabs( m_bounds.origin[i] - m_bounds.extents[i] - value );
 				if( othersnapDist < bestsnapDist ){
 					bestsnapDist = othersnapDist;
 					bestsnapTo = m_bounds.origin[i] - m_bounds.extents[i];
 				}
-				othersnapDist = fabs( float_snapped( value, GetSnapGridSize() ) - value );
+				othersnapDist = std::fabs( float_snapped( value, GetSnapGridSize() ) - value );
 				if( othersnapDist < bestsnapDist ){
 					bestsnapDist = othersnapDist;
 					bestsnapTo = float_snapped( value, GetSnapGridSize() );
@@ -8440,7 +8423,7 @@ class Selector_
 			}
 		}
 
-		m_start = m_current = DeviceVector( 0.f, 0.f );
+		m_start = m_current = DeviceVector( 0, 0 );
 		draw_area();
 	}
 
@@ -8457,8 +8440,8 @@ public:
 
 	Selector_( const DeviceVector& epsilon ) :
 		m_epsilon( epsilon ),
-		m_start( 0.f, 0.f ),
-		m_current( 0.f, 0.f ),
+		m_start( 0, 0 ),
+		m_current( 0, 0 ),
 		m_mouse2( false ),
 		m_mouseMoved( false ),
 		m_mouseMovedWhilePressed( false ){
@@ -8492,7 +8475,7 @@ public:
 			m2testSelect( device_constrained( position ) );
 		}
 		else{
-			m_start = m_current = DeviceVector( 0.0f, 0.0f );
+			m_start = m_current = DeviceVector( 0, 0 );
 		}
 	}
 	typedef MemberCaller<Selector_, void(DeviceVector), &Selector_::mouseUp> MouseUpCaller;
@@ -8638,7 +8621,7 @@ public:
 		}
 
 		m_moveStart = devicePosition;
-		m_movePressed = 0.f;
+		m_movePressed = 0;
 	}
 	void onMouseMotion( const WindowVector& position, ModifierFlags modifiers ) override {
 		m_selector.m_mouseMoved = mouse_moved_epsilon( position, m_moveEnd, m_move );
@@ -8677,7 +8660,7 @@ public:
 		m_selector.m_mouseMovedWhilePressed = false;
 		m_manipulator.m_mouseMovedWhilePressed = false;
 		m_moveEnd = device( position );
-		m_move = 0.f;
+		m_move = 0;
 	}
 	void onModifierDown( ModifierFlags type ) override {
 		g_modifiers = bitfield_enable( g_modifiers, type );
@@ -8696,7 +8679,7 @@ public:
 		if( move > m_moveEpsilon )
 			return true;
 		const DeviceVector devicePosition( device( position ) );
-		const float currentMove = std::max( fabs( devicePosition.x() - moveStart.x() ), fabs( devicePosition.y() - moveStart.y() ) );
+		const float currentMove = std::max( std::fabs( devicePosition.x() - moveStart.x() ), std::fabs( devicePosition.y() - moveStart.y() ) );
 		move = std::max( move, currentMove );
 	//	globalOutputStream() << move << " move\n";
 		return move > m_moveEpsilon;

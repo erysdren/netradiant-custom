@@ -67,8 +67,6 @@
 
 #include "debugging/debugging.h"
 
-#include "iundo.h"
-
 #include "commandlib.h"
 #include "os/file.h"
 #include "os/path.h"
@@ -164,7 +162,7 @@ public:
 	LineLimitedTextOutputStream( TextOutputStream& outputStream, std::size_t count )
 		: outputStream( outputStream ), count( count ){
 	}
-	std::size_t write( const char* buffer, std::size_t length ){
+	std::size_t write( const char* buffer, std::size_t length ) override {
 		if ( count != 0 ) {
 			const char* p = buffer;
 			const char* end = buffer + length;
@@ -191,13 +189,13 @@ class PopupDebugMessageHandler : public DebugMessageHandler
 	StringOutputStream m_buffer;
 	Lock m_lock;
 public:
-	TextOutputStream& getOutputStream(){
+	TextOutputStream& getOutputStream() override {
 		if ( !m_lock.locked() ) {
 			return m_buffer;
 		}
 		return globalErrorStream();
 	}
-	bool handleMessage(){
+	bool handleMessage() override {
 		getOutputStream() << "----------------\n";
 		LineLimitedTextOutputStream outputStream( getOutputStream(), 24 );
 		write_stack_trace( outputStream );
@@ -311,7 +309,7 @@ void create_global_pid(){
 			qt_MessageBox( 0, StringStream( "WARNING: Could not delete ", g_pidFile ), "Radiant", EMessageBoxType::Error );
 		}
 
-		// in debug, never prompt to clean registry, turn console logging auto after a failed start
+		// in debug, never prompt to clean registry
 #if !defined( _DEBUG )
 		const char msg[] = "Radiant failed to start properly the last time it was run.\n"
 		                   "The failure may be related to current global preferences.\n"
@@ -325,11 +323,6 @@ void create_global_pid(){
 		                                "radiant.log\nRefer to the log if Radiant fails to start again." );
 		qt_MessageBox( 0, msg2, "Radiant - Console Log" );
 #endif
-
-		// set without saving, the class is not in a coherent state yet
-		// just do the value change and call to start logging, CGamesDialog will pickup when relevant
-		g_GamesDialog.m_bForceLogConsole = true;
-		Sys_LogFile( true );
 	}
 
 	// create a primary .pid for global init run
@@ -361,7 +354,7 @@ void create_local_pid(){
 			qt_MessageBox( 0, StringStream( "WARNING: Could not delete ", g_pidGameFile ), "Radiant", EMessageBoxType::Error );
 		}
 
-		// in debug, never prompt to clean registry, turn console logging auto after a failed start
+		// in debug, never prompt to clean registry
 #if !defined( _DEBUG )
 		const char msg[] = "Radiant failed to start properly the last time it was run.\n"
 		                   "The failure may be caused by current preferences.\n"
@@ -375,10 +368,6 @@ void create_local_pid(){
 		                                "radiant.log\nRefer to the log if Radiant fails to start again." );
 		qt_MessageBox( 0, msg2, "Radiant - Console Log" );
 #endif
-
-		// force console logging on! (will go in prefs too)
-		g_GamesDialog.m_bForceLogConsole = true;
-		Sys_LogFile( true );
 	}
 	else
 	{
@@ -418,6 +407,10 @@ int main( int argc, char* argv[] ){
 
 	glwidget_setDefaultFormat(); // must go before QApplication instantiation
 
+	QCoreApplication::setAttribute( Qt::AA_EnableHighDpiScaling );
+	// QGuiApplication::setHighDpiScaleFactorRoundingPolicy( Qt::HighDpiScaleFactorRoundingPolicy::PassThrough );
+	QCoreApplication::setAttribute( Qt::AA_UseHighDpiPixmaps );
+
 	QApplication qapplication( argc, argv );
 	setlocale( LC_NUMERIC, "C" );
 	qInstallMessageHandler( qute_messageHandler );
@@ -435,6 +428,10 @@ int main( int argc, char* argv[] ){
 		return EXIT_FAILURE;
 	}
 
+	Sys_LogFile( true );
+
+	QApplication::setWindowIcon( new_local_icon( "radiant.ico" ) ); // before any windows, after paths_init()
+
 	show_splash();
 
 	create_global_pid();
@@ -451,21 +448,10 @@ int main( int argc, char* argv[] ){
 
 	create_local_pid();
 
-	// in a very particular post-.pid startup
-	// we may have the console turned on and want to keep it that way
-	// so we use a latching system
-	if ( g_GamesDialog.m_bForceLogConsole ) {
-		Sys_LogFile( true );
-		g_Console_enableLogging = true;
-		g_GamesDialog.m_bForceLogConsole = false;
-	}
-
-
 	Radiant_Initialise();
 
 //	user_shortcuts_init();
 
-	g_pParentWnd = 0;
 	g_pParentWnd = new MainFrame();
 
 	hide_splash();
@@ -483,7 +469,7 @@ int main( int argc, char* argv[] ){
 
 	remove_local_pid();
 
-	qapplication.exec();
+	QApplication::exec();
 
 	Map_Free();
 

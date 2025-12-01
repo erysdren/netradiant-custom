@@ -21,9 +21,11 @@
 
 #include "image.h"
 
+#include "os/file.h"
+#include "os/path.h"
 #include "string/string.h"
 #include "stream/stringstream.h"
-#include "stream/textstream.h"
+#include <QDir>
 
 
 namespace
@@ -35,12 +37,55 @@ void BitmapsPath_set( const char* path ){
 	g_bitmapsPath = path;
 }
 
+/* generate in settings path, app path may have no write permission */
+void Bitmaps_generateLight( const char *appPath, const char *settingsPath ){
+	const char *fromto[][2] = { { "bitmaps/", "bitmaps_light/" }, { "plugins/bitmaps/", "plugins/bitmaps/" } };
+	for( const auto [ f, t ] : fromto )
+	{
+		QDir from( QString( appPath ) + f );
+		QDir to( QString( settingsPath ) + t );
+		for( auto *d : { &from, &to } ){
+			d->setNameFilters( QStringList() << "*.svg" << "*.png" << "*.ico" << "*.theme" );
+			d->setFilter( QDir::Filter::Files );
+		}
+
+		if( to.count() < from.count() ){
+			to.mkpath( to.absolutePath() );
+			for( const QFileInfo& fileinfo : from.entryInfoList() )
+			{
+				QFile file( fileinfo.absoluteFilePath() );
+				if( file.open( QIODevice::OpenModeFlag::ReadOnly ) ){
+					QByteArray data( file.readAll() );
+					if( fileinfo.suffix() == "svg" )
+						data.replace( "#C0C0C0", "#575757" );
+					QFile outfile( to.absolutePath() + '/' + fileinfo.fileName() );
+					if( outfile.open( QIODevice::OpenModeFlag::WriteOnly ) )
+						outfile.write( data );
+				}
+			}
+		}
+	}
+}
+
 QPixmap new_local_image( const char* filename ){
-	const auto fullPath = StringStream( g_bitmapsPath, filename );
-	return QPixmap( QString( fullPath.c_str() ) );
+	StringOutputStream fullpath( 256 );
+
+	for( const auto *ext : { ".svg", ".png" } )
+		if( file_exists( fullpath( g_bitmapsPath, PathExtensionless( filename ), ext ) ) )
+			return QPixmap( fullpath.c_str() );
+
+	return {};
 }
 
 QIcon new_local_icon( const char* filename ){
-	const auto fullPath = StringStream( g_bitmapsPath, filename );
-	return QIcon( fullPath.c_str() );
+	if( QString name( CopiedString( PathExtensionless( filename ) ).c_str() ); QIcon::hasThemeIcon( name ) )
+		return QIcon::fromTheme( name );
+
+	StringOutputStream fullpath( 256 );
+
+	for( const auto *ext : { ".svg", ".png", ".ico" } )
+		if( file_exists( fullpath( g_bitmapsPath, PathExtensionless( filename ), ext ) ) )
+			return QIcon( fullpath.c_str() );
+
+	return {};
 }

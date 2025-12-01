@@ -25,8 +25,6 @@
 #include "selectable.h"
 #include "renderable.h"
 
-#include <set>
-
 #include "math/curve.h"
 #include "stream/stringstream.h"
 #include "signal/signal.h"
@@ -38,7 +36,7 @@ class RenderableCurve : public OpenGLRenderable
 {
 public:
 	std::vector<PointVertex> m_vertices;
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		pointvertex_gl_array( &m_vertices.front() );
 		gl().glDrawArrays( GL_LINE_STRIP, 0, GLsizei( m_vertices.size() ) );
 	}
@@ -49,15 +47,15 @@ inline void plotBasisFunction( std::size_t numSegments, int point, int degree ){
 	KnotVector_openUniform( knots, 4, degree );
 
 	globalOutputStream() << "plotBasisFunction point " << point << " of 4, knot vector:";
-	for ( Knots::iterator i = knots.begin(); i != knots.end(); ++i )
+	for ( auto knot : knots )
 	{
-		globalOutputStream() << ' ' << *i;
+		globalOutputStream() << ' ' << knot;
 	}
 	globalOutputStream() << '\n';
 	globalOutputStream() << "t=0 basis=" << BSpline_basis( knots, point, degree, 0.0 ) << '\n';
 	for ( std::size_t i = 1; i < numSegments; ++i )
 	{
-		double t = ( 1.0 / double( numSegments ) ) * double( i );
+		const double t = ( 1.0 / double( numSegments ) ) * double( i );
 		globalOutputStream() << "t=" << t << " basis=" << BSpline_basis( knots, point, degree, t ) << '\n';
 	}
 	globalOutputStream() << "t=1 basis=" << BSpline_basis( knots, point, degree, 1.0 ) << '\n';
@@ -79,11 +77,11 @@ inline bool ControlPoints_parse( ControlPoints& controlPoints, const char* value
 	if ( !string_equal( tokeniser.getToken(), "(" ) ) {
 		return false;
 	}
-	for ( ControlPoints::iterator i = controlPoints.begin(); i != controlPoints.end(); ++i )
+	for ( auto& cp : controlPoints )
 	{
-		if ( !string_parse_float( tokeniser.getToken(), ( *i ).x() )
-		  || !string_parse_float( tokeniser.getToken(), ( *i ).y() )
-		  || !string_parse_float( tokeniser.getToken(), ( *i ).z() ) ) {
+		if ( !string_parse_float( tokeniser.getToken(), cp.x() )
+		  || !string_parse_float( tokeniser.getToken(), cp.y() )
+		  || !string_parse_float( tokeniser.getToken(), cp.z() ) ) {
 			return false;
 		}
 	}
@@ -95,9 +93,9 @@ inline bool ControlPoints_parse( ControlPoints& controlPoints, const char* value
 
 inline void ControlPoints_write( const ControlPoints& controlPoints, StringOutputStream& value ){
 	value << controlPoints.size() << " (";
-	for ( ControlPoints::const_iterator i = controlPoints.begin(); i != controlPoints.end(); ++i )
+	for ( const auto& cp : controlPoints )
 	{
-		value << ' ' << ( *i ).x() << ' ' << ( *i ).y() << ' ' << ( *i ).z() << ' ';
+		value << ' ' << cp.x() << ' ' << cp.y() << ' ' << cp.z() << ' ';
 	}
 	value << ')';
 }
@@ -171,9 +169,9 @@ public:
 	}
 	template<typename Functor>
 	const Functor& forEach( const Functor& functor ) const {
-		for ( ControlPoints::const_iterator i = m_controlPoints.begin(); i != m_controlPoints.end(); ++i )
+		for ( const auto& control : m_controlPoints )
 		{
-			functor( *i );
+			functor( control );
 		}
 		return functor;
 	}
@@ -188,18 +186,12 @@ public:
 	}
 
 	bool isSelected() const {
-		for ( Selectables::const_iterator i = m_selectables.begin(); i != m_selectables.end(); ++i )
-		{
-			if ( ( *i ).isSelected() ) {
-				return true;
-			}
-		}
-		return false;
+		return std::ranges::any_of( m_selectables, &ObservedSelectable::isSelected );
 	}
 	void setSelected( bool selected ){
-		for ( Selectables::iterator i = m_selectables.begin(); i != m_selectables.end(); ++i )
+		for ( auto& selectable : m_selectables )
 		{
-			( *i ).setSelected( selected );
+			selectable.setSelected( selected );
 		}
 	}
 
@@ -306,9 +298,9 @@ public:
 		tesselate();
 
 		m_bounds = AABB();
-		for ( ControlPoints::iterator i = m_controlPointsTransformed.begin(); i != m_controlPointsTransformed.end(); ++i )
+		for ( const auto& control : m_controlPointsTransformed )
 		{
-			aabb_extend_by_point_safe( m_bounds, ( *i ) );
+			aabb_extend_by_point_safe( m_bounds, control );
 		}
 
 		m_boundsChanged();
@@ -321,9 +313,9 @@ public:
 		}
 
 		m_weights.resize( m_controlPoints.size() );
-		for ( NURBSWeights::iterator i = m_weights.begin(); i != m_weights.end(); ++i )
+		for ( auto& weight : m_weights )
 		{
-			( *i ) = 1;
+			weight = 1;
 		}
 
 		KnotVector_openUniform( m_knots, m_controlPoints.size(), NURBS_degree );
@@ -394,9 +386,9 @@ public:
 		tesselate();
 
 		m_bounds = AABB();
-		for ( ControlPoints::iterator i = m_controlPointsTransformed.begin(); i != m_controlPointsTransformed.end(); ++i )
+		for ( const auto& control : m_controlPointsTransformed )
 		{
-			aabb_extend_by_point_safe( m_bounds, ( *i ) );
+			aabb_extend_by_point_safe( m_bounds, control );
 		}
 
 		m_boundsChanged();

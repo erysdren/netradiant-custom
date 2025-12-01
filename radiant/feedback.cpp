@@ -37,7 +37,6 @@
 #include <QVBoxLayout>
 
 #include "map.h"
-#include "dialog.h"
 #include "mainframe.h"
 
 
@@ -131,7 +130,7 @@ void CPointMsg::DropHighlight(){
 void CPointMsg::Draw2D( VIEWTYPE vt ){
 	NDIM1NDIM2( vt )
 	gl().glPointSize( 4 );
-	gl().glColor3f( 1.0f, 0.0f, 0.0f );
+	gl().glColor3f( 1, 0, 0 );
 	gl().glBegin( GL_POINTS );
 	gl().glVertex2f( pt[nDim1], pt[nDim2] );
 	gl().glEnd();
@@ -166,7 +165,7 @@ void CWindingMsg::saxEndElement( message_info_t *ctx, const xmlChar *name ){
 		sscanf( c, "%i ", &numpoints );
 
 		int i = 0;
-		for (; i < numpoints; i++ )
+		for (; i < numpoints; ++i )
 		{
 			c = strchr( c + 1, '(' );
 			if ( c ) { // even if we are given the number of points when the cycle begins .. don't trust it too much
@@ -202,11 +201,11 @@ void CWindingMsg::Draw2D( VIEWTYPE vt ){
 	int i;
 
 	NDIM1NDIM2( vt )
-	gl().glColor3f( 1.0f, 0.f, 0.0f );
+	gl().glColor3f( 1, 0, 0 );
 
 	gl().glPointSize( 4 );
 	gl().glBegin( GL_POINTS );
-	for ( i = 0; i < numpoints; i++ )
+	for ( i = 0; i < numpoints; ++i )
 		gl().glVertex2f( wt[i][nDim1], wt[i][nDim2] );
 	gl().glEnd();
 	gl().glPointSize( 1 );
@@ -216,7 +215,7 @@ void CWindingMsg::Draw2D( VIEWTYPE vt ){
 	gl().glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	gl().glColor4f( 0.133f, 0.4f, 1.0f, 0.5f );
 	gl().glBegin( GL_POLYGON );
-	for ( i = 0; i < numpoints; i++ )
+	for ( i = 0; i < numpoints; ++i )
 		gl().glVertex2f( wt[i][nDim1], wt[i][nDim2] );
 	gl().glEnd();
 	gl().glDisable( GL_BLEND );
@@ -254,7 +253,7 @@ void CDbgDlg::Init(){
 		e->Release();
 	m_feedbackElements.clear();
 
-	if ( m_clist != NULL ) {
+	if ( m_clist != nullptr ) {
 		m_clist->clear();
 	}
 }

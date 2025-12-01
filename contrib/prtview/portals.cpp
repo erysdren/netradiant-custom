@@ -36,12 +36,6 @@ CPortals portals;
 CPortalsRender render;
 
 
-CBspPortal::CBspPortal(){
-}
-
-CBspPortal::~CBspPortal(){
-}
-
 bool CBspPortal::Build( char *def ){
 	char *c = def;
 	unsigned int point_count;
@@ -66,7 +60,7 @@ bool CBspPortal::Build( char *def ){
 
 	for ( auto& p : point )
 	{
-		for (; *c != 0 && *c != '('; c++ ){};
+		for (; *c != 0 && *c != '('; ++c ){};
 
 		if ( *c == 0 ) {
 			return false;
@@ -102,15 +96,9 @@ bool CBspPortal::Build( char *def ){
 	fp_color_random[0] = ( rand() & 0xff ) / 255.0f;
 	fp_color_random[1] = ( rand() & 0xff ) / 255.0f;
 	fp_color_random[2] = ( rand() & 0xff ) / 255.0f;
-	fp_color_random[3] = 1.0f;
+	fp_color_random[3] = 1;
 
 	return true;
-}
-
-CPortals::CPortals(){
-}
-
-CPortals::~CPortals(){
 }
 
 void CPortals::Purge(){
@@ -118,7 +106,7 @@ void CPortals::Purge(){
 
 	/*
 	   delete[] node;
-	   node = NULL;
+	   node = nullptr;
 	   node_count = 0;
 	 */
 }
@@ -137,7 +125,7 @@ void CPortals::Load(){
 
 	in = fopen( fn.c_str(), "rt" );
 
-	if ( in == NULL ) {
+	if ( in == nullptr ) {
 		globalErrorStream() << "  ERROR - could not open file.\n";
 
 		return;
@@ -186,7 +174,6 @@ void CPortals::Load(){
 			GETLINE; //clusters count
 			GETLINE; //portals count
 			sscanf( buf, "%u", &portal_count );
-
 		}
 		break;
 	case PRT1AM:
@@ -386,17 +373,17 @@ void CPortals::FixColors(){
 	fp_color_2d[0] = RGB_UNPACK_R( color_2d ) / 255.0f;
 	fp_color_2d[1] = RGB_UNPACK_G( color_2d ) / 255.0f;
 	fp_color_2d[2] = RGB_UNPACK_B( color_2d ) / 255.0f;
-	fp_color_2d[3] = 1.0f;
+	fp_color_2d[3] = 1;
 
 	fp_color_3d[0] = RGB_UNPACK_R( color_3d ) / 255.0f;
 	fp_color_3d[1] = RGB_UNPACK_G( color_3d ) / 255.0f;
 	fp_color_3d[2] = RGB_UNPACK_B( color_3d ) / 255.0f;
-	fp_color_3d[3] = 1.0f;
+	fp_color_3d[3] = 1;
 
 	fp_color_fog[0] = RGB_UNPACK_R( color_fog ) / 255.0f;
 	fp_color_fog[1] = RGB_UNPACK_G( color_fog ) / 255.0f;
 	fp_color_fog[2] = RGB_UNPACK_B( color_fog ) / 255.0f;
-	fp_color_fog[3] = 1.0f;
+	fp_color_fog[3] = 1;
 }
 
 void CPortalsRender::renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
@@ -471,11 +458,9 @@ void CPortalsDrawSolid::render( RenderStateFlags state ) const {
 			portals.portal_sort.push_back( &prt );
 		}
 
-		std::sort( portals.portal_sort.begin(), portals.portal_sort.end(), []( const CBspPortal *a, const CBspPortal *b ){
-			return a->dist < b->dist;
-		} );
+		std::ranges::sort( portals.portal_sort, {}, &CBspPortal::dist );
 
-		for ( const auto prt : portals.portal_sort )
+		for ( const auto *prt : portals.portal_sort )
 		{
 			if( ( !prt->hint && portals.draw_nonhints )
 			  || ( prt->hint && portals.draw_hints ) )

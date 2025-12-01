@@ -134,20 +134,20 @@ Image& convertHeightmapToNormalmap( Image& heightmap, float scale ){
 	// 3x3 Prewitt
 	const int kernelSize = 6;
 	KernelElement kernel_du[kernelSize] = {
-		{-1, 1,-1.0f },
-		{-1, 0,-1.0f },
-		{-1,-1,-1.0f },
-		{ 1, 1, 1.0f },
-		{ 1, 0, 1.0f },
-		{ 1,-1, 1.0f }
+		{-1, 1,-1 },
+		{-1, 0,-1 },
+		{-1,-1,-1 },
+		{ 1, 1, 1 },
+		{ 1, 0, 1 },
+		{ 1,-1, 1 }
 	};
 	KernelElement kernel_dv[kernelSize] = {
-		{-1, 1, 1.0f },
-		{ 0, 1, 1.0f },
-		{ 1, 1, 1.0f },
-		{-1,-1,-1.0f },
-		{ 0,-1,-1.0f },
-		{ 1,-1,-1.0f }
+		{-1, 1, 1 },
+		{ 0, 1, 1 },
+		{ 1, 1, 1 },
+		{-1,-1,-1 },
+		{ 0,-1,-1 },
+		{ 1,-1,-1 }
 	};
 #endif
 
@@ -170,7 +170,7 @@ Image& convertHeightmapToNormalmap( Image& heightmap, float scale ){
 
 			float nx = -du * scale;
 			float ny = -dv * scale;
-			float nz = 1.0;
+			float nz = 1;
 
 			// Normalize
 			float norm = 1.0 / sqrt( nx * nx + ny * ny + nz * nz );
@@ -294,7 +294,7 @@ public:
 	ShaderTemplate() :
 		m_refcount( 0 ){
 		m_nFlags = 0;
-		m_fTrans = 1.0f;
+		m_fTrans = 1;
 	}
 
 	void IncRef(){
@@ -455,7 +455,7 @@ bool parseShaderParameters( Tokeniser& tokeniser, ShaderParameters& params ){
 bool ShaderTemplate::parseTemplate( Tokeniser& tokeniser ){
 	m_Name = tokeniser.getToken();
 	if ( !parseShaderParameters( tokeniser, m_params ) ) {
-		globalErrorStream() << "shader template: " << makeQuoted( m_Name ) << ": parameter parse failed\n";
+		globalErrorStream() << "shader template: " << Quoted( m_Name ) << ": parameter parse failed\n";
 		return false;
 	}
 
@@ -703,18 +703,18 @@ bool parseTemplateInstance( Tokeniser& tokeniser, const char* filename ){
 	const char* templateName = tokeniser.getToken();
 	ShaderTemplate* shaderTemplate = findTemplate( templateName );
 	if ( shaderTemplate == 0 ) {
-		globalErrorStream() << "shader instance: " << makeQuoted( name ) << ": shader template not found: " << makeQuoted( templateName ) << '\n';
+		globalErrorStream() << "shader instance: " << Quoted( name ) << ": shader template not found: " << Quoted( templateName ) << '\n';
 	}
 
 	ShaderArguments args;
 	if ( !parseShaderParameters( tokeniser, args ) ) {
-		globalErrorStream() << "shader instance: " << makeQuoted( name ) << ": argument parse failed\n";
+		globalErrorStream() << "shader instance: " << Quoted( name ) << ": argument parse failed\n";
 		return false;
 	}
 
 	if ( shaderTemplate != 0 ) {
 		if ( !g_shaderDefinitions.insert( ShaderDefinitionMap::value_type( name, ShaderDefinition( shaderTemplate, args, filename ) ) ).second ) {
-			globalErrorStream() << "shader instance: " << makeQuoted( name ) << ": already exists, second definition ignored\n";
+			globalErrorStream() << "shader instance: " << Quoted( name ) << ": already exists, second definition ignored\n";
 		}
 	}
 	return true;
@@ -777,8 +777,8 @@ float evaluateFloat( const ShaderValue& value, const ShaderParameters& params, c
 	const char* result = evaluateShaderValue( value.c_str(), params, args );
 	float f;
 	if ( !string_parse_float( result, f ) ) {
-		globalErrorStream() << "parsing float value failed: " << makeQuoted( result ) << '\n';
-		return 1.f;
+		globalErrorStream() << "parsing float value failed: " << Quoted( result ) << '\n';
+		return 1;
 	}
 	return f;
 }
@@ -820,11 +820,11 @@ BlendFactor evaluateBlendFactor( const ShaderValue& value, const ShaderParameter
 		return BLEND_SRC_ALPHA_SATURATE;
 	}
 
-	globalErrorStream() << "parsing blend-factor value failed: " << makeQuoted( result ) << '\n';
+	globalErrorStream() << "parsing blend-factor value failed: " << Quoted( result ) << '\n';
 	return BLEND_ZERO;
 }
 
-class CShader : public IShader
+class CShader final : public IShader
 {
 	std::size_t m_refcount;
 
@@ -867,7 +867,7 @@ public:
 
 		realise();
 	}
-	virtual ~CShader(){
+	~CShader(){
 		unrealise();
 
 		ASSERT_MESSAGE( m_refcount == 0, "deleting active shader" );
@@ -955,7 +955,10 @@ public:
 		if ( m_pTexture->texture_number == 0 ) {
 			m_notfound = m_pTexture;
 
-			const auto name = StringStream( GlobalRadiant().getAppPath(), "bitmaps/", ( IsDefault() ? "notex.png" : "shadernotex.png" ) );
+			const auto name = StringStream( GlobalRadiant().getAppPath(), "bitmaps/",
+				( string_equal( m_template.getName(), "nomodel" )? "nomodel.png"
+				: IsDefault() ? "notex.png"
+				: "shadernotex.png" ) );
 			m_pTexture = GlobalTexturesCache().capture( LoadImageCallback( 0, loadBitmap ), name );
 		}
 
@@ -988,9 +991,9 @@ public:
 			m_pSpecular = evaluateTexture( m_template.m_specular, m_template.m_params, m_args );
 			m_pLightFalloffImage = evaluateTexture( m_template.m_lightFalloffImage, m_template.m_params, m_args );
 
-			for ( ShaderTemplate::MapLayers::const_iterator i = m_template.m_layers.begin(); i != m_template.m_layers.end(); ++i )
+			for ( const auto& layer : m_template.m_layers )
 			{
-				m_layers.push_back( evaluateLayer( *i, m_template.m_params, m_args ) );
+				m_layers.push_back( evaluateLayer( layer, m_template.m_params, m_args ) );
 			}
 
 			if ( m_layers.size() == 1 ) {
@@ -1016,7 +1019,7 @@ public:
 					}
 					else
 					{
-						globalErrorStream() << "parsing blend value failed: " << makeQuoted( blend ) << '\n';
+						globalErrorStream() << "parsing blend value failed: " << Quoted( blend ) << '\n';
 					}
 				}
 			}
@@ -1031,9 +1034,9 @@ public:
 
 			GlobalTexturesCache().release( m_pLightFalloffImage );
 
-			for ( MapLayers::iterator i = m_layers.begin(); i != m_layers.end(); ++i )
+			for ( auto& layer : m_layers )
 			{
-				GlobalTexturesCache().release( ( *i ).texture() );
+				GlobalTexturesCache().release( layer.texture() );
 			}
 			m_layers.clear();
 
@@ -1092,9 +1095,9 @@ public:
 		return &m_layers.front();
 	}
 	void forEachLayer( const ShaderLayerCallback& callback ) const override {
-		for ( MapLayers::const_iterator i = m_layers.begin(); i != m_layers.end(); ++i )
+		for ( const auto& layer : m_layers )
 		{
-			callback( *i );
+			callback( layer );
 		}
 	}
 
@@ -1132,9 +1135,9 @@ void ActiveShaders_IteratorIncrement(){
 }
 
 void debug_check_shaders( shaders_t& shaders ){
-	for ( shaders_t::iterator i = shaders.begin(); i != shaders.end(); ++i )
+	for ( const auto& [ name, shader ] : shaders )
 	{
-		ASSERT_MESSAGE( i->second->refcount() == 1, "orphan shader still referenced" );
+		ASSERT_MESSAGE( shader->refcount() == 1, "orphan shader still referenced" );
 	}
 }
 
@@ -1277,7 +1280,7 @@ bool ShaderTemplate::parseQuake3( Tokeniser& tokeniser ){
 				if ( string_equal_nocase( surfaceparm, "fog" ) ) {
 					m_nFlags |= QER_FOG;
 					m_nFlags |= QER_TRANS;
-					if ( m_fTrans == 1.0f ) { // has not been explicitly set by qer_trans
+					if ( m_fTrans == 1 ) { // has not been explicitly set by qer_trans
 						m_fTrans = 0.35f;
 					}
 				}
@@ -1420,7 +1423,7 @@ void parseGuideFile( Tokeniser& tokeniser, const char* filename ){
 			ShaderTemplatePointer shaderTemplate( new ShaderTemplate );
 			shaderTemplate->parseTemplate( tokeniser );
 			if ( !g_shaderTemplates.insert( ShaderTemplateMap::value_type( shaderTemplate->getName(), shaderTemplate ) ).second ) {
-				globalErrorStream() << "guide " << makeQuoted( shaderTemplate->getName() ) << ": already defined, second definition ignored\n";
+				globalErrorStream() << "guide " << Quoted( shaderTemplate->getName() ) << ": already defined, second definition ignored\n";
 			}
 		}
 		else if ( string_equal( token, "inlineGuide" ) ) {
@@ -1566,7 +1569,7 @@ void ShaderList_addShaderFile( const char* dirstring ){
 	{
 		if ( string_equal_nocase( dirstring, sh.c_str() ) ) {
 			found = true;
-			globalOutputStream() << "duplicate entry \"" << sh << "\" in shaderlist.txt\n";
+			globalOutputStream() << "duplicate entry " << Quoted( sh ) << " in shaderlist.txt\n";
 			break;
 		}
 	}
@@ -1716,65 +1719,65 @@ void Shaders_Refresh(){
 class Quake3ShaderSystem : public ShaderSystem, public ModuleObserver
 {
 public:
-	void realise(){
+	void realise() override {
 		Shaders_Realise();
 	}
-	void unrealise(){
+	void unrealise() override {
 		Shaders_Unrealise();
 	}
-	void refresh(){
+	void refresh() override {
 		Shaders_Refresh();
 	}
 
-	IShader* getShaderForName( const char* name ){
+	IShader* getShaderForName( const char* name ) override {
 		return Shader_ForName( name );
 	}
 
-	void foreachShaderName( const ShaderNameCallback& callback ){
-		for ( ShaderDefinitionMap::const_iterator i = g_shaderDefinitions.begin(); i != g_shaderDefinitions.end(); ++i )
+	void foreachShaderName( const ShaderNameCallback& callback ) override {
+		for ( const auto& [ name, shader ] : g_shaderDefinitions )
 		{
-			callback( ( *i ).first.c_str() );
+			callback( name.c_str() );
 		}
 	}
 
-	void beginActiveShadersIterator(){
+	void beginActiveShadersIterator() override {
 		ActiveShaders_IteratorBegin();
 	}
-	bool endActiveShadersIterator(){
+	bool endActiveShadersIterator() override {
 		return ActiveShaders_IteratorAtEnd();
 	}
-	IShader* dereferenceActiveShadersIterator(){
+	IShader* dereferenceActiveShadersIterator() override {
 		return ActiveShaders_IteratorCurrent();
 	}
-	void incrementActiveShadersIterator(){
+	void incrementActiveShadersIterator() override {
 		ActiveShaders_IteratorIncrement();
 	}
-	void setActiveShadersChangedNotify( const Callback<void()>& notify ){
+	void setActiveShadersChangedNotify( const Callback<void()>& notify ) override {
 		g_ActiveShadersChangedNotify = notify;
 	}
 
-	void attach( ModuleObserver& observer ){
+	void attach( ModuleObserver& observer ) override {
 		g_observers.attach( observer );
 	}
-	void detach( ModuleObserver& observer ){
+	void detach( ModuleObserver& observer ) override {
 		g_observers.detach( observer );
 	}
 
-	void setLightingEnabled( bool enabled ){
+	void setLightingEnabled( bool enabled ) override {
 		if ( CShader::m_lightingEnabled != enabled ) {
-			for ( shaders_t::const_iterator i = g_ActiveShaders.begin(); i != g_ActiveShaders.end(); ++i )
+			for ( const auto& [ name, shader ] : g_ActiveShaders )
 			{
-				( *i ).second->unrealiseLighting();
+				shader->unrealiseLighting();
 			}
 			CShader::m_lightingEnabled = enabled;
-			for ( shaders_t::const_iterator i = g_ActiveShaders.begin(); i != g_ActiveShaders.end(); ++i )
+			for ( const auto& [ name, shader ] : g_ActiveShaders )
 			{
-				( *i ).second->realiseLighting();
+				shader->realiseLighting();
 			}
 		}
 	}
 
-	const char* getTexturePrefix() const {
+	const char* getTexturePrefix() const override {
 		return g_texturePrefix;
 	}
 };

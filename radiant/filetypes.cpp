@@ -58,23 +58,22 @@ public:
 	RadiantFileTypeRegistry(){
 		addType( "*", "*", filetype_t( "All Files", "*.*" ) );
 	}
-	void addType( const char* moduleType, const char* moduleName, filetype_t type ){
+	void addType( const char* moduleType, const char* moduleName, filetype_t type ) override {
 		m_typelists[moduleType].push_back( filetype_copy_t( moduleName, type ) );
 	}
-	void getTypeList( const char* moduleType, IFileTypeList* typelist, bool want_load, bool want_import, bool want_save ){
-		filetype_list_t& list_ref = m_typelists[moduleType];
-		for ( filetype_list_t::iterator i = list_ref.begin(); i != list_ref.end(); ++i )
+	void getTypeList( const char* moduleType, IFileTypeList* typelist, bool want_load, bool want_import, bool want_save ) override {
+		for ( const auto& type : m_typelists[ moduleType ] )
 		{
-			if ( want_load && !( *i ).m_can_load ) {
+			if ( want_load && !type.m_can_load ) {
 				return;
 			}
-			if ( want_import && !( *i ).m_can_import ) {
+			if ( want_import && !type.m_can_import ) {
 				return;
 			}
-			if ( want_save && !( *i ).m_can_save ) {
+			if ( want_save && !type.m_can_save ) {
 				return;
 			}
-			typelist->addType( ( *i ).getModuleName(), ( *i ).getType() );
+			typelist->addType( type.getModuleName(), type.getType() );
 		}
 	}
 };
@@ -98,7 +97,7 @@ const char* findModuleName( IFileTypeRegistry* registry, const char* moduleType,
 			strncpy( m_pattern + 2, ext, 125 );
 			m_pattern[127] = '\0';
 		}
-		void addType( const char* moduleName, filetype_t type ){
+		void addType( const char* moduleName, filetype_t type ) override {
 			if ( extension_equal( m_pattern, type.pattern ) ) {
 				m_moduleName = moduleName;
 			}

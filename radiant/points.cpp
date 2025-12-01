@@ -37,10 +37,8 @@
 #include "stream/stringstream.h"
 #include "os/path.h"
 #include "os/file.h"
-#include "commandlib.h"
 
 #include "map.h"
-#include "qe3.h"
 #include "camwindow.h"
 #include "xywindow.h"
 #include "xmlstuff.h"
@@ -60,21 +58,19 @@ class CPointfile : public ISAXHandler, public Renderable, public OpenGLRenderabl
 	static Shader* m_renderstate;
 	StringOutputStream m_characters;
 public:
-	CPointfile(){
-	}
-	~CPointfile(){
-	}
+	CPointfile() = default;
+	~CPointfile() = default;
 	void Init();
 	void PushPoint( const Vector3& v );
 	void GenerateDisplayList();
 // SAX interface
-	void Release(){
+	void Release() override {
 		// blank because not heap-allocated
 	}
-	void saxStartElement( message_info_t *ctx, const xmlChar *name, const xmlChar **attrs );
-	void saxEndElement( message_info_t *ctx, const xmlChar *name );
-	void saxCharacters( message_info_t *ctx, const xmlChar *ch, int len );
-	const char* getName();
+	void saxStartElement( message_info_t *ctx, const xmlChar *name, const xmlChar **attrs ) override;
+	void saxEndElement( message_info_t *ctx, const xmlChar *name ) override;
+	void saxCharacters( message_info_t *ctx, const xmlChar *ch, int len ) override;
+	const char* getName() override;
 
 	typedef const Vector3* const_iterator;
 
@@ -103,18 +99,18 @@ public:
 		}
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		gl().glCallList( m_displaylist );
 	}
 
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		if ( shown() ) {
 			renderer.SetState( m_renderstate, Renderer::eWireframeOnly );
 			renderer.SetState( m_renderstate, Renderer::eFullMaterials );
 			renderer.addRenderable( *this, g_matrix4_identity );
 		}
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		renderSolid( renderer, volume );
 	}
 
@@ -157,7 +153,7 @@ void CPointfile::GenerateDisplayList(){
 	gl().glNewList( m_displaylist, GL_COMPILE );
 
 	gl().glBegin( GL_LINE_STRIP );
-	for ( std::size_t i = 0; i < s_num_points; i++ )
+	for ( std::size_t i = 0; i < s_num_points; ++i )
 		gl().glVertex3fv( vector3_to_array( s_pointvecs[i] ) );
 	gl().glEnd();
 	gl().glLineWidth( 1 );
@@ -182,8 +178,8 @@ void Pointfile_UpdateViews( CPointfile::const_iterator i ){
 	{
 		Vector3 dir( vector3_normalised( vector3_subtracted( *( ++i ), Camera_getOrigin( camwnd ) ) ) );
 		Vector3 angles( Camera_getAngles( camwnd ) );
-		angles[CAMERA_YAW] = static_cast<float>( radians_to_degrees( atan2( dir[1], dir[0] ) ) );
-		angles[CAMERA_PITCH] = static_cast<float>( radians_to_degrees( asin( dir[2] ) ) );
+		angles[CAMERA_YAW] = radians_to_degrees( atan2( dir[1], dir[0] ) );
+		angles[CAMERA_PITCH] = radians_to_degrees( asin( dir[2] ) );
 		Camera_setAngles( camwnd, angles );
 	}
 }
@@ -294,7 +290,6 @@ void Pointfile_Parse( CPointfile& pointfile ){
 
 			while ( *data && *data != '\n' )
 				data++;
-
 		}
 		while ( *data == '\n' )
 		{

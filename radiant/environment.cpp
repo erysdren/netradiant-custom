@@ -35,16 +35,16 @@ const char** g_argv;
 void args_init( int argc, char* argv[] ){
 	int i, j, k;
 
-	for ( i = 1; i < argc; i++ )
+	for ( i = 1; i < argc; ++i )
 	{
-		for ( k = i; k < argc; k++ )
+		for ( k = i; k < argc; ++k )
 			if ( argv[k] != 0 ) {
 				break;
 			}
 
 		if ( k > i ) {
 			k -= i;
-			for ( j = i + k; j < argc; j++ )
+			for ( j = i + k; j < argc; ++j )
 				argv[j - k] = argv[j];
 			argc -= k;
 		}
@@ -126,10 +126,10 @@ void gamedetect(){
 		{
 			// TODO add more games to this
 
-			if ( gamedetect_check_game( "q3.game", "baseq3/pak0.pk3", NULL, buf, p - buf ) ) {
+			if ( gamedetect_check_game( "q3.game", "baseq3/pak0.pk3", nullptr, buf, p - buf ) ) {
 				return;
 			}
-			if ( gamedetect_check_game( "q1.game", "id1/pak0.pak", NULL, buf, p - buf ) ) {
+			if ( gamedetect_check_game( "q1.game", "id1/pak0.pak", nullptr, buf, p - buf ) ) {
 				return;
 			}
 			// try to detect Nexuiz installs
@@ -145,12 +145,12 @@ void gamedetect(){
 			}
 
 			// try to detect Q2World installs
-			if ( gamedetect_check_game( "q2w.game", "default/quake2world.version", NULL, buf, p - buf ) ) {
+			if ( gamedetect_check_game( "q2w.game", "default/quake2world.version", nullptr, buf, p - buf ) ) {
 				return;
 			}
 
 			// try to detect Warsow installs
-			if ( gamedetect_check_game( "warsow.game", "basewsw/dedicated_autoexec.cfg", NULL, buf, p - buf ) ) {
+			if ( gamedetect_check_game( "warsow.game", "basewsw/dedicated_autoexec.cfg", nullptr, buf, p - buf ) ) {
 				return;
 			}
 
@@ -226,7 +226,7 @@ const char* getexename( char *buf ){
 	const int ret = readlink( LINK_NAME, buf, PATH_MAX );
 
 	if ( ret == -1 ) {
-		globalWarningStream() << "getexename: falling back to argv[0]: " << makeQuoted( g_argv[0] );
+		globalWarningStream() << "getexename: falling back to argv[0]: " << Quoted( g_argv[0] );
 		if( realpath( g_argv[0], buf ) == 0 )
 			*buf = '\0'; /* In case of an error, leave the handling up to the caller */
 	}

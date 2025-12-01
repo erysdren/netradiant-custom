@@ -23,51 +23,54 @@
 
 
 #include "itoolbar.h"
+#include "gtkmisc.h"
+#include "gtkutil/image.h"
 #include "modulesystem.h"
 
 #include "stream/stringstream.h"
 #include "os/file.h"
-#include "gtkutil/image.h"
-#include "gtkutil/toolbar.h"
+#include "os/path.h"
 
 #include "mainframe.h"
 #include "plugin.h"
+#include "pluginmanager.h"
 
 QIcon new_plugin_icon( const char* filename ){
 	StringOutputStream fullpath( 256 );
 
-	fullpath( AppPath_get(), g_pluginsDir, "bitmaps/", filename );
-	if( file_exists( fullpath ) )
-		return QIcon( fullpath.c_str() );
+	const char *rootdir[][ 2 ] = { { AppPath_get(), g_pluginsDir }, { GameToolsPath_get(), g_pluginsDir }, { AppPath_get(), g_modulesDir } };
 
-	fullpath( GameToolsPath_get(), g_pluginsDir, "bitmaps/", filename );
-	if( file_exists( fullpath ) )
-		return QIcon( fullpath.c_str() );
-
-	fullpath( AppPath_get(), g_modulesDir, "bitmaps/", filename );
-	if( file_exists( fullpath ) )
-		return QIcon( fullpath.c_str() );
+	for( const auto [ root, dir ] : rootdir )
+		for( const auto *ext : { ".svg", ".png" } )
+			if( file_exists( fullpath( root, dir, "bitmaps/", PathExtensionless( filename ), ext ) ) )
+				return QIcon( fullpath.c_str() );
 
 	return {};
 }
 
-void toolbar_insert( QToolBar *toolbar, const char* icon, const char* text, const char* tooltip, IToolbarButton::EType type, const IToolbarButton* ibutton ){
+void toolbar_insert( QToolBar *toolbar, const char* icon, const char* text, const char* tooltip, IToolbarButton::EType type, const IToolbarButton* ibutton, const char *pluginName ){
 	switch ( type )
 	{
 	case IToolbarButton::eSpace:
-		toolbar->addSeparator();
+		toolbar_append_separator( toolbar );
 		return;
 	case IToolbarButton::eButton:
 		{
-			QAction *button = toolbar->addAction( new_plugin_icon( icon ), text, [ibutton](){ ibutton->activate(); } );
-			button->setToolTip( tooltip );
+			toolbar_append_button( toolbar, tooltip, new_local_icon( icon ), plugin_construct_command_name( pluginName, text ).c_str() );
+			// QAction *button = toolbar->addAction( new_plugin_icon( icon ), text, [ibutton](){ ibutton->activate(); } );
+			// button->setToolTip( tooltip );
 		}
 		return;
 	case IToolbarButton::eToggleButton:
 		{
-			QAction *button = toolbar->addAction( new_plugin_icon( icon ), text, [ibutton](){ ibutton->activate(); } );
-			button->setToolTip( tooltip );
-			button->setCheckable( true );
+			//. fixme need consistent plugin command names (same in menu and toolbar) for the current command system
+			// now they are defined in 3 places, also must be used in menu to work in toolbar
+			// also no defined toggle menu item support (->setCheckable( true ) is some workaround now)
+			toolbar_append_button( toolbar, tooltip, new_local_icon( icon ), plugin_construct_command_name( pluginName, text ).c_str() )->setCheckable( true );
+			// toolbar_append_toggle_button( toolbar, tooltip, new_plugin_icon( icon ), plugin_construct_command_name( pluginName, text ).c_str() );
+			// QAction *button = toolbar->addAction( new_plugin_icon( icon ), text, [ibutton](){ ibutton->activate(); } );
+			// button->setToolTip( tooltip );
+			// button->setCheckable( true );
 		}
 		return;
 	case IToolbarButton::eRadioButton:
@@ -79,8 +82,8 @@ void toolbar_insert( QToolBar *toolbar, const char* icon, const char* text, cons
 	}
 }
 
-void PlugInToolbar_AddButton( QToolBar* toolbar, const IToolbarButton* button ){
-	toolbar_insert( toolbar, button->getImage(), button->getText(), button->getTooltip(), button->getType(), button );
+void PlugInToolbar_AddButton( QToolBar* toolbar, const IToolbarButton* button, const char *pluginName ){
+	toolbar_insert( toolbar, button->getImage(), button->getText(), button->getTooltip(), button->getType(), button, pluginName );
 }
 
 QToolBar* g_plugin_toolbar = 0;
@@ -93,14 +96,13 @@ void PluginToolbar_populate(){
 		AddToolbarItemVisitor( QToolBar* toolbar )
 			: m_toolbar( toolbar ){
 		}
-		void visit( const char* name, const _QERPlugToolbarTable& table ) const {
+		void visit( const char* name, const _QERPlugToolbarTable& table ) const override {
 			const std::size_t count = table.m_pfnToolbarButtonCount();
 			for ( std::size_t i = 0; i < count; ++i )
 			{
-				PlugInToolbar_AddButton( m_toolbar, table.m_pfnGetToolbarButton( i ) );
+				PlugInToolbar_AddButton( m_toolbar, table.m_pfnGetToolbarButton( i ), name );
 			}
 		}
-
 	} visitor( g_plugin_toolbar );
 
 	Radiant_getToolbarModules().foreachModule( visitor );

@@ -188,7 +188,7 @@ unsigned int MDCSurface_read( Surface& surface, const byte* buffer ){
 		PointerInputStream xyzStream( buffer + mdcSurface.ofsXyzNormals );
 		PointerInputStream stStream( buffer + mdcSurface.ofsSt );
 		// read verts into vertex array - xyz, st, normal
-		for ( std::size_t i = 0; i < mdcSurface.numVerts; i++ )
+		for ( std::size_t i = 0; i < mdcSurface.numVerts; ++i )
 		{
 			mdcXyzNormal_t mdcXyzNormal;
 			istream_read_mdcXyzNormal( xyzStream, mdcXyzNormal );
@@ -210,7 +210,7 @@ unsigned int MDCSurface_read( Surface& surface, const byte* buffer ){
 
 		PointerInputStream triangleStream( buffer + mdcSurface.ofsTriangles );
 
-		for ( std::size_t i = 0; i < mdcSurface.numTriangles; i++ )
+		for ( std::size_t i = 0; i < mdcSurface.numTriangles; ++i )
 		{
 			mdcTriangle_t triangle;
 			istream_read_mdcTriangle( triangleStream, triangle );
@@ -241,7 +241,7 @@ void MDCModel_read( Model& model, const byte* buffer ){
 
 	const byte* surfacePosition = buffer + header.ofsSurfaces;
 
-	for ( std::size_t i = 0; i < header.numSurfaces; i++ )
+	for ( std::size_t i = 0; i < header.numSurfaces; ++i )
 	{
 		surfacePosition += MDCSurface_read( model.newSurface(), surfacePosition );
 	}
@@ -250,13 +250,13 @@ void MDCModel_read( Model& model, const byte* buffer ){
 }
 
 scene::Node& MDCModel_new( const byte* buffer ){
-	ModelNode* modelNode = new ModelNode();
+	auto *modelNode = new ModelNode();
 	MDCModel_read( modelNode->model(), buffer );
 	return modelNode->node();
 }
 
 scene::Node& MDCModel_default(){
-	ModelNode* modelNode = new ModelNode();
+	auto *modelNode = new ModelNode();
 	Model_constructNull( modelNode->model() );
 	return modelNode->node();
 }

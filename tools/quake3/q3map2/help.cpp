@@ -172,7 +172,7 @@ static void HelpLight()
 		{ "-bouncescale <F>", "Scaling factor for radiosity" },
 		{ "-bounce <N>", "Maximal number of bounces for radiosity" },
 		{ "-brightness <F>", "Scaling factor for resulting lightmaps brightness" },
-		{ "-cheapgrid", "Use `-cheap` style lighting for radiosity" },
+		{ "-cheapgrid", "Use `-cheap` style lighting for light grid" },
 		{ "-cheap", "Abort vertex light calculations when white is reached" },
 		{ "-compensate <F>", "Lightmap compensate (darkening factor applied after everything else)" },
 		{ "-contrast <F>", "-255 .. 255 lighting contrast, default = 0" },
@@ -226,7 +226,7 @@ static void HelpLight()
 		{ "-lomem", "Low memory but slower lighting mode" },
 		{ "-lowquality", "Low quality floodlight (appears to currently break floodlight)" },
 		{ "-minsamplesize <N>", "Sets minimum lightmap resolution in luxels/qu" },
-		{ "-nobouncestore", "Do not store BSP, lightmap and shader files between bounces" },
+		{ "-nobouncestore", "Store BSP, lightmap and shader files only once after last bounce" },
 		{ "-nocollapse", "Do not collapse identical lightmaps" },
 		{ "-nodeluxe, -nodeluxemap", "Disable deluxemapping" },
 		{ "-nofastpoint", "Disable fast point light calculation" },
@@ -242,6 +242,7 @@ static void HelpLight()
 		{ "-nosurf", "Disable tracing against surfaces (only uses BSP nodes then)" },
 		{ "-notrace", "Disable shadow occlusion" },
 		{ "-novertex", "Disable vertex lighting; optional (0..1) value sets constant vertex light globally" },
+		{ "-onesky", "Fallback to old behavior: any sky emits total of all suns/skylights in the map" },
 		{ "-patchshadows", "Cast shadows from patches" },
 		{ "-pointscale <F>, -point <F>", "Scaling factor for spherical and spot point lights (light entities)" },
 		{ "-q3", "Use nonlinear falloff curve by default (like Q3A)" },
@@ -313,14 +314,16 @@ static void HelpConvert()
 		{ "-deluxemapsastexcoord", "Save deluxemap names and texcoords instead of textures (only when writing ase and obj)" },
 		{ "-de <F>", "Distance epsilon for the conversion (only when reading map)" },
 		{ "-fast", "fast bsp to map conversion mode (without texture alignments)" },
-		{ "-format <converter>", "Select the converter, default ase (available: map, map_bp, ase, obj, or game names)" },
+		{ "-format <converter>", "Select the converter, default ase (available: map, map_bp, map_220, ase, obj, or game names)" },
 		{ "-lightmapsastexcoord", "Save lightmap names and texcoords instead of textures (only when writing ase and obj)" },
 		{ "-meta", "Combine adjacent triangles of the same texture to surfaces (only when reading map)" },
+		{ "-modelclip", "Decompile model autoclip brushes during bsp to map conversion (they are skipped by default)" },
 		{ "-ne <F>", "Normal epsilon for the conversion (only when reading map)" },
 		{ "-patchmeta", "Turn patches into triangle meshes for display (only when reading map)" },
 		{ "-readbsp", "Force converting bsp to selected format" },
 		{ "-readmap", "Force converting map to selected format" },
 		{ "-shadersasbitmap", "Save shader names as bitmap names in the model so it works as a prefab (only when writing ase and obj)" },
+		{ "-wtf", "During bsp to map conversion use common/WTF on faces with failed texture alignment deduction" },
 	};
 
 	HelpOptions( "Converting & Decompiling", 0, 80, options );
@@ -449,7 +452,7 @@ static void HelpCommon()
 {
 	const std::vector<HelpOption> options = {
 		{ "-connect <address>", "Talk to a NetRadiant instance using a specific XML based protocol" },
-		{ "-force", "Allow reading some broken/unsupported BSP files e.g. when decompiling, may crash. Also enables decompilation of model autoclip brushes." },
+		{ "-force", "Allow reading some broken/unsupported BSP files e.g. when decompiling, may crash" },
 		{ "-fs_basepath <path>", "Sets the given path as main directory of the game (can be used more than once to look in multiple paths)" },
 		{ "-fs_forbiddenpath <pattern>", "Pattern to ignore directories, pk3, and pk3dir; example pak?.pk3 (can be used more than once to look for multiple patterns)" },
 		{ "-fs_game <gamename>", "Sets extra game directory name to additionally load mod's resources from at higher priority (by default for Q3A 'baseq3' is loaded, -fs_game cpma will also load 'cpma'; can be used more than once)" },
@@ -460,14 +463,12 @@ static void HelpCommon()
 		{ "-fs_pakpath <path>", "Specify a package directory (can be used more than once to look in multiple paths)" },
 		{ "-game <gamename>", "Load settings for the given game (default: quake3), -help -game lists available games" },
 		{ "-maxmapdrawsurfs <N>", "Sets max amount of mapDrawSurfs, used during .map compilation (-bsp, -convert), default = 131072" },
-		{ "-maxshaderinfo <N>", "Sets max amount of shaderInfo, default = 8192" },
 		{ "-subdivisions <F>", "multiplier for patch subdivisions quality" },
 		{ "-threads <N>", "number of threads to use" },
 		{ "-v", "Verbose mode" },
 	};
 
 	HelpOptions( "Common Options", 0, 80, options );
-
 }
 
 void HelpGames(){

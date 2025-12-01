@@ -28,12 +28,6 @@
 
 class CBspPortal {
 public:
-	CBspPortal();
-	~CBspPortal();
-
-protected:
-
-public:
 	Vector3 center{ 0 };
 	std::vector<Vector3> point;
 	std::vector<Vector3> inner_point;
@@ -61,10 +55,6 @@ class CPortals {
 	} format;
 
 public:
-
-	CPortals();
-	~CPortals();
-
 	void Load();     // use filename in fn
 	void Purge();
 
@@ -110,20 +100,20 @@ class CPortalsDrawSolid : public OpenGLRenderable
 {
 public:
 	mutable CubicClipVolume clip;
-	void render( RenderStateFlags state ) const;
+	void render( RenderStateFlags state ) const override;
 };
 
 class CPortalsDrawSolidOutline : public OpenGLRenderable
 {
 public:
 	mutable CubicClipVolume clip;
-	void render( RenderStateFlags state ) const;
+	void render( RenderStateFlags state ) const override;
 };
 
 class CPortalsDrawWireframe : public OpenGLRenderable
 {
 public:
-	void render( RenderStateFlags state ) const;
+	void render( RenderStateFlags state ) const override;
 };
 
 class CPortalsRender : public Renderable
@@ -133,8 +123,8 @@ public:
 	CPortalsDrawSolidOutline m_drawSolidOutline;
 	CPortalsDrawWireframe m_drawWireframe;
 
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const;
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const;
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override;
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override;
 };
 
 extern CPortals portals;

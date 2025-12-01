@@ -210,7 +210,7 @@ void write_stack_trace( PCONTEXT pContext, TextOutputStream& outputStream ){
 
 	const unsigned int max_sym_name = 1024; // should be enough
 
-	while ( 1 )
+	while ( true )
 	{
 		// Get the next stack frame
 		if ( !StackWalk64( dwMachineType,
@@ -227,7 +227,6 @@ void write_stack_trace( PCONTEXT pContext, TextOutputStream& outputStream ){
 
 		if ( 0 == sf.AddrFrame.Offset ) { // Basic sanity check to make sure
 			break;                // the frame is OK.  Bail if not.
-
 		}
 		// Get the name of the function for this stack frame entry
 		BYTE symbolBuffer[ sizeof( SYMBOL_INFO ) + max_sym_name ];

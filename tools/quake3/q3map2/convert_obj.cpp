@@ -88,7 +88,7 @@ static void ConvertSurfaceToOBJ( FILE *f, int modelNum, int surfaceNum, const Ve
 	}
 
 	/* export vertex */
-	for ( int i = 0; i < ds.numVerts; i++ )
+	for ( int i = 0; i < ds.numVerts; ++i )
 	{
 		const bspDrawVert_t& dv = bspDrawVerts[ ds.firstVert + i ];
 		fprintf( f, "# vertex %d\r\n", i + objVertexCount + 1 );
@@ -129,7 +129,7 @@ static void ConvertModelToOBJ( FILE *f, int modelNum, const Vector3& origin, con
 	const bspModel_t& model = bspModels[ modelNum ];
 
 	/* go through each drawsurf in the model */
-	for ( int i = 0; i < model.numBSPSurfaces; i++ )
+	for ( int i = 0; i < model.numBSPSurfaces; ++i )
 	{
 		ConvertSurfaceToOBJ( f, modelNum, model.firstBSPSurface + i, origin, lmIndices );
 	}
@@ -143,34 +143,23 @@ static void ConvertModelToOBJ( FILE *f, int modelNum, const Vector3& origin, con
  */
 
 static void ConvertShaderToMTL( FILE *f, const bspShader_t& shader ){
-	shaderInfo_t    *si;
-	char filename[ 1024 ];
-
-
 	/* get shader */
-	si = ShaderInfoForShader( shader.shader );
-	if ( si == NULL ) {
-		Sys_Warning( "NULL shader in BSP\n" );
-		return;
-	}
+	shaderInfo_t& si = ShaderInfoForShader( shader.shader );
 
 	/* set bitmap filename */
-	if ( si->shaderImage->filename.c_str()[ 0 ] != '*' ) {
-		strcpy( filename, si->shaderImage->filename.c_str() );
-	}
-	else{
-		sprintf( filename, "%s.tga", si->shader.c_str() );
-	}
+	auto filename = si.shaderImage->filename.c_str()[ 0 ] == '*'
+	                ? StringStream<64>( si.shader, ".tga" )
+	                : StringStream<64>( si.shaderImage->filename );
 
 	/* blender hates this, so let's not do it
-	for( c = filename; *c; c++ )
+	for( char *c = filename; *c; ++c )
 		if( *c == '/' )
 			*c = '\\';
 	*/
 
 	/* print shader info */
 	fprintf( f, "newmtl %s\r\n", shader.shader );
-	fprintf( f, "Kd %f %f %f\r\n", si->color[ 0 ], si->color[ 1 ], si->color[ 2 ] );
+	fprintf( f, "Kd %f %f %f\r\n", si.color[ 0 ], si.color[ 1 ], si.color[ 2 ] );
 	if ( shadersAsBitmap ) {
 		fprintf( f, "map_Kd %s\r\n", shader.shader );
 	}
@@ -178,7 +167,7 @@ static void ConvertShaderToMTL( FILE *f, const bspShader_t& shader ){
 		/* blender hates this, so let's not do it
 		    fprintf( f, "map_Kd ..\\%s\r\n", filename );
 		 */
-		fprintf( f, "map_Kd ../%s\r\n", filename );
+		fprintf( f, "map_Kd ../%s\r\n", filename.c_str() );
 	}
 }
 
@@ -200,9 +189,9 @@ static void ConvertLightmapToMTL( FILE *f, const char *base, int lightmapNum ){
 int Convert_CountLightmaps( const char* dirname ){
 	int lightmapCount;
 	//FIXME numBSPLightmaps is 0, must be bspLightBytes / ( g_game->lightmapSize * g_game->lightmapSize * 3 )
-	for ( lightmapCount = 0; lightmapCount < numBSPLightmaps; lightmapCount++ )
+	for ( lightmapCount = 0; lightmapCount < numBSPLightmaps; ++lightmapCount )
 		;
-	for ( ; ; lightmapCount++ )
+	for ( ; ; ++lightmapCount )
 	{
 		char buf[1024];
 		std::snprintf( buf, std::size( buf ), "%s/" EXTERNAL_LIGHTMAP, dirname, lightmapCount );
@@ -227,7 +216,7 @@ void Convert_ReferenceLightmaps( const char* base, std::vector<int>& lmIndices )
 		/* handle { } section */
 		if ( !( GetToken( true ) && strEqual( token, "{" ) ) )
 			Error( "ParseShaderFile: %s, line %d: { not found!\nFound instead: %s\nFile location be: %s",
-			       shaderfile, scriptline, token, g_strLoadedFileLocation );
+			       shaderfile, scriptline, token, g_loadedScriptLocation.c_str() );
 		while ( GetToken( true ) && !strEqual( token, "}" ) )
 		{
 			/* parse stage directives */
@@ -333,7 +322,7 @@ int ConvertBSPToOBJ( char *bspName ){
 	}
 
 	if ( lightmapsAsTexcoord ) {
-		for ( int i = firstLightmap; i <= lastLightmap; i++ )
+		for ( int i = firstLightmap; i <= lastLightmap; ++i )
 			ConvertLightmapToMTL( fmtl, base, i );
 	}
 

@@ -46,7 +46,6 @@
 
 #include "targetable.h"
 #include "origin.h"
-#include "angle.h"
 #include "rotation.h"
 #include "model.h"
 #include "filters.h"
@@ -344,7 +343,7 @@ public:
 		m_traverseObservers.detach( *observer );
 	}
 
-	const AABB& localAABB() const {
+	const AABB& localAABB() const override {
 		m_curveBounds = m_curveNURBS.m_bounds;
 		aabb_extend_by_aabb_safe( m_curveBounds, m_curveCatmullRom.m_bounds );
 		return m_curveBounds;
@@ -394,7 +393,7 @@ public:
 	void rotate( const Quaternion& rotation ){
 		rotation_rotate( m_rotation, rotation );
 	}
-	void snapto( float snap ){
+	void snapto( float snap ) override {
 		m_originKey.m_origin = origin_snapped( m_originKey.m_origin, snap );
 		m_originKey.write( &m_entity );
 	}
@@ -462,7 +461,7 @@ public:
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
 
-	Bounded& get( NullType<Bounded>){
+	Bounded& get( NullType<Bounded> ){
 		return m_contained;
 	}
 
@@ -487,26 +486,26 @@ public:
 		m_contained.m_curveNURBS.disconnect( m_contained.m_curveNURBSChanged );
 		m_contained.instanceDetach( Instance::path() );
 	}
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_contained.renderSolid( renderer, volume, Instance::localToWorld(), getSelectable().isSelected(), Instance::childSelected(), Instance::childBounds() );
 
 		m_curveNURBS.renderComponentsSelected( renderer, volume, localToWorld() );
 		m_curveCatmullRom.renderComponentsSelected( renderer, volume, localToWorld() );
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_contained.renderWireframe( renderer, volume, Instance::localToWorld(), getSelectable().isSelected(), Instance::childSelected(), Instance::childBounds() );
 
 		m_curveNURBS.renderComponentsSelected( renderer, volume, localToWorld() );
 		m_curveCatmullRom.renderComponentsSelected( renderer, volume, localToWorld() );
 	}
-	void renderComponents( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderComponents( Renderer& renderer, const VolumeTest& volume ) const override {
 		if ( GlobalSelectionSystem().ComponentMode() == SelectionSystem::eVertex ) {
 			m_curveNURBS.renderComponents( renderer, volume, localToWorld() );
 			m_curveCatmullRom.renderComponents( renderer, volume, localToWorld() );
 		}
 	}
 
-	void testSelect( Selector& selector, SelectionTest& test ){
+	void testSelect( Selector& selector, SelectionTest& test ) override {
 		test.BeginMesh( localToWorld() );
 		SelectionIntersection best;
 
@@ -517,23 +516,23 @@ public:
 		}
 	}
 
-	bool isSelectedComponents() const {
+	bool isSelectedComponents() const override {
 		return m_curveNURBS.isSelected() || m_curveCatmullRom.isSelected();
 	}
-	void setSelectedComponents( bool selected, SelectionSystem::EComponentMode mode ){
+	void setSelectedComponents( bool selected, SelectionSystem::EComponentMode mode ) override {
 		if ( mode == SelectionSystem::eVertex ) {
 			m_curveNURBS.setSelected( selected );
 			m_curveCatmullRom.setSelected( selected );
 		}
 	}
-	void testSelectComponents( Selector& selector, SelectionTest& test, SelectionSystem::EComponentMode mode ){
+	void testSelectComponents( Selector& selector, SelectionTest& test, SelectionSystem::EComponentMode mode ) override {
 		if ( mode == SelectionSystem::eVertex ) {
 			test.BeginMesh( localToWorld() );
 			m_curveNURBS.testSelect( selector, test );
 			m_curveCatmullRom.testSelect( selector, test );
 		}
 	}
-	void gatherComponentsHighlight( std::vector<std::vector<Vector3>>& polygons, SelectionIntersection& intersection, SelectionTest& test, SelectionSystem::EComponentMode mode ) const {
+	void gatherComponentsHighlight( std::vector<std::vector<Vector3>>& polygons, SelectionIntersection& intersection, SelectionTest& test, SelectionSystem::EComponentMode mode ) const override {
 	}
 
 	void transformComponents( const Matrix4& matrix ){
@@ -545,7 +544,7 @@ public:
 		}
 	}
 
-	const AABB& getSelectedComponentsBounds() const {
+	const AABB& getSelectedComponentsBounds() const override {
 		m_aabb_component = AABB();
 		m_curveNURBS.forEachSelected( [&]( const Vector3& point ){
 			aabb_extend_by_point_safe( m_aabb_component, point );
@@ -555,10 +554,10 @@ public:
 		});
 		return m_aabb_component;
 	}
-	void gatherSelectedComponents( const Vector3Callback& callback ) const {
+	void gatherSelectedComponents( const Vector3Callback& callback ) const override {
 	}
 
-	void snapComponents( float snap ){
+	void snapComponents( float snap ) override {
 		if ( m_curveNURBS.isSelected() ) {
 			m_curveNURBS.snapto( snap );
 			m_curveNURBS.write( curve_Nurbs, m_contained.getEntity() );
@@ -593,7 +592,7 @@ public:
 	typedef MemberCaller<Doom3GroupInstance, void(const Selectable&), &Doom3GroupInstance::selectionChangedComponent> SelectionChangedComponentCaller;
 };
 
-class Doom3GroupNode :
+class Doom3GroupNode final :
 	public scene::Node::Symbiot,
 	public scene::Instantiable,
 	public scene::Cloneable,
@@ -634,30 +633,30 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	scene::Traversable& get( NullType<scene::Traversable>){
+	scene::Traversable& get( NullType<scene::Traversable> ){
 		return m_contained.getTraversable();
 	}
-	Snappable& get( NullType<Snappable>){
+	Snappable& get( NullType<Snappable> ){
 		return m_contained;
 	}
-	TransformNode& get( NullType<TransformNode>){
+	TransformNode& get( NullType<TransformNode> ){
 		return m_contained.getTransformNode();
 	}
-	Entity& get( NullType<Entity>){
+	Entity& get( NullType<Entity> ){
 		return m_contained.getEntity();
 	}
-	Nameable& get( NullType<Nameable>){
+	Nameable& get( NullType<Nameable> ){
 		return m_contained.getNameable();
 	}
-	Namespaced& get( NullType<Namespaced>){
+	Namespaced& get( NullType<Namespaced> ){
 		return m_contained.getNamespaced();
 	}
-	ModelSkin& get( NullType<ModelSkin>){
+	ModelSkin& get( NullType<ModelSkin> ){
 		return m_contained.getModelSkin();
 	}
 
 	Doom3GroupNode( EntityClass* eclass ) :
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), nullptr ),
 		m_contained( eclass, m_node, InstanceSet::TransformChangedCaller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ), InstanceSetEvaluateTransform<Doom3GroupInstance>::Caller( m_instances ) ){
 		construct();
 	}
@@ -666,7 +665,7 @@ public:
 		scene::Instantiable( other ),
 		scene::Cloneable( other ),
 		scene::Traversable::Observer( other ),
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), nullptr ),
 		m_contained( other.m_contained, m_node, InstanceSet::TransformChangedCaller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ), InstanceSetEvaluateTransform<Doom3GroupInstance>::Caller( m_instances ) ){
 		construct();
 	}
@@ -674,34 +673,34 @@ public:
 		destroy();
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	scene::Node& clone() const {
+	scene::Node& clone() const override {
 		return ( new Doom3GroupNode( *this ) )->node();
 	}
 
-	void insert( scene::Node& child ){
+	void insert( scene::Node& child ) override {
 		m_instances.insert( child );
 	}
-	void erase( scene::Node& child ){
+	void erase( scene::Node& child ) override {
 		m_instances.erase( child );
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new Doom3GroupInstance( path, parent, m_contained );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };

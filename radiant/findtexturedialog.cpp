@@ -29,8 +29,6 @@
 
 #include "debugging/debugging.h"
 
-#include "ishaders.h"
-
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include "gtkutil/lineedit.h"
@@ -62,7 +60,7 @@ public:
 	static void updateTextures( const char* name );
 
 	FindTextureDialog();
-	virtual ~FindTextureDialog();
+	~FindTextureDialog() = default;
 	void BuildDialog() override;
 
 	void constructWindow( QWidget* parent ){
@@ -83,6 +81,7 @@ static bool g_bFindActive = true;
 
 namespace
 {
+
 void FindTextureDialog_apply(){
 	const auto find = StringStream<64>( "textures/", g_FindTextureDialog.m_strFind );
 	const auto replace = StringStream<64>( "textures/", PathCleaned( g_FindTextureDialog.m_strReplace.c_str() ) );
@@ -110,7 +109,7 @@ class : public QObject
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ) {
-			QKeyEvent *keyEvent = static_cast<QKeyEvent *>( event );
+			auto *keyEvent = static_cast<QKeyEvent *>( event );
 			if( keyEvent->key() == Qt::Key_Tab ){
 				event->accept();
 			}
@@ -129,9 +128,6 @@ s_pressedKeysFilter;
 FindTextureDialog::FindTextureDialog() : m_bSelectedOnly( false ){
 }
 
-FindTextureDialog::~FindTextureDialog(){
-}
-
 void FindTextureDialog::BuildDialog(){
 	GetWidget()->setWindowTitle( "Find / Replace Texture(s)" );
 
@@ -139,20 +135,20 @@ void FindTextureDialog::BuildDialog(){
 
 	g_guiSettings.addWindow( GetWidget(), "TextureBrowser/FindReplace" );
 
-	auto hbox = new QHBoxLayout( GetWidget() );
-	auto form = new QFormLayout;
+	auto *hbox = new QHBoxLayout( GetWidget() );
+	auto *form = new QFormLayout;
 	hbox->addLayout( form );
 
 	{
-		auto entry = new LineEdit;
+		auto *entry = new LineEdit;
 		form->addRow( "Find:", entry );
 		AddDialogData( *entry, m_strFind );
 		entry->installEventFilter( &s_find_focus_in );
 		GlobalTextureEntryCompletion::instance().connect( entry );
 	}
 	{
-		auto entry = new LineEdit;
-		auto label = new QLabel( "Replace:" );
+		auto *entry = new LineEdit;
+		auto *label = new QLabel( "Replace:" );
 		form->addRow( label, entry );
 		entry->setPlaceholderText( "Empty = search mode" );
 		AddDialogData( *entry, m_strReplace );
@@ -160,13 +156,13 @@ void FindTextureDialog::BuildDialog(){
 		GlobalTextureEntryCompletion::instance().connect( entry );
 	}
 	{
-		auto check = new QCheckBox( "Within selected brushes only" );
+		auto *check = new QCheckBox( "Within selected brushes only" );
 		form->addWidget( check );
 		AddDialogData( *check, m_bSelectedOnly );
 	}
 
 	{
-		auto buttons = new QDialogButtonBox( Qt::Orientation::Vertical );
+		auto *buttons = new QDialogButtonBox( Qt::Orientation::Vertical );
 		hbox->addWidget( buttons );
 		QObject::connect( buttons->addButton( QDialogButtonBox::StandardButton::Apply ), &QPushButton::clicked, [](){
 			g_FindTextureDialog.exportData();

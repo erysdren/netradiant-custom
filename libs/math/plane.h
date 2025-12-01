@@ -75,15 +75,9 @@ inline Plane3 plane3_normalised( const Plane3& plane ){
 	       );
 }
 
-inline Plane3 plane3_translated( const Plane3& plane, const Vector3& translation ){
-	Plane3 transformed;
-	transformed.a = plane.a;
-	transformed.b = plane.b;
-	transformed.c = plane.c;
-	transformed.d = -( ( -plane.d * transformed.a + translation.x() ) * transformed.a +
-	                   ( -plane.d * transformed.b + translation.y() ) * transformed.b +
-	                   ( -plane.d * transformed.c + translation.z() ) * transformed.c );
-	return transformed;
+template<typename P, typename V>
+Plane3___<P> plane3_translated( const Plane3___<P>& plane, const BasicVector3<V>& translation ){
+	return Plane3___<P>( plane.normal(), plane.dist() + vector3_dot( plane.normal(), translation ) );
 }
 
 inline Plane3 plane3_transformed( const Plane3& plane, const Matrix4& transform ){
@@ -154,6 +148,13 @@ inline Plane3 plane3_for_points( const BasicVector3<Element>& p0, const BasicVec
 
 template<typename Element>
 inline Plane3 plane3_for_points( const BasicVector3<Element> planepts[3] ){
+	return plane3_for_points( planepts[0], planepts[1], planepts[2] );
+}
+
+#include <array>
+using PlanePoints = std::array<DoubleVector3, 3>;
+
+inline Plane3 plane3_for_points( const PlanePoints& planepts ){
 	return plane3_for_points( planepts[0], planepts[1], planepts[2] );
 }
 

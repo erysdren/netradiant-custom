@@ -99,7 +99,7 @@ inline name_t name_read( const char* name ){
 	const char* end = name + strlen( name );
 	for ( const char* p = end; end != name; --p )
 	{
-		if ( strrchr( "1234567890", *p ) == NULL ) {
+		if ( strrchr( "1234567890", *p ) == nullptr ) {
 			break;
 		}
 		end = p;
@@ -181,13 +181,13 @@ public:
 		name_write( buf, name );
 		globalErrorStream() << "find unique name for " << buf << '\n';
 		globalErrorStream() << "> currently registered names:\n";
-		for ( names_t::const_iterator i = m_names.begin(); i != m_names.end(); ++i )
+		for ( const auto& [ name, postfixes ] : m_names )
 		{
-			globalErrorStream() << ">> " << i->first.c_str() << ": ";
-			for ( PostFixes::postfixes_t::const_iterator j = i->second.m_postfixes.begin(); j != i->second.m_postfixes.end(); ++j )
+			globalErrorStream() << ">> " << name.c_str() << ": ";
+			for ( const auto& [ postfix, index ] : postfixes.m_postfixes )
 			{
-				j->first.write( buf );
-				globalErrorStream() << " '" << buf << "'";
+				postfix.write( buf );
+				globalErrorStream() << ' ' << SingleQuoted( buf );
 			}
 			globalErrorStream() << '\n';
 		}

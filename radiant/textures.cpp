@@ -77,7 +77,7 @@ struct texture_globals_t
 
 	texture_globals_t( GLint components ) :
 		m_nTextureCompressionFormat( TEXTURECOMPRESSION_NONE ),
-		fGamma( 1.0f ),
+		fGamma( 1 ),
 		bTextureCompressionSupported( false ),
 		texture_components( components ),
 		m_bOpenGLCompressionSupported( false ),
@@ -134,23 +134,15 @@ bool g_TextureAnisotropy = true;
 
 byte g_gammatable[256];
 void ResampleGamma( float fGamma ){
-	int i, inf;
-	if ( fGamma == 1.0 ) {
-		for ( i = 0; i < 256; i++ )
+	if ( fGamma == 1 ) {
+		for ( int i = 0; i < 256; ++i )
 			g_gammatable[i] = i;
 	}
 	else
 	{
-		for ( i = 0; i < 256; i++ )
+		for ( int i = 0; i < 256; ++i )
 		{
-			inf = (int)( 255 * pow( static_cast<double>( ( i + 0.5 ) / 255.5 ), static_cast<double>( fGamma ) ) + 0.5 );
-			if ( inf < 0 ) {
-				inf = 0;
-			}
-			if ( inf > 255 ) {
-				inf = 255;
-			}
-			g_gammatable[i] = inf;
+			g_gammatable[i] = std::clamp( (int)( 255 * pow( ( i + 0.5 ) / 255.5, fGamma ) + 0.5 ), 0, 255 );
 		}
 	}
 }
@@ -173,12 +165,12 @@ void LoadTextureRGBA( qtexture_t* q, unsigned char* pPixels, int nWidth, int nHe
 	q->width = nWidth;
 	q->height = nHeight;
 
-	total[0] = total[1] = total[2] = 0.0f;
+	total[0] = total[1] = total[2] = 0;
 
 	// resample texture gamma according to user settings
 	for ( int i = 0; i < ( nCount * 4 ); i += 4 )
 	{
-		for ( int j = 0; j < 3; j++ )
+		for ( int j = 0; j < 3; ++j )
 		{
 			total[j] += ( pPixels + i )[j];
 			byte b = ( pPixels + i )[j];
@@ -277,13 +269,13 @@ void Texture_InitPalette( byte *pal ){
 
 	gamma = g_texture_globals.fGamma;
 
-	if ( gamma == 1.0 ) {
-		for ( i = 0; i < 256; i++ )
+	if ( gamma == 1 ) {
+		for ( i = 0; i < 256; ++i )
 			gammatable[i] = i;
 	}
 	else
 	{
-		for ( i = 0; i < 256; i++ )
+		for ( i = 0; i < 256; ++i )
 		{
 			inf = (int)( 255 * pow( ( i + 0.5 ) / 255.5, gamma ) + 0.5 );
 			if ( inf < 0 ) {
@@ -296,7 +288,7 @@ void Texture_InitPalette( byte *pal ){
 		}
 	}
 
-	for ( i = 0; i < 256; i++ )
+	for ( i = 0; i < 256; ++i )
 	{
 		r = gammatable[pal[0]];
 		g = gammatable[pal[1]];
@@ -342,12 +334,12 @@ void qtexture_realise( qtexture_t& texture, const TextureKey& key ){
 				texture.contentFlags = image->getContentFlags();
 				texture.value = image->getValue();
 				image->release();
-				globalOutputStream() << "Loaded Texture: \"" << key.second << "\"\n";
+				globalOutputStream() << "Loaded Texture: " << Quoted( key.second ) << '\n';
 				GlobalOpenGL_debugAssertNoErrors();
 			}
 			else
 			{
-				globalErrorStream() << "Texture load failed: \"" << key.second << "\"\n";
+				globalErrorStream() << "Texture load failed: " << Quoted( key.second ) << '\n';
 			}
 		}
 		else {
@@ -357,7 +349,7 @@ void qtexture_realise( qtexture_t& texture, const TextureKey& key ){
 			for( int i = 0; i < 6; ++i ){
 				images[i] = key.first.loadImage( StringStream<64>( key.second, suffixes[i] ) );
 			}
-			if( std::all_of( images, images + std::size( images ), []( const Image *img ){ return img != nullptr; } ) ){
+			if( std::ranges::all_of( images, std::identity{} ) ){
 				gl().glGenTextures( 1, &texture.texture_number );
 				gl().glBindTexture( GL_TEXTURE_CUBE_MAP, texture.texture_number );
 				gl().glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_GENERATE_MIPMAP, GL_FALSE );
@@ -371,7 +363,7 @@ void qtexture_realise( qtexture_t& texture, const TextureKey& key ){
 				gl().glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0); //this or mipmaps are required for samplerCube to work
 				// fix non quadratic, varying sizes; GL_TEXTURE_CUBE_MAP requires this
 				unsigned int size = 0;
-				for( const auto img : images )
+				for( const auto *img : images )
 					size = std::max( { size, img->getWidth(), img->getHeight() } );
 				for( int i = 0; i < 6; ++i ){
 					const Image& img = *images[i];
@@ -386,12 +378,12 @@ void qtexture_realise( qtexture_t& texture, const TextureKey& key ){
 				}
 
 				gl().glBindTexture( GL_TEXTURE_CUBE_MAP, 0 );
-				globalOutputStream() << "Loaded Skybox: \"" << key.second << "\"\n";
+				globalOutputStream() << "Loaded Skybox: " << Quoted( key.second ) << '\n';
 				GlobalOpenGL_debugAssertNoErrors();
 			}
 			else
 			{
-				globalErrorStream() << "Skybox load failed: \"" << key.second << "\"\n";
+				globalErrorStream() << "Skybox load failed: " << Quoted( key.second ) << '\n';
 			}
 
 			std::for_each_n( images, std::size( images ), []( Image *img ){ if( img != nullptr ) img->release(); } );
@@ -435,7 +427,7 @@ class TexturesMap final : public TexturesCache
 			: m_cache( cache ){
 		}
 		qtexture_t* construct( const TextureKey& key ){
-			qtexture_t* texture = new qtexture_t( key.first, key.second.c_str() );
+			auto *texture = new qtexture_t( key.first, key.second.c_str() );
 			if ( m_cache->realised() ) {
 				qtexture_realise( *texture, key );
 			}
@@ -466,32 +458,32 @@ public:
 		return m_qtextures.end();
 	}
 
-	LoadImageCallback defaultLoader() const {
+	LoadImageCallback defaultLoader() const override {
 		return LoadImageCallback( 0, QERApp_LoadImage );
 	}
-	Image* loadImage( const char* name ){
+	Image* loadImage( const char* name ) override {
 		return defaultLoader().loadImage( name );
 	}
-	qtexture_t* capture( const char* name ){
+	qtexture_t* capture( const char* name ) override {
 		return capture( defaultLoader(), name );
 	}
-	qtexture_t* capture( const LoadImageCallback& loader, const char* name ){
+	qtexture_t* capture( const LoadImageCallback& loader, const char* name ) override {
 #if DEBUG_TEXTURES
-		globalOutputStream() << "textures capture: " << makeQuoted( name ) << '\n';
+		globalOutputStream() << "textures capture: " << Quoted( name ) << '\n';
 #endif
 		return m_qtextures.capture( TextureKey( loader, name ) ).get();
 	}
-	void release( qtexture_t* texture ){
+	void release( qtexture_t* texture ) override {
 #if DEBUG_TEXTURES
-		globalOutputStream() << "textures release: " << makeQuoted( texture->name ) << '\n';
+		globalOutputStream() << "textures release: " << Quoted( texture->name ) << '\n';
 #endif
 		m_qtextures.release( TextureKey( texture->load, texture->name ) );
 	}
-	void attach( TexturesCacheObserver& observer ){
+	void attach( TexturesCacheObserver& observer ) override {
 		ASSERT_MESSAGE( m_observer == 0, "TexturesMap::attach: cannot attach observer" );
 		m_observer = &observer;
 	}
-	void detach( TexturesCacheObserver& observer ){
+	void detach( TexturesCacheObserver& observer ) override {
 		ASSERT_MESSAGE( m_observer == &observer, "TexturesMap::detach: cannot detach observer" );
 		m_observer = 0;
 	}
@@ -549,10 +541,10 @@ public:
 				max_tex_size = 1024;
 			}
 
-			for ( qtextures_t::iterator i = m_qtextures.begin(); i != m_qtextures.end(); ++i )
+			for ( auto& tex : m_qtextures )
 			{
-				if ( !( *i ).value.empty() ) {
-					qtexture_realise( *( *i ).value, ( *i ).key );
+				if ( !tex.value.empty() ) {
+					qtexture_realise( *tex.value, tex.key );
 				}
 			}
 			if ( m_observer != 0 ) {
@@ -565,10 +557,10 @@ public:
 			if ( m_observer != 0 ) {
 				m_observer->unrealise();
 			}
-			for ( qtextures_t::iterator i = m_qtextures.begin(); i != m_qtextures.end(); ++i )
+			for ( auto& tex : m_qtextures )
 			{
-				if ( !( *i ).value.empty() ) {
-					qtexture_unrealise( *( *i ).value );
+				if ( !tex.value.empty() ) {
+					qtexture_unrealise( *tex.value );
 				}
 			}
 		}
@@ -605,9 +597,9 @@ void Textures_ModeChanged(){
 		SetTexParameters( g_texture_mode );
 		SetTexAnisotropy( g_TextureAnisotropy );
 
-		for ( TexturesMap::iterator i = g_texturesmap->begin(); i != g_texturesmap->end(); ++i )
+		for ( const auto& tex : *g_texturesmap )
 		{
-			gl().glBindTexture( GL_TEXTURE_2D, ( *i ).value->texture_number );
+			gl().glBindTexture( GL_TEXTURE_2D, tex.value->texture_number );
 			SetTexParameters( g_texture_mode );
 			SetTexAnisotropy( g_TextureAnisotropy );
 		}

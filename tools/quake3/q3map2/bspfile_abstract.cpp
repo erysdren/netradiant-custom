@@ -59,7 +59,7 @@
 
 void SwapBlock( int *block, int size ){
 	/* dummy check */
-	if ( block == NULL ) {
+	if ( block == nullptr ) {
 		return;
 	}
 
@@ -97,10 +97,10 @@ static void SwapBSPFile(){
 	for ( bspShader_t& shader : bspShaders )
 	{
 		if ( doingBSP ){
-			const shaderInfo_t *si = ShaderInfoForShader( shader.shader );
-			if ( !strEmptyOrNull( si->remapShader ) ) {
+			const shaderInfo_t& si = ShaderInfoForShader( shader.shader );
+			if ( !strEmptyOrNull( si.remapShader ) ) {
 				// copy and clear the rest of memory // check for overflow by String64
-				const String64 remap( si->remapShader );
+				const String64 remap( si.remapShader );
 				strncpy( shader.shader, remap, sizeof( shader.shader ) );
 			}
 		}
@@ -138,14 +138,14 @@ static void SwapBSPFile(){
 	/* drawverts (don't swap colors) */
 	for ( bspDrawVert_t& v : bspDrawVerts )
 	{
-		v.xyz[ 0 ] = LittleFloat( v.xyz[ 0 ] );
-		v.xyz[ 1 ] = LittleFloat( v.xyz[ 1 ] );
-		v.xyz[ 2 ] = LittleFloat( v.xyz[ 2 ] );
+		v.xyz[ 0 ]    = LittleFloat( v.xyz[ 0 ] );
+		v.xyz[ 1 ]    = LittleFloat( v.xyz[ 1 ] );
+		v.xyz[ 2 ]    = LittleFloat( v.xyz[ 2 ] );
 		v.normal[ 0 ] = LittleFloat( v.normal[ 0 ] );
 		v.normal[ 1 ] = LittleFloat( v.normal[ 1 ] );
 		v.normal[ 2 ] = LittleFloat( v.normal[ 2 ] );
-		v.st[ 0 ] = LittleFloat( v.st[ 0 ] );
-		v.st[ 1 ] = LittleFloat( v.st[ 1 ] );
+		v.st[ 0 ]     = LittleFloat( v.st[ 0 ] );
+		v.st[ 1 ]     = LittleFloat( v.st[ 1 ] );
 		for ( Vector2& lm : v.lightmap )
 		{
 			lm[ 0 ] = LittleFloat( lm[ 0 ] );
@@ -192,7 +192,7 @@ static void SwapBSPFile(){
 
 void LoadBSPFile( const char *filename ){
 	/* dummy check */
-	if ( g_game == NULL || g_game->load == NULL ) {
+	if ( g_game == nullptr || g_game->load == nullptr ) {
 		Error( "LoadBSPFile: unsupported BSP file format" );
 	}
 
@@ -208,7 +208,7 @@ void LoadBSPFile( const char *filename ){
 
 void LoadBSPFilePartially( const char *filename ){
 	/* dummy check */
-	if ( g_game == NULL || g_game->load == NULL ) {
+	if ( g_game == nullptr || g_game->load == nullptr ) {
 		Error( "LoadBSPFile: unsupported BSP file format" );
 	}
 
@@ -230,7 +230,7 @@ void WriteBSPFile( const char *filename ){
 	Sys_Printf( "Writing %s\n", filename );
 
 	/* dummy check */
-	if ( g_game == NULL || g_game->write == NULL ) {
+	if ( g_game == nullptr || g_game->write == nullptr ) {
 		Error( "WriteBSPFile: unsupported BSP file format" );
 	}
 
@@ -389,7 +389,7 @@ static bool ParseEntity(){
 	entity_t& e = entities.emplace_back();
 
 	/* parse */
-	while ( 1 )
+	while ( true )
 	{
 		if ( !GetToken( true ) ) {
 			Error( "ParseEntity: EOF without closing brace" );
@@ -481,7 +481,7 @@ void UnparseEntities(){
 		for ( const auto& ep : e.epairs )
 		{
 			/* copy and clean */
-			data << '\"' << StripTrailing( ep.key.c_str() ) << "\" \"" << StripTrailing( ep.value.c_str() ) << "\"\n";
+			data << Quoted( StripTrailing( ep.key.c_str() ) ) << ' ' << Quoted( StripTrailing( ep.value.c_str() ) ) << '\n';
 		}
 
 		/* add trailing brace */
@@ -544,6 +544,24 @@ const char *entity_t::valueForKey( const char *key ) const {
 	/* if no match, return empty string */
 	return "";
 }
+
+
+void entity_t::setKeyValue( const char *key, int value, const char *format /* = "%i" */ ){
+	char buf[ 16 ];
+	std::snprintf( buf, std::size( buf ), format, value );
+	setKeyValue( key, buf );
+}
+void entity_t::setKeyValue( const char *key, float value ){
+	char buf[ 32 ];
+	std::snprintf( buf, std::size( buf ), "%f", value );
+	setKeyValue( key, buf );
+}
+void entity_t::setKeyValue( const char *key, const Vector3& value ){
+	char buf[ 128 ];
+	std::snprintf( buf, std::size( buf ), "%f %f %f", value[0], value[1], value[2] );
+	setKeyValue( key, buf );
+}
+
 
 bool entity_t::read_keyvalue_( bool &bool_value, std::initializer_list<const char*>&& keys ) const {
 	for( const char* key : keys ){
@@ -617,7 +635,7 @@ entity_t *FindTargetEntity( const char *target ){
 	}
 
 	/* nada */
-	return NULL;
+	return nullptr;
 }
 
 
@@ -630,25 +648,25 @@ entity_t *FindTargetEntity( const char *target ){
 
 void GetEntityShadowFlags( const entity_t *ent, const entity_t *ent2, int *castShadows, int *recvShadows ){
 	/* get cast shadows */
-	if ( castShadows != NULL ) {
-		( ent != NULL && ent->read_keyvalue( *castShadows, "_castShadows", "_cs" ) ) ||
-		( ent2 != NULL && ent2->read_keyvalue( *castShadows, "_castShadows", "_cs" ) );
+	if ( castShadows != nullptr ) {
+		( ent != nullptr && ent->read_keyvalue( *castShadows, "_castShadows", "_cs" ) ) ||
+		( ent2 != nullptr && ent2->read_keyvalue( *castShadows, "_castShadows", "_cs" ) );
 	}
 
 	/* receive */
-	if ( recvShadows != NULL ) {
-		( ent != NULL && ent->read_keyvalue( *recvShadows, "_receiveShadows", "_rs" ) ) ||
-		( ent2 != NULL && ent2->read_keyvalue( *recvShadows, "_receiveShadows", "_rs" ) );
+	if ( recvShadows != nullptr ) {
+		( ent != nullptr && ent->read_keyvalue( *recvShadows, "_receiveShadows", "_rs" ) ) ||
+		( ent2 != nullptr && ent2->read_keyvalue( *recvShadows, "_receiveShadows", "_rs" ) );
 	}
 
 	/* vortex: game-specific default entity keys */
 	if ( striEqual( g_game->magic, "dq" ) || striEqual( g_game->magic, "prophecy" ) ) {
 		/* vortex: deluxe quake default shadow flags */
 		if ( ent->classname_is( "func_wall" ) ) {
-			if ( recvShadows != NULL ) {
+			if ( recvShadows != nullptr ) {
 				*recvShadows = 1;
 			}
-			if ( castShadows != NULL ) {
+			if ( castShadows != nullptr ) {
 				*castShadows = 1;
 			}
 		}

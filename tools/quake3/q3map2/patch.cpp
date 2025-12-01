@@ -71,7 +71,7 @@ static void ExpandLongestCurve( float *longestCurve, const Vector3& a, const Vec
 
 	/* determine length */
 	last = a;
-	for ( i = 0, len = 0.0f, t = 0.0f; i < APPROX_SUBDIVISION; i++, t += ( 1.0f / APPROX_SUBDIVISION ) )
+	for ( i = 0, len = 0, t = 0; i < APPROX_SUBDIVISION; ++i, t += ( 1.0f / APPROX_SUBDIVISION ) )
 	{
 		/* calculate delta */
 		delta = ab * ( 1.0f - t ) + bc * t;
@@ -136,7 +136,7 @@ static void ExpandMaxIterations( int *maxIterations, int maxError, const Vector3
 		mid = ( prev + next ) * 0.5f;
 
 		/* push points out */
-		for ( j = numPoints - 1; j > i + 3; j-- )
+		for ( j = numPoints - 1; j > i + 3; --j )
 			points[ j ] = points[ j - 2 ];
 
 		/* insert new points */
@@ -157,7 +157,7 @@ static void ExpandMaxIterations( int *maxIterations, int maxError, const Vector3
 	}
 
 	/* eliminate linear sections */
-	for ( i = 0; i + 2 < numPoints; i++ )
+	for ( i = 0; i + 2 < numPoints; ++i )
 	{
 		/* create vectors */
 		Vector3 delta = points[ i + 1 ] - points[ i ];
@@ -166,8 +166,8 @@ static void ExpandMaxIterations( int *maxIterations, int maxError, const Vector3
 		const float len2 = VectorNormalize( delta2 );
 
 		/* if either edge is degenerate, then eliminate it */
-		if ( len < 0.0625f || len2 < 0.0625f || vector3_dot( delta, delta2 ) >= 1.0f ) {
-			for ( j = i + 1; j + 1 < numPoints; j++ )
+		if ( len < 0.0625f || len2 < 0.0625f || vector3_dot( delta, delta2 ) >= 1 ) {
+			for ( j = i + 1; j + 1 < numPoints; ++j )
 				points[ j ] = points[ j + 1 ];
 			numPoints--;
 			continue;
@@ -210,8 +210,8 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	Parse1DMatrix( 5, info );
 	m.width = info[0];
 	m.height = info[1];
-	const int size = ( m.width * m.height );
-	bspDrawVert_t *verts = m.verts = safe_malloc( size * sizeof( m.verts[0] ) );
+	const int numVerts = m.numVerts();
+	bspDrawVert_t *verts = m.verts = safe_malloc( numVerts * sizeof( m.verts[0] ) );
 
 	if ( m.width < 0 || m.width > MAX_PATCH_SIZE || m.height < 0 || m.height > MAX_PATCH_SIZE ) {
 		Error( "ParsePatch: bad size" );
@@ -259,7 +259,7 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	degenerate = true;
 
 	/* find first valid vector */
-	for ( int i = 1; i < size && delta[ 3 ] == 0; ++i )
+	for ( int i = 1; i < numVerts && delta[ 3 ] == 0; ++i )
 	{
 		delta.vec3() = m.verts[ 0 ].xyz - m.verts[ i ].xyz;
 		delta[ 3 ] = VectorNormalize( delta.vec3() );
@@ -272,7 +272,7 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	else
 	{
 		/* if all vectors match this or are zero, then this is a degenerate patch */
-		for ( int i = 1; i < size && degenerate; ++i )
+		for ( int i = 1; i < numVerts && degenerate; ++i )
 		{
 			Vector4 delta2( m.verts[ 0 ].xyz - m.verts[ i ].xyz, 0 );
 			delta2[ 3 ] = VectorNormalize( delta2.vec3() );
@@ -292,12 +292,12 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	/* warn and select degenerate patch */
 	if ( degenerate ) {
 		xml_Select( "degenerate patch", mapEnt.mapEntityNum, mapPrimitiveNum, false );
-		free( m.verts );
+		m.freeVerts();
 		return;
 	}
 
 	/* find longest curve on the mesh */
-	longestCurve = 0.0f;
+	longestCurve = 0;
 	maxIterations = 0;
 	for ( int j = 0; j + 2 < m.width; j += 2 )
 	{
@@ -311,25 +311,21 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	}
 
 	/* allocate patch mesh */
-	parseMesh_t *pm = safe_calloc( sizeof( *pm ) );
+	parseMesh_t& pm = mapEnt.patches.emplace_front(); // zero initialize
 
 	/* ydnar: add entity/brush numbering */
-	pm->entityNum = mapEnt.mapEntityNum;
-	pm->brushNum = mapPrimitiveNum;
+	pm.entityNum = mapEnt.mapEntityNum;
+	pm.brushNum = mapPrimitiveNum;
 
 	/* set shader */
-	pm->shaderInfo = ShaderInfoForShader( shader );
+	pm.shaderInfo = &ShaderInfoForShader( shader );
 
 	/* set mesh */
-	pm->mesh = m;
+	pm.mesh = m;
 
 	/* set longest curve */
-	pm->longestCurve = longestCurve;
-	pm->maxIterations = maxIterations;
-
-	/* link to the entity */
-	pm->next = mapEnt.patches;
-	mapEnt.patches = pm;
+	pm.longestCurve = longestCurve;
+	pm.maxIterations = maxIterations;
 }
 
 
@@ -382,8 +378,8 @@ void PatchMapDrawSurfs( entity_t& e ){
 	Sys_FPrintf( SYS_VRB, "--- PatchMapDrawSurfs ---\n" );
 
 	std::vector<groupMesh_t> meshes;
-	for ( parseMesh_t *pm = e.patches; pm; pm = pm->next ){
-		meshes.push_back( { .mesh = *pm, .grouped = false } );
+	for ( parseMesh_t& pm : e.patches ){
+		meshes.push_back( { .mesh = pm, .grouped = false } );
 	}
 	if ( meshes.empty() ) {
 		return;
@@ -404,8 +400,8 @@ void PatchMapDrawSurfs( entity_t& e ){
 
 			meshes[m1].bordering[m2] =
 			meshes[m2].bordering[m1] =
-				std::any_of( mesh1.verts, mesh1.verts + mesh1.width * mesh1.height, [mesh2]( const bspDrawVert_t& v1 ){
-					return std::any_of( mesh2.verts, mesh2.verts + mesh2.width * mesh2.height, [v1]( const bspDrawVert_t& v2 ){
+				std::ranges::any_of( Span( mesh1.verts, mesh1.numVerts() ), [mesh2]( const bspDrawVert_t& v1 ){
+					return std::ranges::any_of( Span( mesh2.verts, mesh2.numVerts() ), [v1]( const bspDrawVert_t& v2 ){
 						return vector3_equal_epsilon( v1.xyz, v2.xyz, 1.f );
 					} );
 				} );
@@ -432,7 +428,7 @@ void PatchMapDrawSurfs( entity_t& e ){
 		{
 			if ( m.group ) {
 				m.grouped = true;
-				std::for_each_n( m.mesh.mesh.verts, m.mesh.mesh.width * m.mesh.mesh.height,
+				std::for_each_n( m.mesh.mesh.verts, m.mesh.mesh.numVerts(),
 					[&bounds]( const bspDrawVert_t& v ){ bounds.extend( v.xyz ); } );
 			}
 		}
@@ -441,7 +437,7 @@ void PatchMapDrawSurfs( entity_t& e ){
 		//%	Sys_Printf( "Longest curve: %f Iterations: %d\n", mesh.mesh.longestCurve, mesh.mesh.maxIterations );
 
 		/* create drawsurf */
-		mapDrawSurface_t *ds = DrawSurfaceForMesh( e, &mesh.mesh, NULL );   /* ydnar */
+		mapDrawSurface_t *ds = DrawSurfaceForMesh( e, mesh.mesh, nullptr );   /* ydnar */
 		ds->bounds = bounds;
 	}
 

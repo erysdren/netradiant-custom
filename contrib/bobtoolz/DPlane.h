@@ -36,7 +36,7 @@ class DPlane
 public:
 	DPlane( const vec3_t va, const vec3_t vb, const vec3_t vc, const char* textureName, bool bDetail );
 	void ScaleTexture();
-	DWinding BaseWindingForPlane();
+	DWinding BaseWindingForPlane() const ;
 
 	void Rebuild();
 
@@ -47,11 +47,11 @@ public:
 	bool IsRedundant( std::list<class DPoint*>& pointList );
 	bool PlaneIntersection( DPlane* pl1, DPlane* pl2, vec3_t out );;
 
-	vec_t DistanceToPoint( vec3_t pnt );
+	vec_t DistanceToPoint( const vec3_t pnt ) const;
 
 	DPlane( const vec3_t va, const vec3_t vb, const vec3_t vc, const _QERFaceData* texData );
-	DPlane() { }
-	virtual ~DPlane();
+	DPlane(){
+	}
 
 	bool m_bChkOk;
 	_QERFaceData texInfo;

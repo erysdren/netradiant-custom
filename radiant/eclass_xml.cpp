@@ -111,7 +111,6 @@
 #include "ieclass.h"
 #include "irender.h"
 #include "ifilesystem.h"
-#include "iarchive.h"
 
 #include "xml/xmlparser.h"
 #include "generic/object.h"
@@ -122,8 +121,9 @@
 #include "eclasslib.h"
 #include "modulesystem/moduleregistry.h"
 #include "stringio.h"
+#include <map>
 
-#define PARSE_ERROR( elementName, name ) makeQuoted( elementName ) << " is not a valid child of " << makeQuoted( name )
+#define PARSE_ERROR( elementName, name ) Quoted( elementName ) << " is not a valid child of " << Quoted( name )
 
 class IgnoreBreaks
 {
@@ -230,8 +230,6 @@ public:
 		m_comment << key;
 		m_comment << " : ";
 	}
-	~AttributeImporter(){
-	}
 	TreeXMLImporter& pushElement( const XMLElement& element ) override {
 		ERROR_MESSAGE( PARSE_ERROR( element.name(), "attribute" ) );
 		return *this;
@@ -321,9 +319,9 @@ public:
 		m_eclass->m_comments = m_comment;
 		m_collector.insert( m_eclass );
 
-		for ( ListAttributeTypes::iterator i = m_listTypes.begin(); i != m_listTypes.end(); ++i )
+		for ( const auto& [ name, list ] : m_listTypes )
 		{
-			m_collector.insert( ( *i ).first.c_str(), ( *i ).second );
+			m_collector.insert( name.c_str(), list );
 		}
 	}
 	static const char* name(){
@@ -529,6 +527,8 @@ const char* GetExtension(){
 void ScanFile( EntityClassCollector& collector, const char *filename ){
 	TextFileInputStream inputFile( filename );
 	if ( !inputFile.failed() ) {
+		globalOutputStream() << "parsing entity classes from " << Quoted( filename ) << '\n';
+
 		XMLStreamParser parser( inputFile );
 
 		EclassXMLImporter importer( collector );
@@ -536,7 +536,6 @@ void ScanFile( EntityClassCollector& collector, const char *filename ){
 		parser.exportXML( stack );
 	}
 }
-
 
 }
 

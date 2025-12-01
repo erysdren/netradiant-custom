@@ -54,14 +54,14 @@ static void SelectSplitPlaneNum( const node_t *node, const facelist_t& list, int
 	/* ydnar 2002-09-21: changed blocksize to be a vector, so mappers can specify a 3 element value */
 
 	/* if it is crossing a block boundary, force a split */
-	for ( int i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 	{
 		if ( blockSize[ i ] <= 0 ) {
 			continue;
 		}
 		const float dist = blockSize[ i ] * ( floor( node->minmax.mins[ i ] / blockSize[ i ] ) + 1 );
 		if ( node->minmax.maxs[ i ] > dist ) {
-			*splitPlaneNum = FindFloatPlane( g_vector3_axes[i], dist, 0, NULL );
+			*splitPlaneNum = FindFloatPlane( Plane3f( g_vector3_axes[i], dist ) );
 			return;
 		}
 	}
@@ -247,21 +247,21 @@ static void BuildFaceTree_r( node_t *node, facelist_t& list ){
 
 
 	// recursively process children
-	for ( int i = 0; i < 2; i++ ) {
+	for ( int i = 0; i < 2; ++i ) {
 		node->children[i] = AllocNode();
 		node->children[i]->parent = node;
 		node->children[i]->minmax = node->minmax;
 	}
 
-	for ( int i = 0; i < 3; i++ ) {
+	for ( int i = 0; i < 3; ++i ) {
 		if ( plane.normal()[i] == 1 ) {
-			node->children[0]->minmax.mins[i] = plane.dist();
-			node->children[1]->minmax.maxs[i] = plane.dist();
+			node->children[eFront]->minmax.mins[i] = plane.dist();
+			node->children[eBack]->minmax.maxs[i] = plane.dist();
 			break;
 		}
 		if ( plane.normal()[i] == -1 ) {
-			node->children[0]->minmax.maxs[i] = -plane.dist();
-			node->children[1]->minmax.mins[i] = -plane.dist();
+			node->children[eFront]->minmax.maxs[i] = -plane.dist();
+			node->children[eBack]->minmax.mins[i] = -plane.dist();
 			break;
 		}
 	}
@@ -272,7 +272,7 @@ static void BuildFaceTree_r( node_t *node, facelist_t& list ){
 	}
 #endif
 
-	for ( int i = 0; i < 2; i++ ) {
+	for ( int i = 0; i < 2; ++i ) {
 		BuildFaceTree_r( node->children[i], childLists[i] );
 		node->has_structural_children |= node->children[i]->has_structural_children;
 	}

@@ -47,10 +47,10 @@ void windingTestInfinity(){
 	while( windingTestInfinityI < iterations )
 	{
 		Plane3 plane;
-		plane.d = ( (double)rand() / (double)RAND_MAX ) * maxWorldCoord * 2;
-		plane.a = ( (double)rand() / (double)RAND_MAX );
-		plane.b = ( (double)rand() / (double)RAND_MAX );
-		plane.c = ( (double)rand() / (double)RAND_MAX );
+		plane.d = ( (double)rand() / RAND_MAX ) * maxWorldCoord * 2;
+		plane.a = ( (double)rand() / RAND_MAX );
+		plane.b = ( (double)rand() / RAND_MAX );
+		plane.c = ( (double)rand() / RAND_MAX );
 		if( vector3_length( plane.normal() ) != 0 ){
 			vector3_normalise( plane.normal() );
 		}
@@ -118,7 +118,6 @@ fail:
 	globalWarningStream() << windingTestInfinity_planeOuttaWorld << " windingTestInfinity_planeOuttaWorld\n";
 	globalWarningStream() << windingTestInfinity_OK << " windingTestInfinity_OK\n";
 	globalWarningStream() << windingTestInfinity_FAIL << " windingTestInfinity_FAIL\n";
-
 }
 #endif
 
@@ -128,9 +127,9 @@ void Winding_createInfinite( FixedWinding& winding, const Plane3& plane, double 
 #if 0
 	double max = -infinity;
 	int x = -1;
-	for ( int i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 	{
-		double d = fabs( plane.normal()[i] );
+		double d = std::fabs( plane.normal()[i] );
 		if ( d > max ) {
 			x = i;
 			max = d;
@@ -230,13 +229,9 @@ inline PlaneClassification Winding_ClassifyDistance( const double distance, cons
 /// or flipped && winding is completely FRONT or ON
 bool Winding_TestPlane( const Winding& winding, const Plane3& plane, bool flipped ){
 	const int test = ( flipped ) ? ePlaneBack : ePlaneFront;
-	for ( Winding::const_iterator i = winding.begin(); i != winding.end(); ++i )
-	{
-		if ( test == Winding_ClassifyDistance( plane3_distance_to_point( plane, ( *i ).vertex ), ON_EPSILON ) ) {
-			return false;
-		}
-	}
-	return true;
+	return std::ranges::none_of( winding, [&]( const WindingVertex& v ){
+		return test == Winding_ClassifyDistance( plane3_distance_to_point( plane, v.vertex ), ON_EPSILON );
+	} );
 }
 
 /// \brief Returns true if any point in \p w1 is in front of plane2, or any point in \p w2 is in front of plane1
@@ -246,9 +241,9 @@ bool Winding_PlanesConcave( const Winding& w1, const Winding& w2, const Plane3& 
 
 brushsplit_t Winding_ClassifyPlane( const Winding& winding, const Plane3& plane ){
 	brushsplit_t split;
-	for ( Winding::const_iterator i = winding.begin(); i != winding.end(); ++i )
+	for ( const auto& v : winding )
 	{
-		++split.counts[Winding_ClassifyDistance( plane3_distance_to_point( plane, ( *i ).vertex ), ON_EPSILON )];
+		++split.counts[Winding_ClassifyDistance( plane3_distance_to_point( plane, v.vertex ), ON_EPSILON )];
 	}
 	return split;
 }

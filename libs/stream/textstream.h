@@ -298,15 +298,26 @@ public:
 	}
 };
 
-template<typename Type>
-inline Quoted<Type> makeQuoted( const Type& type ){
-	return Quoted<Type>( type );
-}
-
 /// \brief Writes any type to \p ostream with a quotation mark character before and after it.
 template<typename TextOutputStreamType, typename Type>
 inline TextOutputStreamType& ostream_write( TextOutputStreamType& ostream, const Quoted<Type>& quoted ){
 	return ostream << '"' << quoted.m_type << '"';
+}
+
+template<typename Type>
+class SingleQuoted
+{
+public:
+	const Type& m_type;
+	SingleQuoted( const Type& type )
+		: m_type( type ){
+	}
+};
+
+/// \brief Writes any type to \p ostream with a quotation mark character before and after it.
+template<typename TextOutputStreamType, typename Type>
+inline TextOutputStreamType& ostream_write( TextOutputStreamType& ostream, const SingleQuoted<Type>& quoted ){
+	return ostream << '\'' << quoted.m_type << '\'';
 }
 
 
@@ -396,7 +407,7 @@ public:
 		}
 		*m_pos++ = c;
 	}
-	std::size_t write( const char* buffer, std::size_t length ){
+	std::size_t write( const char* buffer, std::size_t length ) override {
 		const char*const end = buffer + length;
 		for ( const char* p = buffer; p != end; ++p )
 		{
@@ -415,8 +426,7 @@ class BufferedTextOutputStream : public TextOutputStream
 public:
 	BufferedTextOutputStream( TextOutputStreamType& outputStream ) : outputStream( outputStream ) {
 	}
-	~BufferedTextOutputStream(){
-	}
+	~BufferedTextOutputStream() = default;
 	std::size_t write( const char* buffer, std::size_t length ){
 		std::size_t remaining = length;
 		for (;; )

@@ -135,7 +135,7 @@ int AnalyzeBSP( Args& args ){
 		{ 128 * 128 * 3,                1,      "IBSP LUMP_LIGHTMAPS" },
 		{ 256 * 256 * 3,                1,      "IBSP LUMP_LIGHTMAPS (256 x 256)" },
 		{ 512 * 512 * 3,                1,      "IBSP LUMP_LIGHTMAPS (512 x 512)" },
-		{ 0, 0, NULL }
+		{ 0, 0, nullptr }
 	};
 
 
@@ -169,7 +169,7 @@ int AnalyzeBSP( Args& args ){
 	Sys_Printf( "---------------------------------------\n" );
 
 	/* analyze each lump */
-	for ( i = 0; i < 100; i++ )
+	for ( i = 0; i < 100; ++i )
 	{
 		/* call of duty swapped lump pairs */
 		if ( lumpSwap ) {
@@ -186,8 +186,8 @@ int AnalyzeBSP( Args& args ){
 
 		/* extract data */
 		lump = (byte*) header + offset;
-		lumpInt = LittleLong( (int) *( (int*) lump ) );
-		lumpFloat = LittleFloat( (float) *( (float*) lump ) );
+		lumpInt = LittleLong( *( (int*) lump ) );
+		lumpFloat = LittleFloat( *( (float*) lump ) );
 		memcpy( lumpString, (char*) lump, std::min( (size_t)length, std::size( lumpString ) - 1 ) );
 		lumpString[ std::size( lumpString ) - 1 ] = '\0';
 
@@ -214,7 +214,7 @@ int AnalyzeBSP( Args& args ){
 			else
 			{
 				/* guess based on size/count */
-				for ( lumpTest = lumpTests; lumpTest->radix > 0; lumpTest++ )
+				for ( lumpTest = lumpTests; lumpTest->radix > 0; ++lumpTest )
 				{
 					if ( ( length % lumpTest->radix ) != 0 ) {
 						continue;
@@ -349,10 +349,9 @@ int ScaleBSPMain( Args& args ){
 	float f, a;
 	Vector3 scale;
 	Vector3 vec;
-	char str[ 1024 ];
 	int axis;
 	bool texscale;
-	std::vector<bspDrawVert_t> old_xyzst;
+	DrawVerts old_xyzst;
 	float spawn_ref = 0;
 
 
@@ -414,15 +413,14 @@ int ScaleBSPMain( Args& args ){
 			if ( e.classname_prefixed( "info_player_" ) ) {
 				vec[2] -= spawn_ref;
 			}
-			sprintf( str, "%f %f %f", vec[ 0 ], vec[ 1 ], vec[ 2 ] );
-			e.setKeyValue( "origin", str );
+			e.setKeyValue( "origin", vec );
 		}
 
 		a = e.floatForKey( "angle" );
 		if ( a == -1 || a == -2 ) { // z scale
 			axis = 2;
 		}
-		else if ( fabs( sin( degrees_to_radians( a ) ) ) < 0.707 ) {
+		else if ( std::fabs( sin( degrees_to_radians( a ) ) ) < 0.707 ) {
 			axis = 0;
 		}
 		else{
@@ -432,15 +430,13 @@ int ScaleBSPMain( Args& args ){
 		/* scale door lip */
 		if ( e.read_keyvalue( f, "lip" ) ) {
 			f *= scale[axis];
-			sprintf( str, "%f", f );
-			e.setKeyValue( "lip", str );
+			e.setKeyValue( "lip", f );
 		}
 
 		/* scale plat height */
 		if ( e.read_keyvalue( f, "height" ) ) {
 			f *= scale[2];
-			sprintf( str, "%f", f );
-			e.setKeyValue( "height", str );
+			e.setKeyValue( "height", f );
 		}
 
 		// TODO maybe allow a definition file for entities to specify which values are scaled how?
@@ -543,8 +539,7 @@ int ScaleBSPMain( Args& args ){
 		vec = gridSize;
 	}
 	vec *= scale;
-	sprintf( str, "%f %f %f", vec[ 0 ], vec[ 1 ], vec[ 2 ] );
-	entities[ 0 ].setKeyValue( "gridsize", str );
+	entities[ 0 ].setKeyValue( "gridsize", vec );
 
 	/* inject command line parameters */
 	InjectCommandLine( "-scale", argsToInject );
@@ -567,7 +562,6 @@ int ScaleBSPMain( Args& args ){
 int ShiftBSPMain( Args& args ){
 	Vector3 shift;
 	Vector3 vec;
-	char str[ 1024 ];
 
 
 	/* arg checking */
@@ -608,10 +602,8 @@ int ShiftBSPMain( Args& args ){
 		/* shift origin */
 		if ( e.read_keyvalue( vec, "origin" ) ) { // fixme: this doesn't consider originless point entities; group entities with origin will be wrong too
 			vec += shift;
-			sprintf( str, "%f %f %f", vec[ 0 ], vec[ 1 ], vec[ 2 ] );
-			e.setKeyValue( "origin", str );
+			e.setKeyValue( "origin", vec );
 		}
-
 	}
 
 	/* shift models */
@@ -653,7 +645,7 @@ int ShiftBSPMain( Args& args ){
 	/* shift planes */
 	for ( bspPlane_t& plane : bspPlanes )
 	{
-		plane.dist() = vector3_dot( plane.normal(), plane.normal() * plane.dist() + shift );
+		plane = plane3_translated( plane, shift );
 	}
 
 	// fixme: engine says 'light grid mismatch', unless translation is multiple of grid size
@@ -699,44 +691,26 @@ int MergeBSPMain( Args& args ){
 	LoadBSPFile( source );
 	ParseEntities();
 
-	struct bsp
+	struct
 	{
-		std::vector<entity_t> entities;
-		std::vector<bspModel_t> bspModels;
-		std::vector<bspShader_t> bspShaders;
-		std::vector<bspLeaf_t> bspLeafs;
-		std::vector<bspPlane_t> bspPlanes;
-		std::vector<bspNode_t> bspNodes;
-		std::vector<int> bspLeafSurfaces;
-		std::vector<int> bspLeafBrushes;
-		std::vector<bspBrush_t> bspBrushes;
-		std::vector<bspBrushSide_t> bspBrushSides;
-		std::vector<byte> bspLightBytes;
-		std::vector<bspGridPoint_t> bspGridPoints;
-		std::vector<byte> bspVisBytes;
-		std::vector<bspDrawVert_t> bspDrawVerts;
-		std::vector<int> bspDrawIndexes;
-		std::vector<bspDrawSurface_t> bspDrawSurfaces;
-		std::vector<bspFog_t> bspFogs;
+		decltype( ::entities        ) entities        = std::move( ::entities );
+		decltype( ::bspModels       ) bspModels       = std::move( ::bspModels );
+		decltype( ::bspShaders      ) bspShaders      = std::move( ::bspShaders );
+		decltype( ::bspLeafs        ) bspLeafs        = std::move( ::bspLeafs );
+		decltype( ::bspPlanes       ) bspPlanes       = std::move( ::bspPlanes );
+		decltype( ::bspNodes        ) bspNodes        = std::move( ::bspNodes );
+		decltype( ::bspLeafSurfaces ) bspLeafSurfaces = std::move( ::bspLeafSurfaces );
+		decltype( ::bspLeafBrushes  ) bspLeafBrushes  = std::move( ::bspLeafBrushes );
+		decltype( ::bspBrushes      ) bspBrushes      = std::move( ::bspBrushes );
+		decltype( ::bspBrushSides   ) bspBrushSides   = std::move( ::bspBrushSides );
+		decltype( ::bspLightBytes   ) bspLightBytes   = std::move( ::bspLightBytes );
+		decltype( ::bspGridPoints   ) bspGridPoints   = std::move( ::bspGridPoints );
+		decltype( ::bspVisBytes     ) bspVisBytes     = std::move( ::bspVisBytes );
+		decltype( ::bspDrawVerts    ) bspDrawVerts    = std::move( ::bspDrawVerts );
+		decltype( ::bspDrawIndexes  ) bspDrawIndexes  = std::move( ::bspDrawIndexes );
+		decltype( ::bspDrawSurfaces ) bspDrawSurfaces = std::move( ::bspDrawSurfaces );
+		decltype( ::bspFogs         ) bspFogs         = std::move( ::bspFogs );
 	} bsp;
-
-	bsp.entities = std::move( entities );
-	bsp.bspModels = std::move( bspModels );
-	bsp.bspShaders = std::move( bspShaders );
-	bsp.bspLeafs = std::move( bspLeafs );
-	bsp.bspPlanes = std::move( bspPlanes );
-	bsp.bspNodes = std::move( bspNodes );
-	bsp.bspLeafSurfaces = std::move( bspLeafSurfaces );
-	bsp.bspLeafBrushes = std::move( bspLeafBrushes );
-	bsp.bspBrushes = std::move( bspBrushes );
-	bsp.bspBrushSides = std::move( bspBrushSides );
-	bsp.bspLightBytes = std::move( bspLightBytes );
-	bsp.bspGridPoints = std::move( bspGridPoints );
-	bsp.bspVisBytes = std::move( bspVisBytes );
-	bsp.bspDrawVerts = std::move( bspDrawVerts );
-	bsp.bspDrawIndexes = std::move( bspDrawIndexes );
-	bsp.bspDrawSurfaces = std::move( bspDrawSurfaces );
-	bsp.bspFogs = std::move( bspFogs );
 
 	/* do some path mangling */
 	strcpy( source, ExpandArg( fileName1 ) );
@@ -792,7 +766,7 @@ int MergeBSPMain( Args& args ){
 		{
 			const char *model = e.valueForKey( "model" );
 			if( model[0] == '*' ){
-				e.setKeyValue( "model", StringStream<8>( '*', atoi( model + 1 ) + bspModels.size() - 1 ) ); // -1 : minus world
+				e.setKeyValue( "model", atoi( model + 1 ) + bspModels.size() - 1, "*%i" ); // -1 : minus world
 			}
 		}
 		/* make target/targetname names unique */
@@ -895,8 +869,8 @@ int MergeBSPMain( Args& args ){
 				minmax = { surf->lightmapVecs[0], surf->lightmapVecs[1] };
 			}
 			else{
-				for( int i = 0; i < surf->numIndexes; ++i )
-					minmax.extend( bspDrawVerts[surf->firstVert + bspDrawIndexes[surf->firstIndex + i]].xyz );
+				for( const int i : Span( &bspDrawIndexes[surf->firstIndex], surf->numIndexes ) )
+					minmax.extend( bspDrawVerts[surf->firstVert + i].xyz );
 			}
 
 			for( auto&& leaf : bspLeafs ){
@@ -921,9 +895,9 @@ int MergeBSPMain( Args& args ){
 		for( auto end = bspBrushes.cbegin() + bspModels[0].firstBSPBrush + bspModels[0].numBSPBrushes,
 		          brush = end - brushes.size(); brush != end; ++brush ){
 			buildBrush.sides.clear();
-			for( auto side = bspBrushSides.cbegin() + brush->firstSide, end = side + brush->numSides; side != end; ++side ){
+			for( const bspBrushSide_t& side : Span( &bspBrushSides[ brush->firstSide ], brush->numSides ) ){
 				auto& s = buildBrush.sides.emplace_back();
-				s.planenum = side->planeNum;
+				s.planenum = side.planeNum;
 			}
 			if( CreateBrushWindings( buildBrush ) ){
 				// cheap minmax test
@@ -961,7 +935,6 @@ int MergeBSPMain( Args& args ){
  */
 static void PseudoCompileBSP( bool need_tree ){
 	int models = 1;
-	char modelValue[16];
 	facelist_t faces;
 	tree_t tree{};
 
@@ -973,13 +946,12 @@ static void PseudoCompileBSP( bool need_tree ){
 	{
 		/* get entity */
 		entity_t& entity = entities[ entityNum ];
-		if ( entity.brushes.empty() && entity.patches == NULL ) {
+		if ( entity.brushes.empty() && entity.patches.empty() ) {
 			continue;
 		}
 
 		if ( entityNum != 0 ) {
-			sprintf( modelValue, "*%d", models++ );
-			entity.setKeyValue( "model", modelValue );
+			entity.setKeyValue( "model", models++, "*%i" );
 		}
 
 		/* process the model */
@@ -1011,7 +983,7 @@ static void PseudoCompileBSP( bool need_tree ){
 					continue;
 				}
 				/* shader? */
-				if ( side.shaderInfo == NULL ) {
+				if ( side.shaderInfo == nullptr ) {
 					continue;
 				}
 				/* save this winding as a visible surface */
@@ -1031,7 +1003,7 @@ static void PseudoCompileBSP( bool need_tree ){
 		FilterStructuralBrushesIntoTree( entity, tree );
 		FilterDetailBrushesIntoTree( entity, tree );
 
-		EmitBrushes( entity.brushes, &entity.firstBrush, &entity.numBrushes );
+		EmitBrushes( entity );
 		EndModel( entity, tree.headnode );
 	}
 	EndBSPFile( false );
@@ -1050,14 +1022,14 @@ int ConvertBSPMain( Args& args ){
 
 	/* set default */
 	convertFunc = ConvertBSPToASE;
-	convertGame = NULL;
+	convertGame = nullptr;
 	map_allowed = false;
 	force_bsp = false;
 	force_map = false;
 
 	/* arg checking */
 	if ( args.empty() ) {
-		Sys_Printf( "Usage: q3map2 -convert [-format <ase|obj|map_bp|map|game name>] [-shadersasbitmap|-lightmapsastexcoord|-deluxemapsastexcoord] [-readbsp|-readmap [-meta|-patchmeta]] [-v] <mapname>\n" );
+		Sys_Printf( "Usage: q3map2 -convert [-format <ase|obj|map|map_bp|map_220|game name>] [-shadersasbitmap|-lightmapsastexcoord|-deluxemapsastexcoord] [-readbsp|-readmap [-meta|-patchmeta]] [-v] <mapname>\n" );
 		return 0;
 	}
 
@@ -1075,19 +1047,23 @@ int ConvertBSPMain( Args& args ){
 				convertFunc = ConvertBSPToOBJ;
 				map_allowed = false;
 			}
+			else if ( striEqual( fmt, "map" ) ) {
+				convertFunc = ConvertBSPToMap;
+				map_allowed = true;
+			}
 			else if ( striEqual( fmt, "map_bp" ) ) {
 				convertFunc = ConvertBSPToMap_BP;
 				map_allowed = true;
 			}
-			else if ( striEqual( fmt, "map" ) ) {
-				convertFunc = ConvertBSPToMap;
+			else if ( striEqual( fmt, "map_220" ) ) {
+				convertFunc = ConvertBSPToMap_220;
 				map_allowed = true;
 			}
 			else
 			{
 				convertGame = GetGame( fmt );
 				map_allowed = false;
-				if ( convertGame == NULL ) {
+				if ( convertGame == nullptr ) {
 					Sys_Printf( "Unknown conversion format \"%s\". Defaulting to ASE.\n", fmt );
 				}
 			}
@@ -1126,6 +1102,12 @@ int ConvertBSPMain( Args& args ){
 		while ( args.takeArg( "-fast" ) ) {
 			fast = true;
 		}
+		while ( args.takeArg( "-modelclip" ) ) {
+			g_decompile_modelClip = true;
+		}
+		while ( args.takeArg( "-wtf" ) ) {
+			g_decompile_wtf = true;
+		}
 	}
 
 	LoadShaderInfo();
@@ -1143,8 +1125,8 @@ int ConvertBSPMain( Args& args ){
 		}
 		path_set_extension( source, ".map" );
 		Sys_Printf( "Loading %s\n", source );
-		LoadMapFile( source, false, convertGame == NULL );
-		PseudoCompileBSP( convertGame != NULL );
+		LoadMapFile( source, false, convertGame == nullptr );
+		PseudoCompileBSP( convertGame != nullptr );
 	}
 	else
 	{
@@ -1155,7 +1137,7 @@ int ConvertBSPMain( Args& args ){
 	}
 
 	/* bsp format convert? */
-	if ( convertGame != NULL ) {
+	if ( convertGame != nullptr ) {
 		/* set global game */
 		g_game = convertGame;
 

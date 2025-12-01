@@ -79,13 +79,13 @@ public:
 		}
 
 		if( string_empty( m_entType ) )
-			globalErrorStream() << "bobToolz::TreePlanter parsed no entity name from " << makeQuoted( buffer ) << '\n';
+			globalErrorStream() << "bobToolz::TreePlanter parsed no entity name from " << Quoted( buffer ) << '\n';
 
 		m_mouseDown = GlobalRadiant().XYWindowMouseDown_connect( makeSignalHandler3( MouseDownCaller(), *this ) );
 		m_destroyed = GlobalRadiant().XYWindowDestroyed_connect( makeSignalHandler( DestroyedCaller(), *this ) );
 	}
 
-	virtual ~DTreePlanter(){
+	~DTreePlanter(){
 		if ( !m_mouseDown.isNull() ) {
 			GlobalRadiant().XYWindowMouseDown_disconnect( m_mouseDown );
 		}
@@ -171,12 +171,12 @@ public:
 				GT;
 				CT;
 
-				m_minScale = static_cast<float>( atof( pToken ) );
+				m_minScale = atof( pToken );
 
 				GT;
 				CT;
 
-				m_maxScale = static_cast<float>( atof( pToken ) );
+				m_maxScale = atof( pToken );
 
 				m_useScale = true;
 			}

@@ -23,11 +23,11 @@ class ExportData
 {
 public:
 	ExportData( const StringSetWithLambda& ignorelist, collapsemode mode );
-	virtual ~ExportData( void );
+	virtual ~ExportData() = default;
 
 	virtual void BeginBrush( Brush& b );
 	virtual void AddBrushFace( Face& f );
-	virtual void EndBrush( void );
+	virtual void EndBrush();
 
 	virtual bool WriteToFile( const std::string& path, collapsemode mode ) const = 0;
 
@@ -66,10 +66,6 @@ ExportData::ExportData( const StringSetWithLambda& _ignorelist, collapsemode _mo
 	}
 }
 
-ExportData::~ExportData( void ){
-
-}
-
 void ExportData::BeginBrush( Brush& b ){
 	// create a new group for each brush
 	if ( mode == COLLAPSE_NONE ) {
@@ -80,7 +76,7 @@ void ExportData::BeginBrush( Brush& b ){
 	}
 }
 
-void ExportData::EndBrush( void ){
+void ExportData::EndBrush(){
 	// all faces of this brush were on the ignorelist, discard the emptygroup
 	if ( mode == COLLAPSE_NONE ) {
 		ASSERT_NOTNULL( current );
@@ -103,11 +99,10 @@ void ExportData::AddBrushFace( Face& f ){
 	if ( mode == COLLAPSE_BY_MATERIAL ) {
 		// find a group for this material
 		current = 0;
-		const std::list<group>::iterator end( groups.end() );
-		for ( std::list<group>::iterator it( groups.begin() ); it != end; ++it )
+		for ( auto& group : groups )
 		{
-			if ( it->name == shadername ) {
-				current = &( *it );
+			if ( group.name == shadername ) {
+				current = &group;
 			}
 		}
 
@@ -132,7 +127,7 @@ void ExportData::AddBrushFace( Face& f ){
 void ExportData::GetShaderNameFromShaderPath( const char* path, std::string& name ){
 	std::string tmp( path );
 
-	size_t last_slash = tmp.find_last_of( "/" );
+	size_t last_slash = tmp.find_last_of( '/' );
 
 	if ( last_slash == std::string::npos || last_slash == ( tmp.length() - 1 ) ) {
 		name = path;
@@ -142,7 +137,7 @@ void ExportData::GetShaderNameFromShaderPath( const char* path, std::string& nam
 	}
 
 #ifdef _DEBUG
-	globalOutputStream() << "Last: " << (const unsigned int) last_slash << " length: " << (const unsigned int)tmp.length() << "Name: " << name.c_str() << '\n';
+	globalOutputStream() << "Last: " << last_slash << " length: " << tmp.length() << "Name: " << name.c_str() << '\n';
 #endif
 }
 
@@ -166,7 +161,7 @@ public:
 		  weld( _weld ){
 	}
 
-	bool WriteToFile( const std::string& path, collapsemode mode ) const;
+	bool WriteToFile( const std::string& path, collapsemode mode ) const override;
 };
 
 bool ExportDataAsWavefront::WriteToFile( const std::string& path, collapsemode mode ) const {
@@ -238,7 +233,7 @@ bool ExportDataAsWavefront::WriteToFile( const std::string& path, collapsemode m
 				std::size_t vertexN = 0; // vertex index to use, 0 is special value = no vertex to weld to found
 				const DoubleVector3& vertex = w[i].vertex;
 				if( weld ){
-					auto found = std::find_if( vertices.begin(), vertices.end(), [&vertex]( const DoubleVector3& othervertex ){
+					auto found = std::ranges::find_if( vertices, [&vertex]( const DoubleVector3& othervertex ){
 						return Edge_isDegenerate( vertex, othervertex );
 					} );
 					if( found == vertices.end() ){ // unique vertex, add to the list
@@ -323,7 +318,6 @@ bool ExportDataAsWavefront::WriteToFile( const std::string& path, collapsemode m
 			}
 			outMtl << "Kd " << clr.x() << ' ' << clr.y() << ' ' << clr.z() << '\n';
 			outMtl << "map_Kd " << str.c_str() << '\n';
-
 		}
 	}
 
@@ -338,7 +332,7 @@ public:
 		: exporter( _exporter )
 	{}
 
-	void visit( Face& face ) const {
+	void visit( Face& face ) const override {
 		if( face.contributes() )
 			exporter.AddBrushFace( face );
 	}
@@ -354,7 +348,7 @@ public:
 		: exporter( _exporter )
 	{}
 
-	void visit( scene::Instance& instance ) const {
+	void visit( scene::Instance& instance ) const override {
 		BrushInstance* bptr = InstanceTypeCast<BrushInstance>::cast( instance );
 		if ( bptr ) {
 			Brush& brush( bptr->getBrush() );

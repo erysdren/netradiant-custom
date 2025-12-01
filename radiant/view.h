@@ -121,7 +121,7 @@ public:
 		m_viewport = g_matrix4_identity;
 		m_viewport[0] = float( width / 2 );
 		m_viewport[5] = float( height / 2 );
-		if ( fabs( m_projection[11] ) > 0.0000001 ) {
+		if ( std::fabs( m_projection[11] ) > 0.0000001f ) {
 			m_viewport[10] = m_projection[0] * m_viewport[0];
 		}
 		else{
@@ -146,49 +146,49 @@ public:
 		construct();
 	}
 
-	bool TestPoint( const Vector3& point ) const {
+	bool TestPoint( const Vector3& point ) const override {
 		return viewproj_test_point( m_viewproj, point );
 	}
-	bool TestLine( const Segment& segment ) const {
+	bool TestLine( const Segment& segment ) const override {
 		return frustum_test_line( m_frustum, segment );
 	}
-	bool TestPlane( const Plane3& plane ) const {
+	bool TestPlane( const Plane3& plane ) const override {
 		debug_count_plane();
 		return viewer_test_plane( m_viewer, plane );
 	}
-	bool TestPlane( const Plane3& plane, const Matrix4& localToWorld ) const {
+	bool TestPlane( const Plane3& plane, const Matrix4& localToWorld ) const override {
 		debug_count_oriented_plane();
 		return viewer_test_transformed_plane( m_viewer, plane, localToWorld );
 	}
-	VolumeIntersectionValue TestAABB( const AABB& aabb ) const {
+	VolumeIntersectionValue TestAABB( const AABB& aabb ) const override {
 		debug_count_bbox();
 		return frustum_test_aabb( m_frustum, aabb );
 	}
-	VolumeIntersectionValue TestAABB( const AABB& aabb, const Matrix4& localToWorld ) const {
+	VolumeIntersectionValue TestAABB( const AABB& aabb, const Matrix4& localToWorld ) const override {
 		debug_count_oriented_bbox();
 		return frustum_intersects_transformed_aabb( m_frustum, aabb, localToWorld );
 	}
 
-	const Matrix4& GetViewMatrix() const {
+	const Matrix4& GetViewMatrix() const override {
 		return m_viewproj;
 	}
-	const Matrix4& GetViewport() const {
+	const Matrix4& GetViewport() const override {
 		return m_viewport;
 	}
-	const Matrix4& GetModelview() const {
+	const Matrix4& GetModelview() const override {
 		return m_modelview;
 	}
-	const Matrix4& GetProjection() const {
+	const Matrix4& GetProjection() const override {
 		return m_projection;
 	}
 
-	bool fill() const {
+	bool fill() const override {
 		return m_fill;
 	}
-	const Vector3& getViewer() const {
+	const Vector3& getViewer() const override {
 		return m_viewer.vec3();
 	}
-	const Vector3& getViewDir() const {
+	const Vector3& getViewDir() const override {
 		return m_viewdir;
 	}
 	const Frustum& getFrustum() const {

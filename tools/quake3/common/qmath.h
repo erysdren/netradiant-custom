@@ -5,7 +5,7 @@
 #include "math/plane.h"
 
 
-#define RGBTOGRAY( x ) ( (float)( ( x )[0] ) * 0.2989f + (float)( ( x )[1] ) * 0.5870f + (float)( ( x )[2] ) * 0.1140f )
+#define RGBTOGRAY( x ) ( ( ( x )[0] ) * 0.2989f + ( ( x )[1] ) * 0.5870f + ( ( x )[2] ) * 0.1140f )
 
 #define VectorFastNormalize VectorNormalize
 
@@ -79,6 +79,12 @@ struct MinMax___
 		return other.maxs.x() >= mins.x() && other.maxs.y() >= mins.y() && other.maxs.z() >= mins.z()
 		    && other.mins.x() <= maxs.x() && other.mins.y() <= maxs.y() && other.mins.z() <= maxs.z();
 	}
+	// true, if there is an intersection within epsilon
+	template<typename U, typename E>
+	bool test( const MinMax___<U>& other, const E epsilon ) const {
+		return other.maxs.x() >= mins.x() - epsilon && other.maxs.y() >= mins.y() - epsilon && other.maxs.z() >= mins.z() - epsilon
+		    && other.mins.x() <= maxs.x() + epsilon && other.mins.y() <= maxs.y() + epsilon && other.mins.z() <= maxs.z() + epsilon;
+	}
 	// true, if other is completely enclosed by this //! implicitly requires this->valid() or zero volume
 	template<typename U>
 	bool surrounds( const MinMax___<U>& other ) const {
@@ -91,6 +97,7 @@ struct MinMax___
 };
 
 using MinMax = MinMax___<float>;
+using DoubleMinMax = MinMax___<double>;
 
 
 
@@ -155,16 +162,16 @@ BasicVector3<T> VectorNormalized( const BasicVector3<T>& vector ) {
 }
 
 const float EQUAL_EPSILON = 0.001;
-
-inline bool VectorCompare( const Vector3& v1, const Vector3& v2 ){
-	return vector3_equal_epsilon( v1, v2, EQUAL_EPSILON );
+template<typename T>
+bool VectorCompare( const BasicVector3<T>& v1, const BasicVector3<T>& v2 ){
+	return vector3_equal_epsilon( v1, v2, static_cast<T>( EQUAL_EPSILON ) );
 }
 
 inline bool VectorIsOnAxis( const Vector3& v ){
 	int zeroComponentCount = 0;
 	for ( int i = 0; i < 3; ++i )
 	{
-		if ( v[i] == 0.0 ) {
+		if ( v[i] == 0 ) {
 			zeroComponentCount++;
 		}
 	}
@@ -233,14 +240,14 @@ inline void ComputeAxisBase( const BasicVector3<Element>& normal, BasicVector3<O
 	}
 #else
 	/* do some cleaning */
-	if ( fabs( normal[ 0 ] ) < 1e-6 ) {
-		normal[ 0 ] = 0.0f;
+	if ( std::fabs( normal[ 0 ] ) < 1e-6 ) {
+		normal[ 0 ] = 0;
 	}
-	if ( fabs( normal[ 1 ] ) < 1e-6 ) {
-		normal[ 1 ] = 0.0f;
+	if ( std::fabs( normal[ 1 ] ) < 1e-6 ) {
+		normal[ 1 ] = 0;
 	}
-	if ( fabs( normal[ 2 ] ) < 1e-6 ) {
-		normal[ 2 ] = 0.0f;
+	if ( std::fabs( normal[ 2 ] ) < 1e-6 ) {
+		normal[ 2 ] = 0;
 	}
 
 	/* compute the two rotations around y and z to rotate x to normal */
@@ -327,13 +334,13 @@ enum EPlaneType : int
 };
 
 inline EPlaneType PlaneTypeForNormal( const Vector3& normal ) {
-	if ( normal[0] == 1.0 || normal[0] == -1.0 ) {
+	if ( normal[0] == 1 || normal[0] == -1 ) {
 		return ePlaneX;
 	}
-	if ( normal[1] == 1.0 || normal[1] == -1.0 ) {
+	if ( normal[1] == 1 || normal[1] == -1 ) {
 		return ePlaneY;
 	}
-	if ( normal[2] == 1.0 || normal[2] == -1.0 ) {
+	if ( normal[2] == 1 || normal[2] == -1 ) {
 		return ePlaneZ;
 	}
 

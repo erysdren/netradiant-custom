@@ -345,10 +345,10 @@ public:
 		StaticRenderableConnectionLines::instance().detach( *this );
 		m_contained.instanceDetach( Instance::path() );
 	}
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_contained.renderSolid( renderer, volume, Instance::localToWorld(), getSelectable().isSelected(), Instance::childSelected(), Instance::childBounds() );
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_contained.renderWireframe( renderer, volume, Instance::localToWorld(), getSelectable().isSelected(), Instance::childSelected(), Instance::childBounds() );
 	}
 
@@ -388,7 +388,7 @@ public:
 	typedef MemberCaller<GroupInstance, void(), &GroupInstance::applyTransform> ApplyTransformCaller;
 };
 
-class GroupNode :
+class GroupNode final :
 	public scene::Node::Symbiot,
 	public scene::Instantiable,
 	public scene::Cloneable,
@@ -428,24 +428,24 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	scene::Traversable& get( NullType<scene::Traversable>){
+	scene::Traversable& get( NullType<scene::Traversable> ){
 		return m_contained.getTraversable();
 	}
-	TransformNode& get( NullType<TransformNode>){
+	TransformNode& get( NullType<TransformNode> ){
 		return m_contained.getTransformNode();
 	}
-	Entity& get( NullType<Entity>){
+	Entity& get( NullType<Entity> ){
 		return m_contained.getEntity();
 	}
-	Nameable& get( NullType<Nameable>){
+	Nameable& get( NullType<Nameable> ){
 		return m_contained.getNameable();
 	}
-	Namespaced& get( NullType<Namespaced>){
+	Namespaced& get( NullType<Namespaced> ){
 		return m_contained.getNamespaced();
 	}
 
 	GroupNode( EntityClass* eclass ) :
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), nullptr ),
 		m_contained( eclass, m_node, InstanceSet::TransformChangedCaller( m_instances ), InstanceSetEvaluateTransform<GroupInstance>::Caller( m_instances ) ){
 		construct();
 	}
@@ -454,7 +454,7 @@ public:
 		scene::Instantiable( other ),
 		scene::Cloneable( other ),
 		scene::Traversable::Observer( other ),
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), nullptr ),
 		m_contained( other.m_contained, m_node, InstanceSet::TransformChangedCaller( m_instances ), InstanceSetEvaluateTransform<GroupInstance>::Caller( m_instances ) ){
 		construct();
 	}
@@ -462,34 +462,34 @@ public:
 		destroy();
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	scene::Node& clone() const {
+	scene::Node& clone() const override {
 		return ( new GroupNode( *this ) )->node();
 	}
 
-	void insert( scene::Node& child ){
+	void insert( scene::Node& child ) override {
 		m_instances.insert( child );
 	}
-	void erase( scene::Node& child ){
+	void erase( scene::Node& child ) override {
 		m_instances.erase( child );
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new GroupInstance( path, parent, m_contained );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };

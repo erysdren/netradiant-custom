@@ -35,8 +35,8 @@ void gray_to_texture( const unsigned int x_max, const unsigned int y_max, const 
 	const unsigned char backgroundColorG = 0;
 	const unsigned char backgroundColorB = 0;
 
-	for( y = 0; y < y_max; y++ ) {
-		for( x = 0; x < x_max; x++ ) {
+	for( y = 0; y < y_max; ++y ) {
+		for( x = 0; x < x_max; ++x ) {
 			const unsigned int iter = ( y * x_max + x ) * 4;
 			if( x == 0 || y == 0 || x == 1 || y == 1 ) {
 				out[iter] = fontColorB;
@@ -62,8 +62,8 @@ void gray_to_texture( const unsigned int x_max, const unsigned int y_max, const 
 	}
 
 	bitmapIter = 0;
-	for( y = 0; y < y_max; y++ ) {
-		for( x = 0; x < x_max; x++ ) {
+	for( y = 0; y < y_max; ++y ) {
+		for( x = 0; x < x_max; ++x ) {
 			const unsigned int iter = ( y * x_max + x ) * 4;
 			if( x == 0 || y == 0 || x == ( x_max - 1 ) || y == ( y_max - 1 ) ) {
 				continue;
@@ -110,7 +110,7 @@ public:
 		gl().glDeleteLists( m_displayList, 128 );
 		gl().glDeleteTextures( 1, &m_atlas );
 	}
-	void printString( const char *s ){
+	void printString( const char *s ) override {
 		GLboolean rasterPosValid;
 		gl().glGetBooleanv( GL_CURRENT_RASTER_POSITION_VALID, &rasterPosValid );
 		if( !rasterPosValid )
@@ -150,7 +150,7 @@ public:
 		gl().glPopMatrix();
 	}
 
-	void renderString( const char *s, const GLuint& tex, const unsigned char colour[3], unsigned int& out_wid, unsigned int& out_hei ){
+	void renderString( const char *s, const GLuint& tex, const unsigned char colour[3], unsigned int& out_wid, unsigned int& out_hei ) override {
 		// proper way would be using painter.metrics, however this requires it being active()...
 		// same for painter.boundingRect() + result is not correct wrt width for some reason
 		const QRect rect = m_metrics.boundingRect( s );
@@ -195,16 +195,15 @@ public:
 			if( a == 1.0 ) {
 				do {
 					row -= bitmap.width;
-					for( unsigned int i = 0; i < bitmap.width; i++ )
+					for( unsigned int i = 0; i < bitmap.width; ++i )
 						*t++ = rgb | ( ( guint32 ) row[i] );
-
 				} while( row != row_end );
 			} else
 			{
 				do
 				{
 					row -= bitmap.width;
-					for( unsigned int i = 0; i < bitmap.width; i++ )
+					for( unsigned int i = 0; i < bitmap.width; ++i )
 						* t++ = rgb | ( ( guint32 )( a* row[i] ) );
 				} while( row != row_end );
 			}
@@ -224,8 +223,8 @@ public:
 				const unsigned char backgroundColorG = 64;
 				const unsigned char backgroundColorB = 64;
 
-				for( y = 0; y < y_max; y++ ) {
-					for( x = 0; x < x_max; x++ ) {
+				for( y = 0; y < y_max; ++y ) {
+					for( x = 0; x < x_max; ++x ) {
 						const unsigned int iter = ( y * x_max + x ) * 4;
 						if( x == 0 || y == 0 || x == ( x_max - 1 ) || y == ( y_max - 1 ) ) {
 							buf[iter] = backgroundColorB;
@@ -270,8 +269,8 @@ public:
 				unsigned char backgroundColorG = 0;
 				unsigned char backgroundColorB = 0;
 
-				for( y = 0; y < y_max; y++ ) {
-					for( x = 0; x < x_max; x++ ) {
+				for( y = 0; y < y_max; ++y ) {
+					for( x = 0; x < x_max; ++x ) {
 						const unsigned int iter = ( y * x_max + x ) * 4;
 						if( x == 0 || y == 0 || x == 1 || y == 1 ) {
 							buf[iter] = fontColorB;
@@ -297,8 +296,8 @@ public:
 				}
 
 				bitmapIter = 0;
-				for( y = 0; y < y_max; y++ ) {
-					for( x = 0; x < x_max; x++ ) {
+				for( y = 0; y < y_max; ++y ) {
+					for( x = 0; x < x_max; ++x ) {
 						const unsigned int iter = ( y * x_max + x ) * 4;
 						if( x == 0 || y == 0 || x == ( x_max - 1 ) || y == ( y_max - 1 ) ) {
 							continue;
@@ -336,8 +335,8 @@ public:
 				unsigned char fontColorG = colour[1];
 				unsigned char fontColorB = colour[2];
 
-				for( y = 0; y < y_max; y++ ) {
-					for( x = 0; x < x_max; x++ ) {
+				for( y = 0; y < y_max; ++y ) {
+					for( x = 0; x < x_max; ++x ) {
 						const unsigned int iter = ( y * x_max + x ) * 4;
 						if( x == 0 || y == 0 || x == ( x_max - 1 ) || y == ( y_max - 1 ) ) {
 							buf[iter] = fontColorB;
@@ -400,13 +399,13 @@ public:
 			out_hei = hei;
 		}
 	}
-	int getPixelAscent() const {
+	int getPixelAscent() const override {
 		return m_pixelAscent;
 	}
-	int getPixelDescent() const {
+	int getPixelDescent() const override {
 		return m_pixelDescent;
 	}
-	int getPixelHeight() const {
+	int getPixelHeight() const override {
 		return m_pixelHeight;
 	}
 };
@@ -437,16 +436,16 @@ GLFont *glfont_create( const char* font_string ){
 	int firstbitmap;
 
 	fontInfo = XLoadQueryFont( dpy, "-*-fixed-*-*-*-*-8-*-*-*-*-*-*-*" );
-	if ( fontInfo == NULL ) {
+	if ( fontInfo == nullptr ) {
 		// try to load other fonts
 		fontInfo = XLoadQueryFont( dpy, "-*-fixed-*-*-*-*-*-*-*-*-*-*-*-*" );
 
 		// any font will do !
-		if ( fontInfo == NULL ) {
+		if ( fontInfo == nullptr ) {
 			fontInfo = XLoadQueryFont( dpy, "-*-*-*-*-*-*-*-*-*-*-*-*-*-*" );
 		}
 
-		if ( fontInfo == NULL ) {
+		if ( fontInfo == nullptr ) {
 			ERROR_MESSAGE( "couldn't create font" );
 		}
 	}
@@ -472,7 +471,7 @@ GLFont *glfont_create( const char* font_string ){
 	 * for each row of chars, call glXUseXFont to build the bitmaps.
 	 */
 
-	for ( i = firstrow; i <= lastrow; i++ )
+	for ( i = firstrow; i <= lastrow; ++i )
 	{
 		glXUseXFont( fontInfo->fid, firstbitmap, last - first + 1, font_list_base + firstbitmap );
 		firstbitmap += 256;
@@ -585,7 +584,7 @@ public:
 #else
 		font_ascent_pango_units = pango_layout_get_baseline( layout );
 #endif
-		pango_layout_get_extents( layout, NULL, &log_rect );
+		pango_layout_get_extents( layout, nullptr, &log_rect );
 		g_object_unref( G_OBJECT( layout ) );
 		font_descent_pango_units = log_rect.height - font_ascent_pango_units;
 
@@ -630,7 +629,7 @@ public:
 		layout = pango_layout_new( ft2_context );
 		pango_layout_set_width( layout, -1 );   // -1 no wrapping.  All text on one line.
 		pango_layout_set_text( layout, s, -1 );   // -1 null-terminated string.
-		pango_layout_get_extents( layout, NULL, &log_rect );
+		pango_layout_get_extents( layout, nullptr, &log_rect );
 
 		if ( log_rect.width > 0 && log_rect.height > 0 ) {
 			bitmap.rows = font_ascent + font_descent;
@@ -712,7 +711,7 @@ GLFont *glfont_create( const char* family, int fontSize, const char* appPath ){
 		else if( !string_empty( family ) )
 			font.setFamily( family );
 	}
-	globalOutputStream() << "Using OpenGL font " << makeQuoted( font.toString().toLatin1().constData() ) << '\n';
+	globalOutputStream() << "Using OpenGL font " << Quoted( font.toString().toLatin1().constData() ) << '\n';
 
 	QFontMetrics metrics( font );
 

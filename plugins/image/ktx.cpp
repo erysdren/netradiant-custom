@@ -252,7 +252,7 @@ static void KTX_DecodeETC1( PointerInputStream& istream, Image& image ){
 				blockrowsize = 4;
 			}
 			blockrowsize *= 4;
-			for ( unsigned int blockrow = 0; blockrow < blockrows; blockrow++ )
+			for ( unsigned int blockrow = 0; blockrow < blockrows; ++blockrow )
 			{
 				memcpy( p + blockrow * stride, rgba + blockrow * 16, blockrowsize );
 			}
@@ -321,10 +321,10 @@ Image* LoadKTXBuff( PointerInputStream& istream ){
 	}
 	istream.seek( bytesOfKeyValueData + sizeof( uint32_t ) );
 
-	RGBAImage* image = new RGBAImage( width, height );
+	auto *image = new RGBAImage( width, height );
 
 	if ( type ) {
-		KTX_Decoder* decoder = NULL;
+		KTX_Decoder* decoder = nullptr;
 		switch ( type )
 		{
 		case KTX_TYPE_UNSIGNED_BYTE:
@@ -379,9 +379,9 @@ Image* LoadKTXBuff( PointerInputStream& istream ){
 		unsigned int inRowLength = width * decoder->GetPixelSize();
 		unsigned int inPadding = ( ( inRowLength + 3 ) & ~3 ) - inRowLength;
 		byte* out = image->getRGBAPixels();
-		for ( unsigned int y = 0; y < height; y++ )
+		for ( unsigned int y = 0; y < height; ++y )
 		{
-			for ( unsigned int x = 0; x < width; x++, out += 4 )
+			for ( unsigned int x = 0; x < width; ++x, out += 4 )
 			{
 				decoder->Decode( istream, out );
 			}

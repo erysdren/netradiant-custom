@@ -96,7 +96,7 @@ inline bool FaceTexdef_Valve220_importTokens( FaceTexdef& texdef, Tokeniser& tok
 
 inline bool FacePlane_importTokens( FacePlane& facePlane, Tokeniser& tokeniser ){
 	// parse planepts
-	for ( std::size_t i = 0; i < 3; i++ )
+	for ( std::size_t i = 0; i < 3; ++i )
 	{
 		RETURN_FALSE_IF_FAIL( Tokeniser_parseToken( tokeniser, "(" ) );
 		for ( std::size_t j = 0; j < 3; ++j )
@@ -270,10 +270,10 @@ inline void FacePlane_Doom3_exportTokens( const FacePlane& facePlane, TokenWrite
 
 inline void FacePlane_exportTokens( const FacePlane& facePlane, TokenWriter& writer ){
 	// write planepts
-	for ( std::size_t i = 0; i < 3; i++ )
+	for ( std::size_t i = 0; i < 3; ++i )
 	{
 		writer.writeToken( "(" );
-		for ( std::size_t j = 0; j < 3; j++ )
+		for ( std::size_t j = 0; j < 3; ++j )
 		{
 			writer.writeFloat( Face::m_quantise( facePlane.planePoints()[i][j] ) );
 		}
@@ -286,7 +286,7 @@ inline void FaceTexdef_BP_exportTokens( const FaceTexdef& faceTexdef, TokenWrite
 	writer.writeToken( "(" );
 	{
 		writer.writeToken( "(" );
-		for ( std::size_t i = 0; i < 3; i++ )
+		for ( std::size_t i = 0; i < 3; ++i )
 		{
 			writer.writeFloat( faceTexdef.m_projection.m_brushprimit_texdef.coords[0][i] );
 		}
@@ -294,7 +294,7 @@ inline void FaceTexdef_BP_exportTokens( const FaceTexdef& faceTexdef, TokenWrite
 	}
 	{
 		writer.writeToken( "(" );
-		for ( std::size_t i = 0; i < 3; i++ )
+		for ( std::size_t i = 0; i < 3; ++i )
 		{
 			writer.writeFloat( faceTexdef.m_projection.m_brushprimit_texdef.coords[1][i] );
 		}
@@ -467,12 +467,12 @@ class BrushTokenImporter : public MapImporter
 public:
 	BrushTokenImporter( Brush& brush ) : m_brush( brush ){
 	}
-	bool importTokens( Tokeniser& tokeniser ){
+	bool importTokens( Tokeniser& tokeniser ) override {
 		if ( Brush::m_type == eBrushTypeQuake3BP || Brush::m_type == eBrushTypeQuake2BP || Brush::m_type == eBrushTypeDoom3 || Brush::m_type == eBrushTypeQuake4 ) {
 			tokeniser.nextLine();
 			RETURN_FALSE_IF_FAIL( Tokeniser_parseToken( tokeniser, "{" ) );
 		}
-		while ( 1 )
+		while ( true )
 		{
 			// check for end of brush
 			tokeniser.nextLine();
@@ -550,7 +550,7 @@ class BrushTokenExporter : public MapExporter
 public:
 	BrushTokenExporter( const Brush& brush ) : m_brush( brush ){
 	}
-	void exportTokens( TokenWriter& writer ) const {
+	void exportTokens( TokenWriter& writer ) const override {
 		m_brush.evaluateBRep(); // ensure b-rep is up-to-date, so that non-contributing faces can be identified.
 
 		if ( !m_brush.hasContributingFaces() ) {
@@ -573,70 +573,68 @@ public:
 			writer.nextLine();
 		}
 
-		for ( Brush::const_iterator i = m_brush.begin(); i != m_brush.end(); ++i )
+		for ( const auto& face : m_brush )
 		{
-			const Face& face = *( *i );
-
-			if ( face.contributes() ) {
+			if ( face->contributes() ) {
 				switch ( Brush::m_type )
 				{
 				case eBrushTypeDoom3:
 					{
-						Doom3FaceTokenExporter exporter( face );
+						Doom3FaceTokenExporter exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake4:
 					{
-						Quake4FaceTokenExporter exporter( face );
+						Quake4FaceTokenExporter exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake:
 					{
-						QuakeFaceTokenExporter<FaceExportFlags::no> exporter( face );
+						QuakeFaceTokenExporter<FaceExportFlags::no> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake2:
 					{
-						QuakeFaceTokenExporter<FaceExportFlags::optional> exporter( face );
+						QuakeFaceTokenExporter<FaceExportFlags::optional> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake3:
 					{
-						QuakeFaceTokenExporter<FaceExportFlags::yes> exporter( face );
+						QuakeFaceTokenExporter<FaceExportFlags::yes> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake2BP:
 					{
-						Quake3BPFaceTokenExporter<FaceExportFlags::optional> exporter( face );
+						Quake3BPFaceTokenExporter<FaceExportFlags::optional> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake3BP:
 					{
-						Quake3BPFaceTokenExporter<FaceExportFlags::yes> exporter( face );
+						Quake3BPFaceTokenExporter<FaceExportFlags::yes> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeValve220:
 					{
-						Valve220FaceTokenExporter<FaceExportFlags::no> exporter( face );
+						Valve220FaceTokenExporter<FaceExportFlags::no> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake2Valve220:
 					{
-						Valve220FaceTokenExporter<FaceExportFlags::optional> exporter( face );
+						Valve220FaceTokenExporter<FaceExportFlags::optional> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;
 				case eBrushTypeQuake3Valve220:
 					{
-						Valve220FaceTokenExporter<FaceExportFlags::yes> exporter( face );
+						Valve220FaceTokenExporter<FaceExportFlags::yes> exporter( *face );
 						exporter.exportTokens( writer );
 					}
 					break;

@@ -92,7 +92,7 @@ public:
 
 					PakFileSystem::entry_type& file = m_filesystem[entry.filename];
 					if ( !file.is_directory() ) {
-						globalWarningStream() << "Warning: pak archive " << makeQuoted( m_name ) << " contains duplicated file: " << makeQuoted( entry.filename ) << '\n';
+						globalWarningStream() << "Warning: pak archive " << Quoted( m_name ) << " contains duplicated file: " << Quoted( entry.filename ) << '\n';
 					}
 					else
 					{
@@ -104,14 +104,14 @@ public:
 	}
 
 	~PakArchive(){
-		for ( PakFileSystem::iterator i = m_filesystem.begin(); i != m_filesystem.end(); ++i )
-			delete i->second.file();
+		for ( auto& [ path, entry ] : m_filesystem )
+			delete entry.file();
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
-	ArchiveFile* openFile( const char* name ){
+	ArchiveFile* openFile( const char* name ) override {
 		PakFileSystem::iterator i = m_filesystem.find( name );
 		if ( i != m_filesystem.end() && !i->second.is_directory() ) {
 			PakRecord* file = i->second.file();
@@ -119,7 +119,7 @@ public:
 		}
 		return 0;
 	}
-	virtual ArchiveTextFile* openTextFile( const char* name ){
+	virtual ArchiveTextFile* openTextFile( const char* name ) override {
 		PakFileSystem::iterator i = m_filesystem.find( name );
 		if ( i != m_filesystem.end() && !i->second.is_directory() ) {
 			PakRecord* file = i->second.file();
@@ -127,11 +127,11 @@ public:
 		}
 		return 0;
 	}
-	bool containsFile( const char* name ){
+	bool containsFile( const char* name ) override {
 		PakFileSystem::iterator i = m_filesystem.find( name );
 		return i != m_filesystem.end() && !i->second.is_directory();
 	}
-	void forEachFile( VisitorFunc visitor, const char* root ){
+	void forEachFile( VisitorFunc visitor, const char* root ) override {
 		m_filesystem.traverse( visitor, root );
 	}
 };

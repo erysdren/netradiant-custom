@@ -24,8 +24,8 @@
 #include "patch.h"
 
 #include <forward_list>
-#include "preferences.h"
 #include "brush_primit.h"
+#include "texturelib.h"
 #include "signal/signal.h"
 
 
@@ -198,13 +198,13 @@ bool Patch::isValid() const {
 		return false;
 	}
 
-	for ( const_iterator i = m_ctrl.begin(); i != m_ctrl.end(); ++i )
+	for ( const auto& control : m_ctrl )
 	{
-		if ( !float_valid( ( *i ).m_vertex.x() )
-		  || !float_valid( ( *i ).m_vertex.y() )
-		  || !float_valid( ( *i ).m_vertex.z() )
-		  || !float_valid( ( *i ).m_texcoord.x() )
-		  || !float_valid( ( *i ).m_texcoord.y() ) ) {
+		if ( !float_valid( control.m_vertex.x() )
+		  || !float_valid( control.m_vertex.y() )
+		  || !float_valid( control.m_vertex.z() )
+		  || !float_valid( control.m_texcoord.x() )
+		  || !float_valid( control.m_texcoord.y() ) ) {
 			globalErrorStream() << "patch has invalid control points\n";
 			return false;
 		}
@@ -264,7 +264,7 @@ void Patch::UpdateCachedData(){
 #if 0
 	{
 		Array<RenderIndex>::iterator first = m_tess.m_indices.begin();
-		for ( std::size_t s = 0; s < m_tess.m_numStrips; s++ )
+		for ( std::size_t s = 0; s < m_tess.m_numStrips; ++s )
 		{
 			Array<RenderIndex>::iterator last = first + m_tess.m_lenStrips;
 
@@ -277,10 +277,10 @@ void Patch::UpdateCachedData(){
 			first = last;
 		}
 
-		for ( Array<ArbitraryMeshVertex>::iterator i = m_tess.m_vertices.begin(); i != m_tess.m_vertices.end(); ++i )
+		for ( auto& v : m_tess.m_vertices )
 		{
-			vector3_normalise( reinterpret_cast<Vector3&>( ( *i ).tangent ) );
-			vector3_normalise( reinterpret_cast<Vector3&>( ( *i ).bitangent ) );
+			vector3_normalise( reinterpret_cast<Vector3&>( v.tangent ) );
+			vector3_normalise( reinterpret_cast<Vector3&>( v.bitangent ) );
 		}
 	}
 #endif
@@ -345,10 +345,10 @@ void Patch::Redisperse( EMatrixMajor mt ){
 		return;
 	}
 
-	for ( h = 0; h < height; h++ )
+	for ( h = 0; h < height; ++h )
 	{
 		p1 = m_ctrl.data() + ( h * row_stride );
-		for ( w = 0; w < width; w++ )
+		for ( w = 0; w < width; ++w )
 		{
 			p2 = p1 + col_stride;
 			p3 = p2 + col_stride;
@@ -387,22 +387,22 @@ void Patch::Smooth( EMatrixMajor mt ){
 	}
 
 	wrap = true;
-	for ( h = 0; h < height; h++ )
+	for ( h = 0; h < height; ++h )
 	{
 		p1 = m_ctrl.data() + ( h * row_stride );
 		p2 = p1 + ( 2 * width ) * col_stride;
 		//globalErrorStream() << "compare " << p1->m_vertex << " and " << p2->m_vertex << '\n';
-		if ( vector3_length_squared( vector3_subtracted( p1->m_vertex, p2->m_vertex ) ) > 1.0 ) {
+		if ( vector3_length_squared( vector3_subtracted( p1->m_vertex, p2->m_vertex ) ) > 1 ) {
 			//globalErrorStream() << "too far\n";
 			wrap = false;
 			break;
 		}
 	}
 
-	for ( h = 0; h < height; h++ )
+	for ( h = 0; h < height; ++h )
 	{
 		p1 = m_ctrl.data() + ( h * row_stride ) + col_stride;
-		for ( w = 0; w < width - 1; w++ )
+		for ( w = 0; w < width - 1; ++w )
 		{
 			p2 = p1 + col_stride;
 			p3 = p2 + col_stride;
@@ -467,14 +467,14 @@ Patch* Patch::MakeCap( Patch* patch, EPatchCap eType, EMatrixMajor mt, bool bFir
 
 	std::size_t nIndex = ( bFirst ) ? 0 : height - 1;
 	if ( mt == ROW ) {
-		for ( i = 0; i < width; i++ )
+		for ( i = 0; i < width; ++i )
 		{
 			p[( bFirst ) ? i : ( width - 1 ) - i] = ctrlAt( nIndex, i ).m_vertex;
 		}
 	}
 	else
 	{
-		for ( i = 0; i < width; i++ )
+		for ( i = 0; i < width; ++i )
 		{
 			p[( bFirst ) ? i : ( width - 1 ) - i] = ctrlAt( i, nIndex ).m_vertex;
 		}
@@ -528,8 +528,8 @@ void Patch::ScaleTexture( float s, float t ){
 void Patch::RotateTexture( float angle ){
 	undoSave();
 
-	const float s = static_cast<float>( sin( degrees_to_radians( angle ) ) );
-	const float c = static_cast<float>( cos( degrees_to_radians( angle ) ) );
+	const float s = sin( degrees_to_radians( angle ) );
+	const float c = cos( degrees_to_radians( angle ) );
 
 	for ( PatchControlIter i = m_ctrl.data(); i != m_ctrl.data() + m_ctrl.size(); ++i )
 	{
@@ -554,9 +554,9 @@ void Patch::SetTextureRepeat( float s, float t ){
 	const float ti = ( t == 0? 1.f : t ) / ( m_height - 1 );
 
 	PatchControl *pDest = m_ctrl.data();
-	for ( h = 0, tc = 0.0f; h < m_height; h++, tc += ti )
+	for ( h = 0, tc = 0; h < m_height; ++h, tc += ti )
 	{
-		for ( w = 0, sc = 0.0f; w < m_width; w++, sc += si )
+		for ( w = 0, sc = 0; w < m_width; ++w, sc += si )
 		{
 			pDest->m_texcoord[0] = sc;
 			pDest->m_texcoord[1] = tc;
@@ -575,8 +575,8 @@ void Patch::SetTextureRepeat( float s, float t ){
 		TranslateTexture( pt->getShift()[0], pt->getShift()[1] );
 	else if( pt->getScale()[0] || pt->getScale()[1] )
 	{
-		if( pt->getScale()[0] == 0.0f ) pt->setScale( 0, 1.0f );
-		if( pt->getScale()[1] == 0.0f ) pt->setScale( 1, 1.0f );
+		if( pt->getScale()[0] == 0 ) pt->setScale( 0, 1.0f );
+		if( pt->getScale()[1] == 0 ) pt->setScale( 1, 1.0f );
 		ScaleTexture ( pt->getScale()[0], pt->getScale()[1] );
 	}
 	else if( pt->rotate )
@@ -670,9 +670,9 @@ void Patch::CapTexture(){
 			vector3_add( normal, tmp );
 		}
 	}
-	normal[0] = fabs( normal[0] );
-	normal[1] = fabs( normal[1] );
-	normal[2] = fabs( normal[2] );
+	normal[0] = std::fabs( normal[0] );
+	normal[1] = std::fabs( normal[1] );
+	normal[2] = std::fabs( normal[2] );
 
 	ProjectTexture( texture_axis( normal ) );
 #else
@@ -699,7 +699,7 @@ void Patch::NaturalTexture(){
 			{
 				PatchControl* pHeight = pWidth;
 				for ( std::size_t h = 0; h < m_height; ++h, pHeight += m_width )
-					pHeight->m_texcoord[0] = static_cast<float>( tex );
+					pHeight->m_texcoord[0] = tex;
 			}
 
 			if ( w + 1 == m_width ) {
@@ -711,7 +711,7 @@ void Patch::NaturalTexture(){
 				for ( std::size_t h = 0; h < m_height; ++h, pHeight += m_width )
 				{
 					const double length = tex + ( vector3_length( pHeight->m_vertex - ( pHeight + 1 )->m_vertex ) / texSize );
-					if ( fabs( length ) > fabs( texBest ) ) { // comparing abs values supports possible negative Texdef_getDefaultTextureScale()
+					if ( std::fabs( length ) > std::fabs( texBest ) ) { // comparing abs values supports possible negative Texdef_getDefaultTextureScale()
 						texBest = length;
 					}
 				}
@@ -732,7 +732,7 @@ void Patch::NaturalTexture(){
 			{
 				PatchControl* pWidth = pHeight;
 				for ( std::size_t w = 0; w < m_width; ++w, ++pWidth )
-					pWidth->m_texcoord[1] = static_cast<float>( tex );
+					pWidth->m_texcoord[1] = tex;
 			}
 
 			if ( h + 1 == m_height ) {
@@ -744,7 +744,7 @@ void Patch::NaturalTexture(){
 				for ( std::size_t w = 0; w < m_width; ++w, ++pWidth )
 				{
 					const double length = tex + ( vector3_length( pWidth->m_vertex - ( pWidth + m_width )->m_vertex ) / texSize );
-					if ( fabs( length ) > fabs( texBest ) ) {
+					if ( std::fabs( length ) > std::fabs( texBest ) ) {
 						texBest = length;
 					}
 				}
@@ -765,9 +765,9 @@ void Patch::NaturalTexture(){
 void Patch::AccumulateBBox(){
 	m_aabb_local = AABB();
 
-	for ( PatchControlArray::iterator i = m_ctrlTransformed.begin(); i != m_ctrlTransformed.end(); ++i )
+	for ( const auto& control : m_ctrlTransformed )
 	{
-		aabb_extend_by_point_safe( m_aabb_local, ( *i ).m_vertex );
+		aabb_extend_by_point_safe( m_aabb_local, control.m_vertex );
 	}
 
 	if( !m_transformChanged ) //experimental! fixing extra sceneChangeNotify call during scene rendering
@@ -1029,7 +1029,7 @@ void Patch::RemovePoints( EMatrixMajor mt, bool bFirst ){
 		++pos;
 	}
 
-	for ( std::size_t w = 0; w != width; w++ )
+	for ( std::size_t w = 0; w != width; ++w )
 	{
 		PatchControl* p1 = tmp.data() + ( w * col_stride );
 		PatchControl* p2 = m_ctrl.data() + ( w * col_stride2 );
@@ -1045,13 +1045,13 @@ void Patch::RemovePoints( EMatrixMajor mt, bool bFirst ){
 		p1 = tmp.data() + ( w * col_stride + pos * row_stride );
 		p2 = m_ctrl.data() + ( w * col_stride2 + pos * row_stride2 );
 
-		for ( std::size_t i = 0; i < 3; i++ )
+		for ( std::size_t i = 0; i < 3; ++i )
 		{
 			( p2 - row_stride2 )->m_vertex[i] = ( ( p1 + 2 * row_stride )->m_vertex[i] + ( p1 - 2 * row_stride )->m_vertex[i] ) * 0.5f;
 
 			( p2 - row_stride2 )->m_vertex[i] = ( p2 - row_stride2 )->m_vertex[i] + ( 2.0f * ( ( p1 )->m_vertex[i] - ( p2 - row_stride2 )->m_vertex[i] ) );
 		}
-		for ( std::size_t i = 0; i < 2; i++ )
+		for ( std::size_t i = 0; i < 2; ++i )
 		{
 			( p2 - row_stride2 )->m_texcoord[i] = ( ( p1 + 2 * row_stride )->m_texcoord[i] + ( p1 - 2 * row_stride )->m_texcoord[i] ) * 0.5f;
 
@@ -1268,18 +1268,18 @@ void Patch::constructPlane( const AABB& aabb, int axis, std::size_t width, std::
 	vStart[y] = aabb.origin[y] - aabb.extents[y];
 	vStart[z] = aabb.origin[z] + aabb.extents[z];
 
-	float xAdj = fabsf( ( vStart[x] - ( aabb.origin[x] + aabb.extents[x] ) ) / (float)( m_width - 1 ) );
-	float yAdj = fabsf( ( vStart[y] - ( aabb.origin[y] + aabb.extents[y] ) ) / (float)( m_height - 1 ) );
+	const float xAdj = std::fabs( ( vStart[x] - ( aabb.origin[x] + aabb.extents[x] ) ) / ( m_width - 1 ) );
+	const float yAdj = std::fabs( ( vStart[y] - ( aabb.origin[y] + aabb.extents[y] ) ) / ( m_height - 1 ) );
 
 	Vector3 vTmp;
 	vTmp[z] = vStart[z];
 	PatchControl* pCtrl = m_ctrl.data();
 
 	vTmp[y] = vStart[y];
-	for ( std::size_t h = 0; h < m_height; h++ )
+	for ( std::size_t h = 0; h < m_height; ++h )
 	{
 		vTmp[x] = vStart[x];
-		for ( std::size_t w = 0; w < m_width; w++, ++pCtrl )
+		for ( std::size_t w = 0; w < m_width; ++w, ++pCtrl )
 		{
 			pCtrl->m_vertex = vTmp;
 			vTmp[x] += xAdj;
@@ -1359,11 +1359,11 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 			return;
 		}
 
-		for ( std::size_t h = 0; h < 3; h++, pStart += 9 )
+		for ( std::size_t h = 0; h < 3; ++h, pStart += 9 )
 		{
 			pIndex = pCylIndex;
 			PatchControl* pCtrl = pStart;
-			for ( std::size_t w = 0; w < 8; w++, pCtrl++ )
+			for ( std::size_t w = 0; w < 8; ++w, ++pCtrl )
 			{
 				pCtrl->m_vertex[x] = vPos[pIndex[0]][x];
 				pCtrl->m_vertex[y] = vPos[pIndex[1]][y];
@@ -1377,7 +1377,7 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		case EPatchPrefab::SqCylinder:
 			{
 				PatchControl* pCtrl = m_ctrl.data();
-				for ( std::size_t h = 0; h < 3; h++, pCtrl += 9 )
+				for ( std::size_t h = 0; h < 3; ++h, pCtrl += 9 )
 				{
 					pCtrl[8].m_vertex = pCtrl[0].m_vertex;
 				}
@@ -1388,7 +1388,7 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		case EPatchPrefab::Cylinder:
 			{
 				PatchControl* pCtrl = m_ctrl.data();
-				for ( std::size_t h = 0; h < 3; h++, pCtrl += 9 )
+				for ( std::size_t h = 0; h < 3; ++h, pCtrl += 9 )
 				{
 					pCtrl[0].m_vertex = pCtrl[8].m_vertex;
 				}
@@ -1397,14 +1397,14 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		case EPatchPrefab::Cone:
 			{
 				PatchControl* pCtrl = m_ctrl.data();
-				for ( std::size_t h = 0; h < 2; h++, pCtrl += 9 )
+				for ( std::size_t h = 0; h < 2; ++h, pCtrl += 9 )
 				{
 					pCtrl[0].m_vertex = pCtrl[8].m_vertex;
 				}
 			}
 			{
 				PatchControl* pCtrl = m_ctrl.data() + 9 * 2;
-				for ( std::size_t w = 0; w < 9; w++, pCtrl++ )
+				for ( std::size_t w = 0; w < 9; ++w, ++pCtrl )
 				{
 					pCtrl->m_vertex[x] = vPos[1][x];
 					pCtrl->m_vertex[y] = vPos[1][y];
@@ -1415,14 +1415,14 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		case EPatchPrefab::Sphere:
 			{
 				PatchControl* pCtrl = m_ctrl.data() + 9;
-				for ( std::size_t h = 0; h < 3; h++, pCtrl += 9 )
+				for ( std::size_t h = 0; h < 3; ++h, pCtrl += 9 )
 				{
 					pCtrl[0].m_vertex = pCtrl[8].m_vertex;
 				}
 			}
 			{
 				PatchControl* pCtrl = m_ctrl.data();
-				for ( std::size_t w = 0; w < 9; w++, pCtrl++ )
+				for ( std::size_t w = 0; w < 9; ++w, ++pCtrl )
 				{
 					pCtrl->m_vertex[x] = vPos[1][x];
 					pCtrl->m_vertex[y] = vPos[1][y];
@@ -1431,7 +1431,7 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 			}
 			{
 				PatchControl* pCtrl = m_ctrl.data() + ( 9 * 4 );
-				for ( std::size_t w = 0; w < 9; w++, pCtrl++ )
+				for ( std::size_t w = 0; w < 9; ++w, ++pCtrl )
 				{
 					pCtrl->m_vertex[x] = vPos[1][x];
 					pCtrl->m_vertex[y] = vPos[1][y];
@@ -1456,14 +1456,13 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		float f = 1 / cos( M_PI / n );
 		for ( i = 0; i < width; ++i )
 		{
-			float angle = ( M_PI * i ) / n; // 0 to 2pi
-			float x_ = vPos[1][x] + ( vPos[2][x] - vPos[1][x] ) * cos( angle ) * ( ( i & 1 ) ? f : 1.0f );
-			float y_ = vPos[1][y] + ( vPos[2][y] - vPos[1][y] ) * sin( angle ) * ( ( i & 1 ) ? f : 1.0f );
+			const float angle = ( M_PI * i ) / n; // 0 to 2pi
+			const float x_ = vPos[1][x] + ( vPos[2][x] - vPos[1][x] ) * cos( angle ) * ( ( i & 1 ) ? f : 1.0f );
+			const float y_ = vPos[1][y] + ( vPos[2][y] - vPos[1][y] ) * sin( angle ) * ( ( i & 1 ) ? f : 1.0f );
 			for ( j = 0; j < height; ++j )
 			{
-				float z_ = vPos[0][z] + ( vPos[2][z] - vPos[0][z] ) * ( j / (float)( height - 1 ) );
-				PatchControl *v;
-				v = &m_ctrl.data()[j * width + i];
+				const float z_ = vPos[0][z] + ( vPos[2][z] - vPos[0][z] ) * ( j / (float)( height - 1 ) );
+				PatchControl *v = &m_ctrl.data()[j * width + i];
 				v->m_vertex[x] = x_;
 				v->m_vertex[y] = y_;
 				v->m_vertex[z] = z_;
@@ -1537,10 +1536,10 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		setDims( 3, 3 );
 
 		PatchControl* pCtrl = m_ctrl.data();
-		for ( std::size_t h = 0; h < 3; h++ )
+		for ( std::size_t h = 0; h < 3; ++h )
 		{
 			pIndex = pBevIndex;
-			for ( std::size_t w = 0; w < 3; w++, pIndex += 2, pCtrl++ )
+			for ( std::size_t w = 0; w < 3; ++w, pIndex += 2, ++pCtrl )
 			{
 				pCtrl->m_vertex[x] = vPos[pIndex[0]][x];
 				pCtrl->m_vertex[y] = vPos[pIndex[1]][y];
@@ -1562,10 +1561,10 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		setDims( 5, 3 );
 
 		PatchControl* pCtrl = m_ctrl.data();
-		for ( std::size_t h = 0; h < 3; h++ )
+		for ( std::size_t h = 0; h < 3; ++h )
 		{
 			pIndex = pEndIndex;
-			for ( std::size_t w = 0; w < 5; w++, pIndex += 2, pCtrl++ )
+			for ( std::size_t w = 0; w < 5; ++w, pIndex += 2, ++pCtrl )
 			{
 				pCtrl->m_vertex[x] = vPos[pIndex[0]][x];
 				pCtrl->m_vertex[y] = vPos[pIndex[1]][y];
@@ -1590,10 +1589,10 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 }
 
 void Patch::RenderDebug( RenderStateFlags state ) const {
-	for ( std::size_t i = 0; i < m_tess.m_numStrips; i++ )
+	for ( std::size_t i = 0; i < m_tess.m_numStrips; ++i )
 	{
 		gl().glBegin( GL_QUAD_STRIP );
-		for ( std::size_t j = 0; j < m_tess.m_lenStrips; j++ )
+		for ( std::size_t j = 0; j < m_tess.m_lenStrips; ++j )
 		{
 			gl().glNormal3fv( normal3f_to_array( ( m_tess.m_vertices.data() + m_tess.m_indices[i * m_tess.m_lenStrips + j] )->normal ) );
 			gl().glTexCoord2fv( texcoord2f_to_array( ( m_tess.m_vertices.data() + m_tess.m_indices[i * m_tess.m_lenStrips + j] )->texcoord ) );
@@ -1607,9 +1606,9 @@ void RenderablePatchSolid::RenderNormals() const {
 	const std::size_t width = m_tess.m_numStrips + 1;
 	const std::size_t height = m_tess.m_lenStrips >> 1;
 	gl().glBegin( GL_LINES );
-	for ( std::size_t i = 0; i < width; i++ )
+	for ( std::size_t i = 0; i < width; ++i )
 	{
-		for ( std::size_t j = 0; j < height; j++ )
+		for ( std::size_t j = 0; j < height; ++j )
 		{
 			{
 				Vector3 vNormal(
@@ -2240,7 +2239,6 @@ void Patch::TesselateSubMatrix( const BezierCurveTree *BX, const BezierCurveTree
 			                    bTranspose );
 		}
 	}
-
 }
 
 void Patch::BuildTesselationCurves( EMatrixMajor major ){
@@ -2282,10 +2280,10 @@ void Patch::BuildTesselationCurves( EMatrixMajor major ){
 	std::size_t nArrayLength = 1;
 
 	if ( m_patchDef3 ) {
-		for ( Array<std::size_t>::iterator i = arrayLength.begin(); i != arrayLength.end(); ++i )
+		for ( auto& len : arrayLength )
 		{
-			*i = Array<std::size_t>::value_type( ( major == ROW ) ? m_subdivisions_x : m_subdivisions_y );
-			nArrayLength += *i;
+			len = ( major == ROW ) ? m_subdivisions_x : m_subdivisions_y;
+			nArrayLength += len;
 		}
 	}
 	else
@@ -2432,7 +2430,7 @@ inline void tangents_remove_degenerate( Vector3 tangents[6], Vector2 textureTang
 }
 
 void bestTangents00( unsigned int degenerateFlags, double dot, double length, std::size_t& index0, std::size_t& index1 ){
-	if ( fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
+	if ( std::fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
 		if ( !( degenerateFlags & DEGEN_1a ) ) { // if this tangent is degenerate we cannot use it
 			index0 = 2;
 			index1 = 0;
@@ -2447,7 +2445,7 @@ void bestTangents00( unsigned int degenerateFlags, double dot, double length, st
 			index1 = 0;
 		}
 	}
-	else if ( fabs( dot - length ) < 0.001 ) { // same direction = degenerate
+	else if ( std::fabs( dot - length ) < 0.001 ) { // same direction = degenerate
 		if ( degenerateFlags & DEGEN_0b ) {
 			index0 = 0;
 			index1 = 1;
@@ -2461,7 +2459,7 @@ void bestTangents00( unsigned int degenerateFlags, double dot, double length, st
 }
 
 void bestTangents01( unsigned int degenerateFlags, double dot, double length, std::size_t& index0, std::size_t& index1 ){
-	if ( fabs( dot - length ) < 0.001 ) { // same direction = degenerate
+	if ( std::fabs( dot - length ) < 0.001 ) { // same direction = degenerate
 		if ( !( degenerateFlags & DEGEN_1a ) ) { // if this tangent is degenerate we cannot use it
 			index0 = 2;
 			index1 = 1;
@@ -2476,7 +2474,7 @@ void bestTangents01( unsigned int degenerateFlags, double dot, double length, st
 			index1 = 1;
 		}
 	}
-	else if ( fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
+	else if ( std::fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
 		if ( degenerateFlags & DEGEN_2b ) {
 			index0 = 4;
 			index1 = 0;
@@ -2490,7 +2488,7 @@ void bestTangents01( unsigned int degenerateFlags, double dot, double length, st
 }
 
 void bestTangents10( unsigned int degenerateFlags, double dot, double length, std::size_t& index0, std::size_t& index1 ){
-	if ( fabs( dot - length ) < 0.001 ) { // same direction = degenerate
+	if ( std::fabs( dot - length ) < 0.001 ) { // same direction = degenerate
 		if ( !( degenerateFlags & DEGEN_1b ) ) { // if this tangent is degenerate we cannot use it
 			index0 = 3;
 			index1 = 4;
@@ -2505,7 +2503,7 @@ void bestTangents10( unsigned int degenerateFlags, double dot, double length, st
 			index1 = 4;
 		}
 	}
-	else if ( fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
+	else if ( std::fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
 		if ( degenerateFlags & DEGEN_0a ) {
 			index0 = 1;
 			index1 = 5;
@@ -2519,7 +2517,7 @@ void bestTangents10( unsigned int degenerateFlags, double dot, double length, st
 }
 
 void bestTangents11( unsigned int degenerateFlags, double dot, double length, std::size_t& index0, std::size_t& index1 ){
-	if ( fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
+	if ( std::fabs( dot + length ) < 0.001 ) { // opposing direction = degenerate
 		if ( !( degenerateFlags & DEGEN_1b ) ) { // if this tangent is degenerate we cannot use it
 			index0 = 3;
 			index1 = 5;
@@ -2534,7 +2532,7 @@ void bestTangents11( unsigned int degenerateFlags, double dot, double length, st
 			index1 = 5;
 		}
 	}
-	else if ( fabs( dot - length ) < 0.001 ) { // same direction = degenerate
+	else if ( std::fabs( dot - length ) < 0.001 ) { // same direction = degenerate
 		if ( degenerateFlags & DEGEN_2a ) {
 			index0 = 5;
 			index1 = 4;
@@ -2595,9 +2593,9 @@ void Patch::BuildVertexArray(){
 		m_tess.m_numStrips = m_tess.m_nArrayHeight - 1;
 		m_tess.m_lenStrips = m_tess.m_nArrayWidth * 2;
 
-		for ( std::size_t i = 0; i < m_tess.m_nArrayWidth; i++ )
+		for ( std::size_t i = 0; i < m_tess.m_nArrayWidth; ++i )
 		{
-			for ( std::size_t j = 0; j < m_tess.m_numStrips; j++ )
+			for ( std::size_t j = 0; j < m_tess.m_numStrips; ++j )
 			{
 				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2] = RenderIndex( j * m_tess.m_nArrayWidth + i );
 				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 + 1] = RenderIndex( ( j + 1 ) * m_tess.m_nArrayWidth + i );
@@ -2612,16 +2610,15 @@ void Patch::BuildVertexArray(){
 		m_tess.m_numStrips = m_tess.m_nArrayWidth - 1;
 		m_tess.m_lenStrips = m_tess.m_nArrayHeight * 2;
 
-		for ( std::size_t i = 0; i < m_tess.m_nArrayHeight; i++ )
+		for ( std::size_t i = 0; i < m_tess.m_nArrayHeight; ++i )
 		{
-			for ( std::size_t j = 0; j < m_tess.m_numStrips; j++ )
+			for ( std::size_t j = 0; j < m_tess.m_numStrips; ++j )
 			{
 				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j );
 				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 + 1] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j + 1 );
 				// reverse because radiant uses CULL_FRONT
 				//m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 + 1] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j );
 				//m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 ] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j + 1 );
-
 			}
 		}
 	}
@@ -2889,8 +2886,8 @@ Vector3 getAverageNormal( const Vector3& normal1, const Vector3& normal2 )
 	// of the two normals
 	/* float factor = cos(n1.angle(n2) * 0.5); */
 	float factor = vector3_dot( normal1, normal2 );
-	if ( factor > 1.0 ) factor = 1;
-	if ( factor < -1.0 ) factor = -1;
+	if ( factor > 1 ) factor = 1;
+	if ( factor < -1 ) factor = -1;
 	factor = acos( factor );
 
 	factor = cos( factor * 0.5 );
@@ -2940,14 +2937,14 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 
 	//check if certain seams are required + cycling in normals calculation is needed
 	//( endpoints != startpoints ) - not a cylinder or something
-	for ( std::size_t col = 0; col < m_width; col++ ){
+	for ( std::size_t col = 0; col < m_width; ++col ){
 		if( vector3_length_squared( sourcePatch.ctrlAt( 0, col ).m_vertex - sourcePatch.ctrlAt( m_height - 1, col ).m_vertex ) > 0.1f ){
 			//globalOutputStream() << "yes12.\n";
 			no12 = false;
 			break;
 		}
 	}
-	for ( std::size_t row = 0; row < m_height; row++ ){
+	for ( std::size_t row = 0; row < m_height; ++row ){
 		if( vector3_length_squared( sourcePatch.ctrlAt( row, 0 ).m_vertex - sourcePatch.ctrlAt( row, m_width - 1 ).m_vertex ) > 0.1f ){
 			no34 = false;
 			//globalOutputStream() << "yes34.\n";
@@ -2955,9 +2952,9 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 		}
 	}
 
-	for ( std::size_t col = 0; col < m_width; col++ )
+	for ( std::size_t col = 0; col < m_width; ++col )
 	{
-		for ( std::size_t row = 0; row < m_height; row++ )
+		for ( std::size_t row = 0; row < m_height; ++row )
 		{
 			// The current control vertex on the other patch
 			const PatchControl& curCtrl = sourcePatch.ctrlAt( row, col );
@@ -3110,12 +3107,11 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 				}
 				if( vector3_length_squared( rowTangent[0] ) == 0 || vector3_length_squared( colTangent[0] ) == 0 ){
 					normal = extrudeAxis;
-
 				}
 				else{
 					// If two column + two row tangents are available, take the length-corrected average
-					if ( ( fabs( colTangent[1][0] ) + fabs( colTangent[1][1] ) + fabs( colTangent[1][2] ) ) > 0 &&
-					     ( fabs( rowTangent[1][0] ) + fabs( rowTangent[1][1] ) + fabs( rowTangent[1][2] ) ) > 0 )
+					if ( ( std::fabs( colTangent[1][0] ) + std::fabs( colTangent[1][1] ) + std::fabs( colTangent[1][2] ) ) > 0 &&
+					     ( std::fabs( rowTangent[1][0] ) + std::fabs( rowTangent[1][1] ) + std::fabs( rowTangent[1][2] ) ) > 0 )
 					{
 						// Two column normals to calculate
 						Vector3 normal1 = vector3_normalised( vector3_cross( rowTangent[0], colTangent[0] ) );
@@ -3126,10 +3122,9 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 						globalOutputStream() << normal1 << '\n';
 						globalOutputStream() << normal2 << '\n';
 						globalOutputStream() << normal << '\n';*/
-
 					}
 					// If two column tangents are available, take the length-corrected average
-					else if ( ( fabs( colTangent[1][0] ) + fabs( colTangent[1][1] ) + fabs( colTangent[1][2] ) ) > 0)
+					else if ( ( std::fabs( colTangent[1][0] ) + std::fabs( colTangent[1][1] ) + std::fabs( colTangent[1][2] ) ) > 0)
 					{
 						// Two column normals to calculate
 						Vector3 normal1 = vector3_normalised( vector3_cross( rowTangent[0], colTangent[0] ) );
@@ -3140,12 +3135,11 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 						globalOutputStream() << normal1 << '\n';
 						globalOutputStream() << normal2 << '\n';
 						globalOutputStream() << normal << '\n';*/
-
 					}
 					else
 					{
 						// One column tangent available, maybe we have a second rowtangent?
-						if ( ( fabs( rowTangent[1][0] ) + fabs( rowTangent[1][1] ) + fabs( rowTangent[1][2] ) ) > 0)
+						if ( ( std::fabs( rowTangent[1][0] ) + std::fabs( rowTangent[1][1] ) + std::fabs( rowTangent[1][2] ) ) > 0)
 						{
 							// Two row normals to calculate
 							Vector3 normal1 = vector3_normalised( vector3_cross( rowTangent[0], colTangent[0] ) );
@@ -3159,14 +3153,13 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 							globalOutputStream() << normal1 << '\n';
 							globalOutputStream() << normal2 << '\n';
 							globalOutputStream() << normal << '\n';*/
-
 						}
 						else
 						{
 							if ( vector3_length_squared( vector3_cross( rowTangent[0], colTangent[0] ) ) > 0 ){
 								normal = vector3_normalised( vector3_cross( rowTangent[0], colTangent[0] ) );
 								/*globalOutputStream() << "3\n";
-								globalOutputStream() << (float)vector3_length_squared( vector3_cross( rowTangent[0], colTangent[0] ) ) << '\n';
+								globalOutputStream() << vector3_length_squared( vector3_cross( rowTangent[0], colTangent[0] ) ) << '\n';
 								globalOutputStream() << normal << '\n';*/
 							}
 							else{
@@ -3259,7 +3252,7 @@ void Patch::createThickenedWall( const Patch& sourcePatch,
 
 	int col = 0;
 	// Now go through the control vertices with these calculated stepsize
-	for ( int idx = start; idx <= end; idx += incr, col++ ) {
+	for ( int idx = start; idx <= end; idx += incr, ++col ) {
 		Vector3 sourceCoord = sourceCtrl[idx].m_vertex;
 		Vector3 targetCoord = targetCtrl[idx].m_vertex;
 		Vector3 middleCoord = ( sourceCoord + targetCoord ) / 2;
@@ -3314,11 +3307,7 @@ void add_patch_filter( PatchFilter& filter, int mask, bool invert ){
 }
 
 bool patch_filtered( Patch& patch ){
-	for ( PatchFilters::iterator i = g_patchFilters.begin(); i != g_patchFilters.end(); ++i )
-	{
-		if ( ( *i ).active() && ( *i ).filter( patch ) ) {
-			return true;
-		}
-	}
-	return false;
+	return std::ranges::any_of( g_patchFilters, [&patch]( PatchFilterWrapper& filter ){
+		return filter.active() && filter.filter( patch );
+	} );
 }

@@ -191,7 +191,7 @@ public:
 		if ( i != m_gameDescription.end() ) {
 			return ( *i ).second.c_str();
 		}
-		ERROR_MESSAGE( "game attribute " << makeQuoted( key ) << " not found in " << makeQuoted( mGameFile ) );
+		ERROR_MESSAGE( "game attribute " << Quoted( key ) << " not found in " << Quoted( mGameFile ) );
 		return "";
 	}
 
@@ -231,11 +231,6 @@ public:
 	   prompt which game to load on startup
 	 */
 	bool m_bGamePrompt;
-	/*!
-	   log console to radiant.log
-	   m_bForceLogConsole is an obscure forced latching situation
-	 */
-	bool m_bForceLogConsole;
 	/*@}*/
 
 	/*!
@@ -245,12 +240,11 @@ public:
 
 	CGameDialog() :
 		m_sGameFile( "", "Selected Game" ),
-		m_bGamePrompt( false ),
-		m_bForceLogConsole( false ){
+		m_bGamePrompt( false ){
 	}
 	virtual ~CGameDialog();
 
-	void AddPacksURL( StringOutputStream &s );
+	void AddPacksURL( StringOutputStream &URL );
 
 	/*!
 	   initialize the game dialog, called at CPrefsDlg::Init
@@ -330,8 +324,7 @@ public:
 	class QStackedWidget *m_notebook;
 	class QTreeView *m_treeview;
 
-	virtual ~PrefsDlg(){
-	}
+	virtual ~PrefsDlg() = default;
 
 	/*!
 	   path for global settings

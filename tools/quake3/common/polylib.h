@@ -27,12 +27,31 @@
 using winding_t = std::vector<Vector3>;
 
 // index < w.size()
-inline size_t winding_next( const winding_t& w, size_t index ){
+template<class T>
+size_t winding_next( const std::vector<BasicVector3<T>>& w, size_t index ){
 	return ++index == w.size()? 0 : index;
 }
+template<class T>
+const BasicVector3<T>& winding_next_point( const std::vector<BasicVector3<T>>& w, size_t index ){
+	return w[ winding_next( w, index ) ];
+}
 // it < w.end()
-inline winding_t::iterator winding_next( winding_t& w, winding_t::iterator it ){
+template<class T>
+std::vector<BasicVector3<T>>::iterator winding_next( std::vector<BasicVector3<T>>& w, typename std::vector<BasicVector3<T>>::iterator it ){
 	return ++it == w.end()? w.begin() : it;
+}
+template<class T>
+std::vector<BasicVector3<T>>::const_iterator winding_next( const std::vector<BasicVector3<T>>& w, typename std::vector<BasicVector3<T>>::const_iterator it ){
+	return ++it == w.cend()? w.cbegin() : it;
+}
+// it < w.end()
+template<class T>
+std::vector<BasicVector3<T>>::iterator winding_prev( std::vector<BasicVector3<T>>& w, typename std::vector<BasicVector3<T>>::iterator it ){
+	return it == w.begin()? w.end() - 1 : --it;
+}
+template<class T>
+std::vector<BasicVector3<T>>::const_iterator winding_prev( const std::vector<BasicVector3<T>>& w, typename std::vector<BasicVector3<T>>::const_iterator it ){
+	return it == w.cbegin()? w.cend() - 1 : --it;
 }
 
 #define MAX_POINTS_ON_WINDING   512
@@ -50,9 +69,27 @@ enum EPlaneSide
 	eSideCross = 3,
 };
 
+enum : bool
+{
+	eFront = false,
+	eBack = true,
+};
+class ESide
+{
+	bool m_value;
+public:
+	ESide(){
+	}
+	ESide( bool value ) : m_value( value ){}
+	operator bool() const {
+		return m_value;
+	}
+};
+
 winding_t   AllocWinding( int points );
 float   WindingArea( const winding_t& w );
-Vector3 WindingCenter( const winding_t& w );
+template<class T> BasicVector3<T> WindingCenter( const std::vector<BasicVector3<T>>& w );
+template<class T> BasicVector3<T> WindingCentroid( const std::vector<BasicVector3<T>>& w );
 std::pair<winding_t, winding_t>    ClipWindingEpsilon( const winding_t& in, const Plane3f& plane, float epsilon ); // returns { front, back } windings pair
 std::pair<winding_t, winding_t>    ClipWindingEpsilonStrict( const winding_t& in, const Plane3f& plane, float epsilon ); // returns { front, back } windings pair
 winding_t   ReverseWinding( const winding_t& w );
@@ -70,6 +107,7 @@ void    ChopWindingInPlace( winding_t& w, const Plane3f& plane, float epsilon );
 
 void pw( const winding_t& w );
 
+bool windings_intersect_coplanar( const winding_t& w1, const winding_t& w2, const Plane3& plane );
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Below is double-precision stuff.  This was initially needed by the base winding code
@@ -78,6 +116,7 @@ void pw( const winding_t& w );
 
 using winding_accu_t = std::vector<DoubleVector3>;
 
+winding_accu_t  BaseWindingForPlaneAccu( const Plane3& plane, const DoubleMinMax& minmax );
 winding_accu_t  BaseWindingForPlaneAccu( const Plane3& plane );
 void    ChopWindingInPlaceAccu( winding_accu_t& w, const Plane3& plane, float epsilon );
 winding_t   CopyWindingAccuToRegular( const winding_accu_t& w );

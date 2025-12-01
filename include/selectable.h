@@ -36,19 +36,19 @@ class SelectionIntersection
 public:
 	SelectionIntersection() : m_depth( 1 ), m_distance( 2 ), m_depth2( -1 ), m_indirect( true ){
 	}
-	SelectionIntersection( float depth, float distance ) : m_depth( depth ), m_distance( distance ), m_depth2( -1 ), m_indirect( distance != 0.f ){
+	SelectionIntersection( float depth, float distance ) : m_depth( depth ), m_distance( distance ), m_depth2( -1 ), m_indirect( distance != 0 ){
 	}
-	SelectionIntersection( float depth, float distance, float depth2 ) : m_depth( depth ), m_distance( distance ), m_depth2( depth2 ), m_indirect( distance != 0.f ){
+	SelectionIntersection( float depth, float distance, float depth2 ) : m_depth( depth ), m_distance( distance ), m_depth2( depth2 ), m_indirect( distance != 0 ){
 	}
 	bool operator<( const SelectionIntersection& other ) const {
 		if( m_indirect != other.m_indirect ){
 			return other.m_indirect; //m_distance < other.m_distance;
 		}
 		else if( m_indirect && other.m_indirect ){
-			if( fabs( m_distance - other.m_distance ) > 1e-3f /*0.00002f*/ ){
+			if( std::fabs( m_distance - other.m_distance ) > 1e-3f /*0.00002f*/ ){
 				return m_distance < other.m_distance;
 			}
-			else if( fabs( m_depth - other.m_depth ) > 1e-6f ){
+			else if( std::fabs( m_depth - other.m_depth ) > 1e-6f ){
 				return m_depth < other.m_depth;
 			}
 			else{
@@ -234,7 +234,7 @@ public:
 //	virtual const Vector3& getFar() const = 0;
 	virtual const Matrix4& getScreen2world() const = 0;
 	virtual void TestPoint( const Vector3& point, SelectionIntersection& best ) = 0;
-	virtual void TestPolygon( const VertexPointer& vertices, std::size_t count, SelectionIntersection& best, const DoubleVector3 planepoints[3] ) = 0;
+	virtual void TestPolygon( const VertexPointer& vertices, std::size_t count, SelectionIntersection& best, const PlanePoints& planepoints ) = 0;
 	virtual void TestLineLoop( const VertexPointer& vertices, std::size_t count, SelectionIntersection& best ) = 0;
 	virtual void TestLineStrip( const VertexPointer& vertices, std::size_t count, SelectionIntersection& best ) = 0;
 	virtual void TestLines( const VertexPointer& vertices, std::size_t count, SelectionIntersection& best ) = 0;

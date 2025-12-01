@@ -57,7 +57,6 @@ void Face_extrude( Face& face, const Brush& brush, brush_vector_t& out, float of
 	}
 }
 */
-#include "preferences.h"
 #include "texwindow.h"
 #include "filterbar.h"
 
@@ -91,7 +90,7 @@ public:
 			return dot < m_mindot + 0.001 || dot > m_maxdot - 0.001;
 		}
 		else{ // note: straight equality check: may explode, when used with modified faces (e.g. ePull tmpbrush offset faces forth and back) (works so far)
-			return std::find( m_exclude_vec.begin(), m_exclude_vec.end(), face.getPlane().plane3().normal() ) != m_exclude_vec.end();
+			return std::ranges::find( m_exclude_vec, face.getPlane().plane3().normal() ) != m_exclude_vec.end();
 		}
 	}
 	void excludeFaces( BrushInstance& brushInstance ){
@@ -321,7 +320,7 @@ public:
 	BrushHollowSelectedWalker( HollowSettings& settings )
 		: m_settings( settings ) {
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if( path.top().get().visible() ) {
 			Brush* brush = Node_getBrush( path.top() );
 			if( brush != 0
@@ -333,13 +332,13 @@ public:
 					if( !m_settings.m_removeInner && m_settings.m_caulk ) {
 						Brush_forEachFace( *brush, CaulkFace( m_settings ) );
 					}
-					Brush* tmpbrush = new Brush( *brush );
+					auto *tmpbrush = new Brush( *brush );
 					tmpbrush->removeEmptyFaces();
 					Brush_forEachFace( *tmpbrush, FaceMakeBrush( *tmpbrush, out, m_settings ) );
 					delete tmpbrush;
 				}
 				else if( m_settings.m_hollowType == eDiag ) {
-					Brush* tmpbrush = new Brush( *brush );
+					auto *tmpbrush = new Brush( *brush );
 					Brush_forEachFace( *tmpbrush, FaceOffset( m_settings ) );
 					tmpbrush->evaluateBRep();
 					brush_extrudeDiag( *brush, *tmpbrush, out, m_settings );
@@ -354,7 +353,7 @@ public:
 				for( Brush* b : out ) {
 					b->removeEmptyFaces();
 					if( b->hasContributingFaces() ) {
-						NodeSmartReference node( ( new BrushNode() )->node() );
+						NodeSmartReference node( GlobalBrushCreator().createBrush() );
 						Node_getBrush( node )->copy( *b );
 						Node_getTraversable( path.parent() )->insert( node );
 						//path.push( makeReference( node.get() ) );
@@ -379,7 +378,7 @@ public:
 	BrushGatherSelected( brush_vector_t& brushlist )
 		: m_brushlist( brushlist ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() && Instance_isSelected( instance ) )
 			if ( Brush* brush = Node_getBrush( path.top() ) )
 				m_brushlist.push_back( brush );
@@ -390,10 +389,10 @@ public:
 class BrushDeleteSelected : public scene::Graph::Walker
 {
 public:
-bool pre( const scene::Path& path, scene::Instance& instance ) const {
+bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 	return true;
 }
-void post( const scene::Path& path, scene::Instance& instance ) const {
+void post( const scene::Path& path, scene::Instance& instance ) const override {
 	if ( path.top().get().visible() ) {
 		Brush* brush = Node_getBrush( path.top() );
 		if ( brush != 0
@@ -415,10 +414,10 @@ class BrushDeleteSelected : public scene::Graph::Walker
 public:
 	BrushDeleteSelected( scene::Node* keepNode = nullptr ): m_keepNode( keepNode ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( Node_isBrush( path.top() ) ) {
 			if ( path.top().get().visible()
 			  && Instance_isSelected( instance )
@@ -525,13 +524,7 @@ typedef Function<bool(const Face&, const Plane3&, bool), Face_testPlane> FaceTes
 bool Brush_testPlane( const Brush& brush, const Plane3& plane, bool flipped ){
 	brush.evaluateBRep();
 #if 1
-	for ( Brush::const_iterator i( brush.begin() ); i != brush.end(); ++i )
-	{
-		if ( Face_testPlane( *( *i ), plane, flipped ) ) {
-			return false;
-		}
-	}
-	return true;
+	return std::ranges::none_of( brush, [&]( const FaceSmartPointer& face ){ return Face_testPlane( *face, plane, flipped ); } );
 #else
 	return Brush_findIf( brush, bindArguments( FaceTestPlane(), makeReference( plane ), flipped ) ) == 0;
 #endif
@@ -540,10 +533,10 @@ bool Brush_testPlane( const Brush& brush, const Plane3& plane, bool flipped ){
 brushsplit_t Brush_classifyPlane( const Brush& brush, const Plane3& plane ){
 	brush.evaluateBRep();
 	brushsplit_t split;
-	for ( Brush::const_iterator i( brush.begin() ); i != brush.end(); ++i )
+	for ( const auto& face : brush )
 	{
-		if ( ( *i )->contributes() ) {
-			split += Winding_ClassifyPlane( ( *i )->getWinding(), plane );
+		if ( face->contributes() ) {
+			split += Winding_ClassifyPlane( face->getWinding(), plane );
 		}
 	}
 	return split;
@@ -607,9 +600,9 @@ public:
 				const DoubleVector3& n2 = b->getPlane().plane3().normal();
 				const ProjectionAxis p1 = projectionaxis_for_normal( n1 );
 				const ProjectionAxis p2 = projectionaxis_for_normal( n2 );
-				return float_equal_epsilon( fabs( n1[ p1 ] ), fabs( n2[ p2 ] ), c_PLANE_NORMAL_EPSILON )
+				return float_equal_epsilon( std::fabs( n1[ p1 ] ), std::fabs( n2[ p2 ] ), c_PLANE_NORMAL_EPSILON )
 				? p1 > p2 // Z > Y > X
-				: fabs( n1[ p1 ] ) > fabs( n2[ p2 ] ); // or most axial
+				: std::fabs( n1[ p1 ] ) > std::fabs( n2[ p2 ] ); // or most axial
 			} );
 
 			auto it = faces.cbegin(), found = it; // traverse projections and craft more fortunate splits order in non trivial cases
@@ -634,10 +627,10 @@ public:
 					const ProjectionAxis p2 = projectionaxis_for_normal( n2 );
 					if( p1 == p2 // same projection
 					&& n1[p1] * n2[p2] < 0 // opposite projection facing
-					&& ( fabs( n2[p2] ) > bestmax + c_PLANE_NORMAL_EPSILON // definitely better proj direction
-					   || ( fabs( n2[p2] ) > bestmax - c_PLANE_NORMAL_EPSILON // or similar proj direction
+					&& ( std::fabs( n2[p2] ) > bestmax + c_PLANE_NORMAL_EPSILON // definitely better proj direction
+					   || ( std::fabs( n2[p2] ) > bestmax - c_PLANE_NORMAL_EPSILON // or similar proj direction
 					     && vector3_dot( n1, n2 ) < bestdot ) ) ){ // + more opposing normal direction
-						bestmax = fabs( n2[p2] );
+						bestmax = std::fabs( n2[p2] );
 						bestdot = vector3_dot( n1, n2 );
 						more = face;
 					}
@@ -648,17 +641,18 @@ public:
 			}
 		}
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		return path.top().get().visible();
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( Brush* thebrush = Node_getBrush( path.top() ) ) {
 			if ( path.top().get().visible() && !Instance_isSelected( instance )
-			&& std::any_of( m_brushlist.cbegin(), m_brushlist.cend(),
-			[thebrush]( const Brush *b ){ return aabb_intersects_aabb( thebrush->localAABB(), b->localAABB() ); } ) ) {
+			  && std::ranges::any_of( m_brushlist, [thebrush]( const Brush *b ){
+					return aabb_intersects_aabb( thebrush->localAABB(), b->localAABB() );
+			} ) ) {
 				brush_vector_t buffer[2];
 				bool swap = false;
-				Brush* original = new Brush( *thebrush );
+				auto *original = new Brush( *thebrush );
 				buffer[swap].push_back( original );
 
 				for ( size_t i = 0; i < m_brushlist.size(); ++i )
@@ -690,7 +684,7 @@ public:
 						++m_after;
 						brush->removeEmptyFaces();
 						if ( !brush->empty() ) {
-							NodeSmartReference node( ( new BrushNode() )->node() );
+							NodeSmartReference node( GlobalBrushCreator().createBrush() );
 							Node_getBrush( node )->copy( *brush );
 							delete brush;
 							Node_getTraversable( path.parent() )->insert( node );
@@ -750,13 +744,13 @@ public:
 	mutable bool m_gj;
 	BrushSplitByPlaneSelected( const ClipperPoints& points, bool flip, const char* shader, const TextureProjection& projection, bool split ) :
 		m_points( flip? ClipperPoints( points[0], points[2], points[1], points._count ) : points ),
-		m_plane( plane3_for_points( m_points[0], m_points[1], m_points[2] ) ),
+		m_plane( plane3_for_points( m_points._points ) ),
 		m_shader( shader ), m_projection( projection ), m_split( split ), m_gj( false ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			Brush* brush = Node_getBrush( path.top() );
 			if ( brush != 0
@@ -766,7 +760,7 @@ public:
 					// the plane intersects this brush
 					m_gj = true;
 					if ( m_split ) {
-						NodeSmartReference node( ( new BrushNode() )->node() );
+						NodeSmartReference node( GlobalBrushCreator().createBrush() );
 						Brush* fragment = Node_getBrush( node );
 						fragment->copy( *brush );
 						fragment->addPlane( m_points[0], m_points[2], m_points[1], m_shader, m_projection );
@@ -822,7 +816,7 @@ public:
 		             ? plane3_for_points( points[0], points[2], points[1] )
 		             : plane3_for_points( points[0], points[1], points[2] ) ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		BrushInstance* brush = Instance_getBrush( instance );
 		if ( brush != 0
 		     && path.top().get().visible()
@@ -908,9 +902,9 @@ bool Brush_merge( Brush& brush, const brush_vector_t& in, bool onlyshape ){
 				}
 			}
 		}
-		for ( Faces::const_iterator i = faces.begin(); i != faces.end(); ++i )
+		for ( const auto *face : faces )
 		{
-			if ( !brush.addFace( *( *i ) ) ) {
+			if ( !brush.addFace( *face ) ) {
 				// result would have too many sides
 				return false;
 			}
@@ -960,7 +954,7 @@ void CSG_Merge(){
 
 	UndoableCommand undo( "brushMerge" );
 
-	NodeSmartReference node( ( new BrushNode() )->node() );
+	NodeSmartReference node( GlobalBrushCreator().createBrush() );
 	Brush* brush = Node_getBrush( node );
 	// if the new brush would not be convex
 	if ( !Brush_merge( *brush, selected_brushes, true ) ) {
@@ -997,7 +991,7 @@ public:
 			m_vertices.push_back( vertex );
 	}
 	bool contains( const DoubleVector3& vertex ) const {
-		return std::any_of( begin(), end(), [&vertex]( const DoubleVector3& v ){ return Edge_isDegenerate( vertex, v ); } );
+		return std::ranges::any_of( m_vertices, [&vertex]( const DoubleVector3& v ){ return Edge_isDegenerate( vertex, v ); } );
 	}
 	const_iterator begin() const {
 		return m_vertices.begin();
@@ -1025,16 +1019,15 @@ public:
 class Scene_gatherSelectedComponents : public scene::Graph::Walker
 {
 	MergeVertices& m_mergeVertices;
-	const Vector3Callback m_callback;
 public:
 	Scene_gatherSelectedComponents( MergeVertices& mergeVertices )
-		: m_mergeVertices( mergeVertices ), m_callback( [this]( const DoubleVector3& value ){ m_mergeVertices.insert( value ); } ){
+		: m_mergeVertices( mergeVertices ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			ComponentEditable* componentEditable = Instance_getComponentEditable( instance );
 			if ( componentEditable ) {
-				componentEditable->gatherSelectedComponents( m_callback );
+				componentEditable->gatherSelectedComponents( makeCallback( [this]( const DoubleVector3& value ){ m_mergeVertices.insert( value ); } ) );
 			}
 			return true;
 		}
@@ -1046,10 +1039,10 @@ struct MergePlane
 {
 	const Plane3 m_plane;
 	const Face *const m_face;
-	const DoubleVector3 m_verts[3];
-	MergePlane( const Plane3& plane, const Face* face ) : m_plane( plane ), m_face( face ){
+	const PlanePoints m_verts;
+	MergePlane( const Plane3& plane, const Face* face ) : m_plane( plane ), m_face( face ), m_verts(){
 	}
-	MergePlane( const Plane3& plane, const DoubleVector3 verts[3] ) : m_plane( plane ), m_face( 0 ), m_verts{ verts[0], verts[1], verts[2] } {
+	MergePlane( const Plane3& plane, const PlanePoints& verts ) : m_plane( plane ), m_face( 0 ), m_verts{ verts } {
 	}
 };
 
@@ -1060,7 +1053,7 @@ class MergePlanes
 public:
 	typedef Planes::const_iterator const_iterator;
 	void insert( const MergePlane& plane ){
-		if( std::none_of( begin(), end(), [&plane]( const MergePlane& pla ){ return plane3_equal( plane.m_plane, pla.m_plane ); } ) )
+		if( std::ranges::none_of( m_planes, [&plane]( const MergePlane& pla ){ return plane3_equal( plane.m_plane, pla.m_plane ); } ) )
 			m_planes.push_back( plane );
 	}
 	const_iterator begin() const {
@@ -1107,7 +1100,7 @@ void CSG_build_hull( const MergeVertices& mergeVertices, MergePlanes& mergePlane
 		const auto& indexBuffer = hull.getIndexBuffer();
 		const size_t triangleCount = indexBuffer.size() / 3;
 		for( size_t i = 0; i < triangleCount; ++i ) {
-			DoubleVector3 points[3];
+			PlanePoints points;
 			for( size_t j = 0; j < 3; ++j ){
 				points[j] = mergeVertices[indexBuffer[i * 3 + j]];
 			}
@@ -1167,7 +1160,7 @@ void CSG_WrapMerge( const ClipperPoints& clipperPoints ){
 		return;
 	}
 
-	NodeSmartReference node( ( new BrushNode() )->node() );
+	NodeSmartReference node( GlobalBrushCreator().createBrush() );
 	Brush* brush = GlobalSelectionSystem().countSelected() > 0? Node_getBrush( GlobalSelectionSystem().ultimateSelected().path().top() ) : 0;
 	const bool oldbrush = brush && primit;
 	if( oldbrush )
@@ -1362,7 +1355,6 @@ void CSG_DeleteComponents(){
  */
 #include "mainframe.h"
 #include "gtkutil/dialog.h"
-#include "gtkutil/accelerator.h"
 #include "gtkutil/image.h"
 #include "gtkutil/spinbox.h"
 #include "gtkutil/guisettings.h"
@@ -1375,6 +1367,7 @@ void CSG_DeleteComponents(){
 #include <QButtonGroup>
 #include <QGridLayout>
 #include <QFrame>
+#include <QStyle>
 
 struct CSGToolDialog
 {
@@ -1494,114 +1487,96 @@ void CSG_Tool(){
 		g_guiSettings.addWindow( g_csgtool_dialog.window, "CSGTool/geometry" );
 
 		{
-			auto grid = new QGridLayout( g_csgtool_dialog.window ); // 3 x 8
+			auto *grid = new QGridLayout( g_csgtool_dialog.window ); // 3 x 8
 			grid->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 			{
-				auto spin = g_csgtool_dialog.spin = new DoubleSpinBox( 0, 9999, 16, 3, 16 );
+				auto *spin = g_csgtool_dialog.spin = new DoubleSpinBox( 0, 9999, 16, 3, 16 );
 				spin->setToolTip( "Thickness" );
 				grid->addWidget( spin, 0, 1 );
 			}
 			{
-				auto label = new CSG_SpinBoxLabel( "Grid->", g_csgtool_dialog.spin );
+				auto *label = new CSG_SpinBoxLabel( "Grid->", g_csgtool_dialog.spin );
 				grid->addWidget( label, 0, 0 );
 			}
 			{
 				//radio button group for choosing the exclude axis
-				auto radFaces = g_csgtool_dialog.radFaces = new QRadioButton( "-faces" );
+				auto *radFaces = g_csgtool_dialog.radFaces = new QRadioButton( "-faces" );
 				radFaces->setToolTip( "Exclude selected faces" );
 				grid->addWidget( radFaces, 0, 2 );
 
-				auto radPlusFaces = g_csgtool_dialog.radPlusFaces = new QRadioButton( "+faces" );
+				auto *radPlusFaces = g_csgtool_dialog.radPlusFaces = new QRadioButton( "+faces" );
 				radPlusFaces->setToolTip( "Only process selected faces" );
 				grid->addWidget( radPlusFaces, 0, 3 );
 
-				auto radProj = g_csgtool_dialog.radProj = new QRadioButton( "-proj" );
+				auto *radProj = g_csgtool_dialog.radProj = new QRadioButton( "-proj" );
 				radProj->setToolTip( "Exclude faces, most orthogonal to active projection" );
 				grid->addWidget( radProj, 0, 4 );
 
-				auto radCam = g_csgtool_dialog.radCam = new QRadioButton( "-cam" );
+				auto *radCam = g_csgtool_dialog.radCam = new QRadioButton( "-cam" );
 				radCam->setToolTip( "Exclude faces, most orthogonal to camera view" );
 				grid->addWidget( radCam, 0, 5 );
 
 				radFaces->setChecked( true );
 			}
-			{
-				auto button = g_csgtool_dialog.caulk = new QToolButton;
-				auto pix = new_local_image( "f-caulk.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Caulk some faces" );
+			auto newCheckButton = []( const char *icon, const char *tooltip ){
+				auto *button = new QToolButton;
+				const int iconSize = button->style()->pixelMetric( QStyle::PixelMetric::PM_ToolBarIconSize );
+				button->setIconSize( QSize( iconSize, iconSize ) );
+				button->setIcon( new_local_icon( icon ) );
+				button->setToolTip( tooltip );
 				button->setCheckable( true );
 				button->setChecked( true );
+				return button;
+			};
+			{
+				auto *button = g_csgtool_dialog.caulk = newCheckButton( "f-caulk.png", "Caulk some faces" );
 				grid->addWidget( button, 0, 6 );
 			}
 			{
-				auto button = g_csgtool_dialog.removeInner = new QToolButton;
-				auto pix = new_local_image( "csgtool_removeinner.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Remove inner brush" );
-				button->setCheckable( true );
-				button->setChecked( true );
+				auto *button = g_csgtool_dialog.removeInner = newCheckButton( "csgtool_removeinner.png", "Remove inner brush" );
 				grid->addWidget( button, 0, 7 );
 			}
 			{
-				auto line = new QFrame;
+				auto *line = new QFrame;
 				line->setFrameShape( QFrame::Shape::HLine );
 				line->setFrameShadow( QFrame::Shadow::Raised );
 				grid->addWidget( line, 1, 0, 1, 8 );
 			}
+			auto newButton = []( const char *icon, const char *tooltip ){
+				auto *button = new QToolButton;
+				const int iconSize = button->style()->pixelMetric( QStyle::PixelMetric::PM_LargeIconSize );
+				button->setIconSize( QSize( iconSize, iconSize ) );
+				button->setIcon( new_local_icon( icon ) );
+				button->setToolTip( tooltip );
+				return button;
+			};
 			{
-				auto button = new QToolButton;
-				auto pix = new_local_image( "csgtool_shrink.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Shrink brush" );
+				auto *button = newButton( "csgtool_shrink.png", "Shrink brush" );
 				grid->addWidget( button, 2, 0 );
 				QObject::connect( button, &QAbstractButton::clicked, CSGdlg_BrushShrink );
 			}
 			{
-				auto button = new QToolButton;
-				auto pix = new_local_image( "csgtool_expand.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Expand brush" );
+				auto *button = newButton( "csgtool_expand.png", "Expand brush" );
 				grid->addWidget( button, 2, 1 );
 				QObject::connect( button, &QAbstractButton::clicked, CSGdlg_BrushExpand );
 			}
 			{
-				auto button = new QToolButton;
-				auto pix = new_local_image( "csgtool_diagonal.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Hollow::diagonal joints" );
+				auto *button = newButton( "csgtool_diagonal.png", "Hollow::diagonal joints" );
 				grid->addWidget( button, 2, 3 );
 				QObject::connect( button, &QAbstractButton::clicked, [](){ CSG_Hollow( eDiag, "brushHollow::Diag", g_csgtool_dialog ); } );
 			}
 			{
-				auto button = new QToolButton;
-				auto pix = new_local_image( "csgtool_wrap.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Hollow::wrap" );
+				auto *button = newButton( "csgtool_wrap.png", "Hollow::wrap" );
 				grid->addWidget( button, 2, 4 );
 				QObject::connect( button, &QAbstractButton::clicked, [](){ CSG_Hollow( eWrap, "brushHollow::Wrap", g_csgtool_dialog ); } );
 			}
 			{
-				auto button = new QToolButton;
-				auto pix = new_local_image( "csgtool_extrude.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Hollow::extrude faces" );
+				auto *button = newButton( "csgtool_extrude.png", "Hollow::extrude faces" );
 				grid->addWidget( button, 2, 5 );
 				QObject::connect( button, &QAbstractButton::clicked, [](){ CSG_Hollow( eExtrude, "brushHollow::Extrude", g_csgtool_dialog ); } );
 			}
 			{
-				auto button = new QToolButton;
-				auto pix = new_local_image( "csgtool_pull.png" );
-				button->setIcon( pix );
-				button->setIconSize( pix.size() + QSize( 8, 8 ) );
-				button->setToolTip( "Hollow::pull faces" );
+				auto *button = newButton( "csgtool_pull.png", "Hollow::pull faces" );
 				grid->addWidget( button, 2, 6 );
 				QObject::connect( button, &QAbstractButton::clicked, [](){ CSG_Hollow( ePull, "brushHollow::Pull", g_csgtool_dialog ); } );
 			}

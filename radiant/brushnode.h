@@ -26,7 +26,7 @@
 #include "brushtokens.h"
 #include "brushxml.h"
 
-class BrushNode :
+class BrushNode final :
 	public scene::Node::Symbiot,
 	public scene::Instantiable,
 	public scene::Cloneable
@@ -66,36 +66,36 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	Snappable& get( NullType<Snappable>){
+	Snappable& get( NullType<Snappable> ){
 		return m_brush;
 	}
-	TransformNode& get( NullType<TransformNode>){
+	TransformNode& get( NullType<TransformNode> ){
 		return m_brush;
 	}
-	Brush& get( NullType<Brush>){
+	Brush& get( NullType<Brush> ){
 		return m_brush;
 	}
-	XMLImporter& get( NullType<XMLImporter>){
+	XMLImporter& get( NullType<XMLImporter> ){
 		return m_xmlImporter;
 	}
-	XMLExporter& get( NullType<XMLExporter>){
+	XMLExporter& get( NullType<XMLExporter> ){
 		return m_xmlExporter;
 	}
-	MapImporter& get( NullType<MapImporter>){
+	MapImporter& get( NullType<MapImporter> ){
 		return m_mapImporter;
 	}
-	MapExporter& get( NullType<MapExporter>){
+	MapExporter& get( NullType<MapExporter> ){
 		return m_mapExporter;
 	}
-	Nameable& get( NullType<Nameable>){
+	Nameable& get( NullType<Nameable> ){
 		return m_brush;
 	}
-	BrushDoom3& get( NullType<BrushDoom3>){
+	BrushDoom3& get( NullType<BrushDoom3> ){
 		return m_brush;
 	}
 
 	BrushNode() :
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), GlobalSceneGraph().currentLayer() ),
 		m_brush( m_node, InstanceSetEvaluateTransform<BrushInstance>::Caller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ) ),
 		m_mapImporter( m_brush ),
 		m_mapExporter( m_brush ),
@@ -106,34 +106,34 @@ public:
 		scene::Node::Symbiot( other ),
 		scene::Instantiable( other ),
 		scene::Cloneable( other ),
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), other.m_node.m_layer ),
 		m_brush( other.m_brush, m_node, InstanceSetEvaluateTransform<BrushInstance>::Caller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ) ),
 		m_mapImporter( m_brush ),
 		m_mapExporter( m_brush ),
 		m_xmlImporter( m_brush ),
 		m_xmlExporter( m_brush ){
 	}
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	scene::Node& clone() const {
+	scene::Node& clone() const override {
 		return ( new BrushNode( *this ) )->node();
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new BrushInstance( path, parent, m_brush );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };

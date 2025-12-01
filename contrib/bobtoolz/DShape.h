@@ -45,12 +45,9 @@ public:
 	int m_nNextBrush;
 	static DBrush* GetBoundingCube_Ext( vec3_t min, vec3_t max, const char* textureName, bool* bUseFaces = bFacesAll, bool detail = false );
 
-	DShape();
-	virtual ~DShape();
-
 	void Commit();
 private:
-	DBrush* GetBoundingCube( vec3_t min, vec3_t max, const char* textureName, DEntity* ent = NULL, bool* bUseFaces = bFacesAll );
+	DBrush* GetBoundingCube( vec3_t min, vec3_t max, const char* textureName, DEntity* ent = nullptr, bool* bUseFaces = bFacesAll );
 
 	DMap m_Container;
 };

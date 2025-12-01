@@ -49,7 +49,7 @@ class UFOAIPluginDependencies :
 	public GlobalEntityClassManagerModuleRef
 {
 public:
-	UFOAIPluginDependencies( void ) :
+	UFOAIPluginDependencies() :
 		GlobalEntityModuleRef( GlobalRadiant().getRequiredGameDescriptionKeyValue( "entities" ) ),
 		GlobalEntityClassManagerModuleRef( GlobalRadiant().getRequiredGameDescriptionKeyValue( "entityclass" ) ){
 	}
@@ -68,13 +68,13 @@ const char* getName(){
 }
 const char* getCommandList(){
 	/*GlobalRadiant().getGameName()*/
-	return "About;-;Worldspawn reset;Worldspawn;Perform check;-;Level 1;Level 2;Level 3;Level 4;Level 5;Level 6;Level 7;Level 8;-;StepOn;ActorClip;WeaponClip;Nodraw";
+	return "About;-;Worldspawn reset;Worldspawn;Perform check;-;Level 1;Level 2;Level 3;Level 4;Level 5;Level 6;Level 7;Level 8;-;StepOn;ActorClip;WeaponClip;NoDraw";
 }
 const char* getCommandTitleList(){
 	return "";
 }
 void dispatch( const char* command, float* vMin, float* vMax, bool bSingleBrush ){
-	const char *message = NULL;
+	const char *message = nullptr;
 	if ( string_equal( command, "About" ) ) {
 		GlobalRadiant().m_pfnMessageBox( g_mainwnd,
 		                                 "UFO:AI Plugin (<a href='http://ufoai.sf.net'>http://ufoai.sf.net</a>)"
@@ -130,7 +130,7 @@ void dispatch( const char* command, float* vMin, float* vMax, bool bSingleBrush 
 		filter_nodraw();
 	}
 
-	if ( message != NULL ) {
+	if ( message != nullptr ) {
 		GlobalRadiant().m_pfnMessageBox( g_mainwnd,
 		                                 message, "Note",
 		                                 EMessageBoxType::Info, 0 );

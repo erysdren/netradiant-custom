@@ -46,12 +46,12 @@ void ClampFloat( float* p ){
 		return;
 	}
 
-	if ( fabs( *p - ceil( *p ) ) < MAX_ROUND_ERROR ) {
-		*p = static_cast<float>( ceil( *p ) );
+	if ( std::fabs( *p - ceil( *p ) ) < MAX_ROUND_ERROR ) {
+		*p = ceil( *p );
 	}
 
-	if ( fabs( *p - floor( *p ) ) < MAX_ROUND_ERROR ) {
-		*p = static_cast<float>( floor( *p ) );
+	if ( std::fabs( *p - floor( *p ) ) < MAX_ROUND_ERROR ) {
+		*p = floor( *p );
 	}
 }
 
@@ -67,9 +67,9 @@ bool CBspPortal::Build( char *def, unsigned int pointCnt, bool bInverse ){
 
 	point = new CBspPoint[point_count];
 
-	for ( n = 0; n < point_count; n++ )
+	for ( n = 0; n < point_count; ++n )
 	{
-		for (; *c != 0 && *c != '('; c++ ){};
+		for (; *c != 0 && *c != '('; ++c ){};
 
 		if ( *c == 0 ) {
 			return false;
@@ -107,7 +107,7 @@ void CPortals::Purge(){
 	if ( node ) {
 		delete[] node;
 	}
-	node = NULL;
+	node = nullptr;
 	node_count = 0;
 }
 
@@ -124,7 +124,7 @@ void CPortals::Load(){
 
 	in = fopen( fn, "rt" );
 
-	if ( in == NULL ) {
+	if ( in == nullptr ) {
 		globalErrorStream() << "  ERROR - could not open file.\n";
 
 		return;
@@ -195,7 +195,7 @@ void CPortals::Load(){
 	node = new CBspNode[node_count];
 
 	unsigned int i;
-	for ( i = 0; i < p_count; i++ )
+	for ( i = 0; i < p_count; ++i )
 	{
 		if ( !fgets( buf, LINE_BUF, in ) ) {
 			fclose( in );
@@ -214,7 +214,7 @@ void CPortals::Load(){
 		node[node2].portal_count++;
 	}
 
-	for ( i = 0; i < p_count2; i++ )
+	for ( i = 0; i < p_count2; ++i )
 	{
 		if ( !fgets( buf, LINE_BUF, in ) ) {
 			fclose( in );
@@ -232,7 +232,7 @@ void CPortals::Load(){
 		node[node1].portal_count++;
 	}
 
-	for ( i = 0; i < node_count; i++ )
+	for ( i = 0; i < node_count; ++i )
 		node[i].portal = new CBspPortal[node[i].portal_count];
 
 	fclose( in );
@@ -245,7 +245,7 @@ void CPortals::Load(){
 	fgets( buf, LINE_BUF, in );
 
 	unsigned int n;
-	for ( n = 0; n < p_count; n++ )
+	for ( n = 0; n < p_count; ++n )
 	{
 		if ( !fgets( buf, LINE_BUF, in ) ) {
 			fclose( in );
@@ -281,7 +281,7 @@ void CPortals::Load(){
 		}
 	}
 
-	for ( n = 0; n < p_count2; n++ )
+	for ( n = 0; n < p_count2; ++n )
 	{
 		if ( !fgets( buf, LINE_BUF, in ) ) {
 			fclose( in );
@@ -311,13 +311,13 @@ void CPortals::Load(){
 }
 
 CBspNode::CBspNode(){
-	portal = NULL;
+	portal = nullptr;
 	portal_count = 0;
 	portal_next = 0;
 }
 
 CBspNode::~CBspNode(){
-	if ( portal != NULL ) {
+	if ( portal != nullptr ) {
 		delete[] portal;
 	}
 }

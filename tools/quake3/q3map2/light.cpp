@@ -96,10 +96,11 @@ static void CreateSunLight( sun_t& sun ){
 		/* initialize the light */
 		light.flags = LightFlags::DefaultSun;
 		light.type = ELightType::Sun;
-		light.fade = 1.0f;
+		light.fade = 1;
 		light.falloffTolerance = falloffTolerance;
 		light.filterRadius = sun.filterRadius / sun.numSamples;
 		light.style = noStyles ? LS_NORMAL : sun.style;
+		light.skyIndex = sun.skyIndex;
 
 		/* set the light's position out to infinity */
 		light.origin = direction * ( MAX_WORLD_COORD * 8.0f );    /* MAX_WORLD_COORD * 2.0f */
@@ -129,7 +130,7 @@ public:
 	SkyProbes( const String64& skyParmsImageBase ){
 		if( !skyParmsImageBase.empty() ){
 			std::vector<const image_t*> images;
-			for( const auto suffix : { "_lf", "_rt", "_ft", "_bk", "_up", "_dn" } )
+			for( const auto *suffix : { "_lf", "_rt", "_ft", "_bk", "_up", "_dn" } )
 			{
 				if( nullptr == images.emplace_back( ImageLoad( StringStream<64>( skyParmsImageBase, suffix ) ) ) ){
 					Sys_Warning( "Couldn't find image %s\n", StringStream<64>( skyParmsImageBase, suffix ).c_str() );
@@ -220,7 +221,7 @@ public:
 
 static void CreateSkyLights( const skylight_t& skylight, const Vector3& color, float filterRadius, int style, const String64& skyParmsImageBase ){
 	/* dummy check */
-	if ( skylight.value <= 0.0f || skylight.iterations < 2 || skylight.horizon_min > skylight.horizon_max ) {
+	if ( skylight.value <= 0 || skylight.iterations < 2 || skylight.horizon_min > skylight.horizon_max ) {
 		return;
 	}
 
@@ -231,9 +232,10 @@ static void CreateSkyLights( const skylight_t& skylight, const Vector3& color, f
 	sun_t sun;
 	std::vector<sun_t> suns;
 	sun.color = color;
-	sun.deviance = 0.0f;
+	sun.deviance = 0;
 	sun.filterRadius = filterRadius;
 	sun.numSamples = 1;
+	sun.skyIndex = skylight.skyIndex;
 	sun.style = noStyles ? LS_NORMAL : style;
 
 	/* setup */
@@ -255,7 +257,7 @@ static void CreateSkyLights( const skylight_t& skylight, const Vector3& color, f
 
 	/* iterate elevation */
 	float elevation = degrees_to_radians( std::min( eleMin, float( skylight.horizon_max ) ) );
-	float angle = 0.0f;
+	float angle = 0;
 	for ( int i = 0; i < elevationSteps; ++i )
 	{
 		/* iterate angle */
@@ -304,7 +306,7 @@ static void CreateSkyLights( const skylight_t& skylight, const Vector3& color, f
 				sun.color /= max;
 	}
 
-	std::for_each( suns.begin(), suns.end(), CreateSunLight );
+	std::ranges::for_each( suns, CreateSunLight );
 }
 
 
@@ -412,17 +414,17 @@ static void CreateEntityLights(){
 		light.flags = flags;
 
 		/* ydnar: set fade key (from wolf) */
-		light.fade = 1.0f;
+		light.fade = 1;
 		if ( light.flags & LightFlags::AttenLinear ) {
 			light.fade = e.floatForKey( "fade" );
-			if ( light.fade == 0.0f ) {
-				light.fade = 1.0f;
+			if ( light.fade == 0 ) {
+				light.fade = 1;
 			}
 		}
 
 		/* ydnar: set angle scaling (from vlight) */
 		light.angleScale = e.floatForKey( "_anglescale" );
-		if ( light.angleScale != 0.0f ) {
+		if ( light.angleScale != 0 ) {
 			light.flags |= LightFlags::AttenAngle;
 		}
 
@@ -436,13 +438,13 @@ static void CreateEntityLights(){
 		/* set light intensity */
 		float intensity = 300.f;
 		e.read_keyvalue( intensity, "_light", "light" );
-		if ( intensity == 0.0f ) {
+		if ( intensity == 0 ) {
 			intensity = 300.0f;
 		}
 
 		{	/* ydnar: set light scale (sof2) */
 			float scale;
-			if( e.read_keyvalue( scale, "scale" ) && scale != 0.f )
+			if( e.read_keyvalue( scale, "scale" ) && scale != 0 )
 				intensity *= scale;
 		}
 
@@ -458,11 +460,7 @@ static void CreateEntityLights(){
 
 		/* set light color */
 		if ( e.read_keyvalue( light.color, "_color" ) ) {
-			if ( colorsRGB ) {
-				light.color[0] = Image_LinearFloatFromsRGBFloat( light.color[0] );
-				light.color[1] = Image_LinearFloatFromsRGBFloat( light.color[1] );
-				light.color[2] = Image_LinearFloatFromsRGBFloat( light.color[2] );
-			}
+			ColorFromSRGB( light.color );
 			if ( !( light.flags & LightFlags::Unnormalized ) ) {
 				ColorNormalize( light.color );
 			}
@@ -487,7 +485,7 @@ static void CreateEntityLights(){
 		if ( e.read_keyvalue( target, "target" ) ) {
 			/* get target */
 			const entity_t *e2 = FindTargetEntity( target );
-			if ( e2 == NULL ) {
+			if ( e2 == nullptr ) {
 				Sys_Warning( "light at (%i %i %i) has missing target\n",
 				             (int) light.origin[ 0 ], (int) light.origin[ 1 ], (int) light.origin[ 2 ] );
 				light.photons *= pointScale;
@@ -514,7 +512,7 @@ static void CreateEntityLights(){
 				/* ydnar: wolf mods: spotlights always use nonlinear + angle attenuation */
 				light.flags &= ~LightFlags::AttenLinear;
 				light.flags |= LightFlags::AttenAngle;
-				light.fade = 1.0f;
+				light.fade = 1;
 
 				/* ydnar: is this a sun? */
 				if ( e.boolForKey( "_sun" ) ) {
@@ -550,7 +548,7 @@ static void CreateEntityLights(){
 		}
 
 		/* jitter the light */
-		for ( int j = 1; j < numSamples; j++ )
+		for ( int j = 1; j < numSamples; ++j )
 		{
 			/* create a light */
 			light_t& light2 = lights.emplace_front( light );
@@ -581,56 +579,74 @@ static void CreateEntityLights(){
 #define APPROX_BOUNCE   1.0f
 
 static void CreateSurfaceLights(){
-	clipWork_t cw;
-
-
 	/* get sun shader suppressor */
 	const bool nss = entities[ 0 ].boolForKey( "_noshadersun" );
 
 	/* walk the list of surfaces */
-	for ( size_t i = 0; i < bspDrawSurfaces.size(); i++ )
+	for ( size_t i = 0; i < bspDrawSurfaces.size(); ++i )
 	{
 		/* get surface and other bits */
-		bspDrawSurface_t *ds = &bspDrawSurfaces[ i ];
-		surfaceInfo_t *info = &surfaceInfos[ i ];
-		const shaderInfo_t *si = info->si;
+		const bspDrawSurface_t& ds = bspDrawSurfaces[ i ];
+		const surfaceInfo_t& info = surfaceInfos[ i ];
+		const shaderInfo_t& si = *info.si;
 
+		// each environment light shader (with sun/sky) gets an unique index. thus we can check whether a sky surface should be considered as a successful trace
+		const auto assign_sky_index = []( shaderInfo_t& si ){
+			static int skyIndex;
+			if( si.skyIndex == -1 ){ // this shader is actually emitting sun/skylight now, so give it an environment emitter index
+				if( skyIndex == MAX_SKIES )
+					Sys_Warning( "MAX_SKIES(%i) reached\n", MAX_SKIES );
+				else
+					si.skyIndex = skyIndex++;
+			}
+		};
 		/* sunlight? */
-		if ( !si->suns.empty() && !nss ) {
-			shaderInfo_t* si_ = const_cast<shaderInfo_t*>( si );   /* FIXME: hack! */
-			Sys_FPrintf( SYS_VRB, "Sun: %s\n", si->shader.c_str() );
-			std::for_each( si_->suns.begin(), si_->suns.end(), CreateSunLight );
-			si_->suns.clear();   /* FIXME: hack! */
+		if ( !si.suns.empty() && !nss ) {
+			auto& si_ = const_cast<shaderInfo_t&>( si );   /* FIXME: hack! */
+			Sys_FPrintf( SYS_VRB, "Sun: %s\n", si.shader.c_str() );
+			if( !g_oneSky ){
+				assign_sky_index( si_ );
+				for( auto& sun : si_.suns ) // let the suns know
+					sun.skyIndex = si.skyIndex;
+			}
+			std::ranges::for_each( si_.suns, CreateSunLight );
+			si_.suns.clear();   /* FIXME: hack! */
 		}
 
 		/* sky light? */
-		if ( !si->skylights.empty() ) {
-			Sys_FPrintf( SYS_VRB, "Sky: %s\n", si->shader.c_str() );
-			for( const skylight_t& skylight : si->skylights )
-				CreateSkyLights( skylight, si->color, si->lightFilterRadius, si->lightStyle, si->skyParmsImageBase );
-			const_cast<shaderInfo_t*>( si )->skylights.clear();   /* FIXME: hack! */
+		if ( !si.skylights.empty() ) {
+			auto& si_ = const_cast<shaderInfo_t&>( si );   /* FIXME: hack! */
+			Sys_FPrintf( SYS_VRB, "Sky: %s\n", si.shader.c_str() );
+			if( !g_oneSky ){
+				assign_sky_index( si_ );
+				for( auto& skylight : si_.skylights ) // let the skylights know
+					skylight.skyIndex = si.skyIndex;
+			}
+			for( const skylight_t& skylight : si.skylights )
+				CreateSkyLights( skylight, si.color, si.lightFilterRadius, si.lightStyle, si.skyParmsImageBase );
+			si_.skylights.clear();   /* FIXME: hack! */
 		}
 
 		/* try to early out */
-		if ( si->value <= 0 ) {
+		if ( si.value <= 0 ) {
 			continue;
 		}
 
 		/* autosprite shaders become point lights */
-		if ( si->autosprite ) {
+		if ( si.autosprite ) {
 			/* create a light */
 			light_t& light = lights.emplace_front();
 
 			/* set it up */
 			light.flags = LightFlags::DefaultQ3A;
 			light.type = ELightType::Point;
-			light.photons = si->value * pointScale;
-			light.fade = 1.0f;
-			light.si = si;
-			light.origin = info->minmax.origin();
-			light.color = si->color;
+			light.photons = si.value * pointScale;
+			light.fade = 1;
+			light.si = &si;
+			light.origin = info.minmax.origin();
+			light.color = si.color;
 			light.falloffTolerance = falloffTolerance;
-			light.style = si->lightStyle;
+			light.style = si.lightStyle;
 
 			/* add to point light count and continue */
 			numPointLights++;
@@ -638,18 +654,18 @@ static void CreateSurfaceLights(){
 		}
 
 		/* get subdivision amount */
-		const float subdivide = si->lightSubdivide > 0? si->lightSubdivide : defaultLightSubdivide;
+		const float subdivide = si.lightSubdivide > 0? si.lightSubdivide : defaultLightSubdivide;
 
 		/* switch on type */
-		switch ( ds->surfaceType )
+		switch ( ds.surfaceType )
 		{
 		case MST_PLANAR:
 		case MST_TRIANGLE_SOUP:
-			RadLightForTriangles( i, 0, info->lm, si, APPROX_BOUNCE, subdivide, &cw );
+			RadLightForTriangles( i, 0, info.lm, si, APPROX_BOUNCE, subdivide );
 			break;
 
 		case MST_PATCH:
-			RadLightForPatch( i, 0, info->lm, si, APPROX_BOUNCE, subdivide, &cw );
+			RadLightForPatch( i, 0, info.lm, si, APPROX_BOUNCE, subdivide );
 			break;
 
 		default:
@@ -687,15 +703,12 @@ static void SetEntityOrigins(){
 		}
 
 		/* set origin for all surfaces for this model */
-		for ( int j = 0; j < dm.numBSPSurfaces; j++ )
+		for ( const bspDrawSurface_t& ds : Span( &bspDrawSurfaces[ dm.firstBSPSurface ], dm.numBSPSurfaces ) )
 		{
-			/* get drawsurf */
-			const bspDrawSurface_t& ds = bspDrawSurfaces[ dm.firstBSPSurface + j ];
-
 			/* set its verts */
-			for ( int k = 0; k < ds.numVerts; k++ )
+			for ( bspDrawVert_t& dv : Span( &yDrawVerts[ ds.firstVert ], ds.numVerts ) )
 			{
-				yDrawVerts[ ds.firstVert + k ].xyz += origin;
+				dv.xyz += origin;
 			}
 		}
 	}
@@ -745,7 +758,7 @@ float PointToPolygonFormFactor( const Vector3& point, const Vector3& normal, con
 
 		/* ydnar: this was throwing too many errors with radiosity + crappy maps. ignoring it. */
 		if ( total > 6.3 || total < -6.3 ) {
-			return 0.0f;
+			return 0;
 		}
 	}
 
@@ -765,7 +778,7 @@ int LightContributionToSample( trace_t *trace ){
 	float angle;
 	float add;
 	float dist;
-	float addDeluxe = 0.0f, addDeluxeBounceScale = 0.25f;
+	float addDeluxe = 0, addDeluxeBounceScale = 0.25f;
 	bool angledDeluxe = true;
 	float colorBrightness;
 	bool doAddDeluxe = true;
@@ -774,14 +787,14 @@ int LightContributionToSample( trace_t *trace ){
 	const light_t *light = trace->light;
 
 	/* clear color */
-	trace->forceSubsampling = 0.0f; /* to make sure */
+	trace->forceSubsampling = 0; /* to make sure */
 	trace->color.set( 0 );
 	trace->directionContribution.set( 0 );
 
 	colorBrightness = RGBTOGRAY( light->color ) * ( 1.0f / 255.0f );
 
 	/* ydnar: early out */
-	if ( !( light->flags & LightFlags::Surfaces ) || light->envelope <= 0.0f ) {
+	if ( !( light->flags & LightFlags::Surfaces ) || light->envelope <= 0 ) {
 		return 0;
 	}
 
@@ -789,7 +802,7 @@ int LightContributionToSample( trace_t *trace ){
 	if ( light->type != ELightType::Sun ) {
 		/* MrE: if the light is behind the surface */
 		if ( !trace->twoSided ) {
-			if ( vector3_dot( light->origin, trace->normal ) - vector3_dot( trace->origin, trace->normal ) < 0.0f ) {
+			if ( vector3_dot( light->origin, trace->normal ) - vector3_dot( trace->origin, trace->normal ) < 0 ) {
 				return 0;
 			}
 		}
@@ -810,7 +823,7 @@ int LightContributionToSample( trace_t *trace ){
 		d = vector3_dot( trace->origin, light->normal ) - light->dist;
 		if ( d < 3.0f ) {
 			/* sample point behind plane? */
-			if ( !( light->flags & LightFlags::Twosided ) && d < -1.0f ) {
+			if ( !( light->flags & LightFlags::Twosided ) && d < -1 ) {
 				return 0;
 			}
 
@@ -851,10 +864,10 @@ int LightContributionToSample( trace_t *trace ){
 
 			/* attenuate */
 			angle *= -vector3_dot( light->normal, trace->direction );
-			if ( angle == 0.0f ) {
+			if ( angle == 0 ) {
 				return 0;
 			}
-			else if ( angle < 0.0f &&
+			else if ( angle < 0 &&
 			          ( trace->twoSided || ( light->flags & LightFlags::Twosided ) ) ) {
 				angle = -angle;
 
@@ -880,10 +893,10 @@ int LightContributionToSample( trace_t *trace ){
 		{
 			/* calculate the contribution */
 			factor = PointToPolygonFormFactor( pushedOrigin, trace->normal, light->w );
-			if ( factor == 0.0f ) {
+			if ( factor == 0 ) {
 				return 0;
 			}
-			else if ( factor < 0.0f ) {
+			else if ( factor < 0 ) {
 				/* twosided lighting */
 				if ( trace->twoSided || ( light->flags & LightFlags::Twosided ) ) {
 					factor = -factor;
@@ -958,10 +971,10 @@ int LightContributionToSample( trace_t *trace ){
 			angle = dot;
 		}
 		else{
-			angle = 1.0f;
+			angle = 1;
 		}
 
-		if ( light->angleScale != 0.0f ) {
+		if ( light->angleScale != 0 ) {
 			angle /= light->angleScale;
 			value_minimize( angle, 1.0f );
 		}
@@ -1001,7 +1014,7 @@ int LightContributionToSample( trace_t *trace ){
 		if ( light->type == ELightType::Spot ) {
 			/* do cone calculation */
 			const float distByNormal = -vector3_dot( trace->displacement, light->normal );
-			if ( distByNormal < 0.0f ) {
+			if ( distByNormal < 0 ) {
 				return 0;
 			}
 			const Vector3 pointAtDist = light->origin + light->normal * distByNormal;
@@ -1059,7 +1072,7 @@ int LightContributionToSample( trace_t *trace ){
 			angle = dot;
 		}
 		else{
-			angle = 1.0f;
+			angle = 1;
 		}
 
 		/* attenuate */
@@ -1076,7 +1089,7 @@ int LightContributionToSample( trace_t *trace ){
 			value_maximize( addDeluxe, 0.0f );
 		}
 
-		if ( add <= 0.0f ) {
+		if ( add <= 0 ) {
 			return 0;
 		}
 
@@ -1098,7 +1111,8 @@ int LightContributionToSample( trace_t *trace ){
 			/* trace */
 			TraceLine( trace );
 			trace->forceSubsampling *= add;
-			if ( !( trace->compileFlags & C_SKY ) || trace->opaque ) {
+			if ( !( trace->compileFlags & C_SKY ) || trace->opaque
+			|| ( !g_oneSky && light->skyIndex != -1 && !bit_is_enabled( trace->skyIndices, light->skyIndex ) ) ) {
 				trace->color.set( 0 );
 				trace->directionContribution.set( 0 );
 
@@ -1114,7 +1128,7 @@ int LightContributionToSample( trace_t *trace ){
 	}
 
 	/* ydnar: changed to a variable number */
-	if ( add <= 0.0f || ( add <= light->falloffTolerance && ( light->flags & LightFlags::FastActual ) ) ) {
+	if ( add <= 0 || ( add <= light->falloffTolerance && ( light->flags & LightFlags::FastActual ) ) ) {
 		return 0;
 	}
 
@@ -1169,13 +1183,10 @@ int LightContributionToSample( trace_t *trace ){
    determines the amount of light reaching a sample (luxel or vertex)
  */
 
-void LightingAtSample( trace_t *trace, byte styles[ MAX_LIGHTMAPS ], Vector3 (&colors)[ MAX_LIGHTMAPS ] ){
-	int i, lightmapNum;
-
-
+void LightingAtSample( trace_t *trace, byte (&styles)[ MAX_LIGHTMAPS ], Vector3 (&colors)[ MAX_LIGHTMAPS ], const Vector3& ambientColor ){
 	/* clear colors */
-	for ( lightmapNum = 0; lightmapNum < MAX_LIGHTMAPS; lightmapNum++ )
-		colors[ lightmapNum ].set( 0 );
+	for ( Vector3& color : colors )
+		color.set( 0 );
 
 	/* ydnar: normalmap */
 	if ( normalmap ) {
@@ -1183,19 +1194,17 @@ void LightingAtSample( trace_t *trace, byte styles[ MAX_LIGHTMAPS ], Vector3 (&c
 		return;
 	}
 
-	/* ydnar: don't bounce ambient all the time */
-	if ( !bouncing ) {
-		colors[ 0 ] = ambientColor;
-	}
+	colors[ 0 ] = ambientColor;
 
 	/* ydnar: trace to all the list of lights pre-stored in tw */
-	for ( i = 0; i < trace->numLights && trace->lights[ i ] != NULL; i++ )
+	for ( int i = 0; i < trace->numLights && trace->lights[ i ] != nullptr; ++i )
 	{
 		/* set light */
 		trace->light = trace->lights[ i ];
 
 		/* style check */
-		for ( lightmapNum = 0; lightmapNum < MAX_LIGHTMAPS; lightmapNum++ )
+		int lightmapNum = 0;
+		for ( ; lightmapNum < MAX_LIGHTMAPS; ++lightmapNum )
 		{
 			if ( styles[ lightmapNum ] == trace->light->style ||
 			     styles[ lightmapNum ] == LS_NONE ) {
@@ -1253,7 +1262,7 @@ static bool LightContributionToPoint( trace_t *trace ){
 	trace->color.set( 0 );
 
 	/* ydnar: early out */
-	if ( !( light->flags & LightFlags::Grid ) || light->envelope <= 0.0f ) {
+	if ( !( light->flags & LightFlags::Grid ) || light->envelope <= 0 ) {
 		return false;
 	}
 
@@ -1310,7 +1319,7 @@ static bool LightContributionToPoint( trace_t *trace ){
 
 		/* see if the point is behind the light */
 		d = vector3_dot( trace->origin, light->normal ) - light->dist;
-		if ( !( light->flags & LightFlags::Twosided ) && d < -1.0f ) {
+		if ( !( light->flags & LightFlags::Twosided ) && d < -1 ) {
 			return false;
 		}
 
@@ -1325,10 +1334,10 @@ static bool LightContributionToPoint( trace_t *trace ){
 
 		/* calculate the contribution (ydnar 2002-10-21: [bug 642] bad normal calc) */
 		factor = PointToPolygonFormFactor( pushedOrigin, trace->direction, light->w );
-		if ( factor == 0.0f ) {
+		if ( factor == 0 ) {
 			return false;
 		}
-		else if ( factor < 0.0f ) {
+		else if ( factor < 0 ) {
 			if ( light->flags & LightFlags::Twosided ) {
 				factor = -factor;
 			}
@@ -1358,7 +1367,7 @@ static bool LightContributionToPoint( trace_t *trace ){
 		if ( light->type == ELightType::Spot ) {
 			/* do cone calculation */
 			const float distByNormal = -vector3_dot( trace->displacement, light->normal );
-			if ( distByNormal < 0.0f ) {
+			if ( distByNormal < 0 ) {
 				return false;
 			}
 			const Vector3 pointAtDist = light->origin + light->normal * distByNormal;
@@ -1382,7 +1391,7 @@ static bool LightContributionToPoint( trace_t *trace ){
 	else if ( light->type == ELightType::Sun ) {
 		/* attenuate */
 		add = light->photons;
-		if ( add <= 0.0f ) {
+		if ( add <= 0 ) {
 			return false;
 		}
 
@@ -1394,7 +1403,8 @@ static bool LightContributionToPoint( trace_t *trace ){
 		if ( trace->testOcclusion && !trace->forceSunlight ) {
 			/* trace */
 			TraceLine( trace );
-			if ( !( trace->compileFlags & C_SKY ) || trace->opaque ) {
+			if ( !( trace->compileFlags & C_SKY ) || trace->opaque
+			|| ( !g_oneSky && light->skyIndex != -1 && !bit_is_enabled( trace->skyIndices, light->skyIndex ) ) ) {
 				trace->color.set( 0 );
 				return false;
 			}
@@ -1410,7 +1420,7 @@ static bool LightContributionToPoint( trace_t *trace ){
 	}
 
 	/* ydnar: changed to a variable number */
-	if ( add <= 0.0f || ( add <= light->falloffTolerance && ( light->flags & LightFlags::FastActual ) ) ) {
+	if ( add <= 0 || ( add <= light->falloffTolerance && ( light->flags & LightFlags::FastActual ) ) ) {
 		return false;
 	}
 
@@ -1449,7 +1459,6 @@ struct contribution_t
 
 static void TraceGrid( int num ){
 	int i, j, x, y, z, mod, numCon, numStyles;
-	float d, step;
 	Vector3 cheapColor, thisdir;
 	rawGridPoint_t          *gp;
 	bspGridPoint_t          *bgp;
@@ -1475,10 +1484,11 @@ static void TraceGrid( int num ){
 
 	/* find point cluster */
 	trace.cluster = ClusterForPointExt( trace.origin, GRID_EPSILON );
-	if ( trace.cluster < 0 ) {
+	if ( trace.cluster < CLUSTER_NORMAL ) {
 		/* try to nudge the origin around to find a valid point */
 		const Vector3 baseOrigin( trace.origin );
-		for ( step = 0; ( step += 0.005 ) <= 1.0; )
+		double step = 0;
+		while ( ( step += 0.005 ) <= 1 )
 		{
 			trace.origin = baseOrigin;
 			trace.origin[ 0 ] += step * ( Random() - 0.5 ) * gridSize[0];
@@ -1487,13 +1497,13 @@ static void TraceGrid( int num ){
 
 			/* ydnar: changed to find cluster num */
 			trace.cluster = ClusterForPointExt( trace.origin, VERTEX_EPSILON );
-			if ( trace.cluster >= 0 ) {
+			if ( trace.cluster >= CLUSTER_NORMAL ) {
 				break;
 			}
 		}
 
 		/* can't find a valid point at all */
-		if ( step > 1.0 ) {
+		if ( step > 1 ) {
 			return;
 		}
 	}
@@ -1503,9 +1513,9 @@ static void TraceGrid( int num ){
 	trace.forceSunlight = false;
 	trace.recvShadows = WORLDSPAWN_RECV_SHADOWS;
 	trace.numSurfaces = 0;
-	trace.surfaces = NULL;
+	trace.surfaces = nullptr;
 	trace.numLights = 0;
-	trace.lights = NULL;
+	trace.lights = nullptr;
 
 	/* clear */
 	numCon = 0;
@@ -1565,7 +1575,7 @@ static void TraceGrid( int num ){
 		trace.inhibitRadius = DEFAULT_INHIBIT_RADIUS;
 		trace.testAll = true;
 
-		for ( k = 0; k < 2; k++ )
+		for ( k = 0; k < 2; ++k )
 		{
 			if ( k == 0 ) { // upper hemisphere
 				trace.normal = g_vector3_axis_z;
@@ -1602,15 +1612,15 @@ static void TraceGrid( int num ){
 	   go back and separate all the light into directed and ambient */
 
 	numStyles = 1;
-	for ( i = 0; i < numCon; i++ )
+	for ( i = 0; i < numCon; ++i )
 	{
 		/* get relative directed strength */
-		d = vector3_dot( contributions[ i ].dir, thisdir );
+		float d = vector3_dot( contributions[ i ].dir, thisdir );
 		/* we map 1 to gridDirectionality, and 0 to gridAmbientDirectionality */
 		d = std::max( 0.f, gridAmbientDirectionality + d * ( gridDirectionality - gridAmbientDirectionality ) );
 
 		/* find appropriate style */
-		for ( j = 0; j < numStyles; j++ )
+		for ( j = 0; j < numStyles; ++j )
 		{
 			if ( gp->styles[ j ] == contributions[ i ].style ) {
 				break;
@@ -1662,7 +1672,7 @@ static void TraceGrid( int num ){
 
 
 	/* store off sample */
-	for ( i = 0; i < MAX_LIGHTMAPS; i++ )
+	for ( i = 0; i < MAX_LIGHTMAPS; ++i )
 	{
 #if 0
 		/* do some fudging to keep the ambient from being too low (2003-07-05: 0.25 -> 0.125) */
@@ -1673,7 +1683,7 @@ static void TraceGrid( int num ){
 
 		/* set minimum light and copy off to bytes */
 		Vector3 color = gp->ambient[ i ];
-		for ( j = 0; j < 3; j++ )
+		for ( j = 0; j < 3; ++j )
 			value_maximize( color[ j ], minGridLight[ j ] );
 
 		/* vortex: apply gridscale and gridambientscale here */
@@ -1710,7 +1720,7 @@ static void TraceGrid( int num ){
    calculates the size of the lightgrid and allocates memory
  */
 
-static void SetupGrid(){
+static void SetupGrid( const Vector3& ambientColor ){
 	/* don't do this if not grid lighting */
 	if ( noGridLighting ) {
 		return;
@@ -1721,7 +1731,7 @@ static void SetupGrid(){
 
 	/* quantize it */
 	const Vector3 oldGridSize = gridSize;
-	for ( int i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 		gridSize[ i ] = std::max( 8.f, std::floor( gridSize[ i ] ) );
 
 	/* ydnar: increase gridSize until grid count is smaller than max allowed */
@@ -1729,7 +1739,7 @@ static void SetupGrid(){
 	for( int j = 0; ; )
 	{
 		/* get world bounds */
-		for ( int i = 0; i < 3; i++ )
+		for ( int i = 0; i < 3; ++i )
 		{
 			gridMins[ i ] = gridSize[ i ] * ceil( bspModels[ 0 ].minmax.mins[ i ] / gridSize[ i ] );
 			const float max = gridSize[ i ] * floor( bspModels[ 0 ].minmax.maxs[ i ] / gridSize[ i ] );
@@ -1792,7 +1802,7 @@ static void WriteBSPFileAfterLight( const char *bspFileName ){
 	// stupidly search in shader text, ( numExtLightmaps > 0 ) check wont work when e.g. deluxemaps
 	// also would excessively include lightstyles using $lightmap reference
 	if( !externalLightmaps ){ // unless native ext lms: e.g. in ET with lightstyles hack preloading lm imgs breaks r_mapOverbrightBits
-		for ( const shaderInfo_t& si : Span( shaderInfo, numShaderInfo ) )
+		for ( const shaderInfo_t& si : shaderInfo )
 		{
 			if ( si.custom && !strEmptyOrNull( si.shaderText ) ) {
 				const char *txt = si.shaderText;
@@ -1821,7 +1831,7 @@ static void WriteBSPFileAfterLight( const char *bspFileName ){
 
 				/* open shader file */
 				FILE *file = fopen( mapShaderFile.c_str(), "at" ); // append to existing file
-				if ( file == NULL ) {
+				if ( file == nullptr ) {
 					Sys_Warning( "Unable to open map shader file %s for writing\n", mapShaderFile.c_str() );
 					return;
 				}
@@ -1855,9 +1865,9 @@ static void WriteBSPFileAfterLight( const char *bspFileName ){
 
 				out.surfaceType = MST_FLARE;
 				out.shaderNum = EmitShader( String64( lmPathStart, "nomipmaps", su ), nullptr, nullptr );
-				out.fogNum = -1;
+				out.fogNum = FOG_INVALID;
 
-				for ( int i = 0; i < MAX_LIGHTMAPS; i++ )
+				for ( int i = 0; i < MAX_LIGHTMAPS; ++i )
 				{
 					out.lightmapNum[ i ] = -3;
 					out.lightmapStyles[ i ] = LS_NONE;
@@ -1934,18 +1944,13 @@ static void LightWorld( bool fastAllocate, bool bounceStore ){
 
 	/* find the optional minimum lighting values */
 	color = entities[ 0 ].vectorForKey( "_color" );
-	if ( colorsRGB ) {
-		color[0] = Image_LinearFloatFromsRGBFloat( color[0] );
-		color[1] = Image_LinearFloatFromsRGBFloat( color[1] );
-		color[2] = Image_LinearFloatFromsRGBFloat( color[2] );
-	}
-	if ( vector3_length( color ) == 0.0f ) {
+	if ( color == g_vector3_identity )
 		color.set( 1 );
-	}
+	else
+		ColorFromSRGB( color );
 
 	/* ambient */
-	f = entities[ 0 ].floatForKey( "_ambient", "ambient" );
-	ambientColor = color * f;
+	const Vector3 ambientColor = color * entities[ 0 ].floatForKey( "_ambient", "ambient" );
 
 	/* minvertexlight */
 	if ( ( minVertex = entities[ 0 ].read_keyvalue( f, "_minvertexlight" ) ) ) {
@@ -1973,7 +1978,7 @@ static void LightWorld( bool fastAllocate, bool bounceStore ){
 
 	/* determine the number of grid points */
 	Sys_Printf( "--- SetupGrid ---\n" );
-	SetupGrid(); // uses ambientColor read above
+	SetupGrid( ambientColor );
 
 	/* create world lights */
 	Sys_FPrintf( SYS_VRB, "--- CreateLights ---\n" );
@@ -2062,7 +2067,11 @@ static void LightWorld( bool fastAllocate, bool bounceStore ){
 
 		/* flag bouncing */
 		bouncing = true;
-		ambientColor.set( 0 );
+		/* ydnar: don't bounce ambient all the time */
+		for( rawLightmap_t& lm : Span( rawLightmaps, numRawLightmaps ) )
+			lm.ambientColor.set( 0 );
+		for( surfaceInfo_t& info : Span( surfaceInfos, bspDrawSurfaces.size() ) )
+			info.ambientColor.set( 0 );
 		floodlighty = false;
 
 		/* delete any existing lights, freeing up memory for the next bounce */
@@ -2151,17 +2160,17 @@ int LightMain( Args& args ){
 	/* set standard game flags */
 	wolfLight = g_game->wolfLight;
 	if ( wolfLight ) {
-		Sys_Printf( " lightning model: wolf\n" );
+		Sys_Printf( " lighting model: wolf\n" );
 	}
 	else{
-		Sys_Printf( " lightning model: quake3\n" );
+		Sys_Printf( " lighting model: quake3\n" );
 	}
 
 	lmCustomSizeW = lmCustomSizeH = g_game->lightmapSize;
 	Sys_Printf( " lightmap size: %d x %d pixels\n", lmCustomSizeW, lmCustomSizeH );
 
 	lightmapGamma = g_game->lightmapGamma;
-	Sys_Printf( " lightning gamma: %f\n", lightmapGamma );
+	Sys_Printf( " lighting gamma: %f\n", lightmapGamma );
 
 	lightmapsRGB = g_game->lightmapsRGB;
 	if ( lightmapsRGB ) {
@@ -2188,10 +2197,10 @@ int LightMain( Args& args ){
 	}
 
 	lightmapCompensate = g_game->lightmapCompensate;
-	Sys_Printf( " lightning compensation: %f\n", lightmapCompensate );
+	Sys_Printf( " lighting compensation: %f\n", lightmapCompensate );
 
 	lightmapExposure = g_game->lightmapExposure;
-	Sys_Printf( " lightning exposure: %f\n", lightmapExposure );
+	Sys_Printf( " lighting exposure: %f\n", lightmapExposure );
 
 	gridScale = g_game->gridScale;
 	Sys_Printf( " lightgrid scale: %f\n", gridScale );
@@ -2316,13 +2325,13 @@ int LightMain( Args& args ){
 
 		while ( args.takeArg( "-gridscale" ) ) {
 			f = atof( args.takeNext() );
-			Sys_Printf( "Grid lightning scaled by %f\n", f );
+			Sys_Printf( "Grid lighting scaled by %f\n", f );
 			gridScale *= f;
 		}
 
 		while ( args.takeArg( "-gridambientscale" ) ) {
 			f = atof( args.takeNext() );
-			Sys_Printf( "Grid ambient lightning scaled by %f\n", f );
+			Sys_Printf( "Grid ambient lighting scaled by %f\n", f );
 			gridAmbientScale *= f;
 		}
 
@@ -2400,8 +2409,8 @@ int LightMain( Args& args ){
 
 		while ( args.takeArg( "-compensate" ) ) {
 			f = atof( args.takeNext() );
-			if ( f <= 0.0f ) {
-				f = 1.0f;
+			if ( f <= 0 ) {
+				f = 1;
 			}
 			lightmapCompensate = f;
 			Sys_Printf( "Lighting compensation set to 1/%f\n", lightmapCompensate );
@@ -2474,7 +2483,7 @@ int LightMain( Args& args ){
 
 		while ( args.takeArg( "-shadeangle" ) ) {
 			shadeAngleDegrees = std::max( 0.0, atof( args.takeNext() ) );
-			if ( shadeAngleDegrees > 0.0f ) {
+			if ( shadeAngleDegrees > 0 ) {
 				shade = true;
 				Sys_Printf( "Phong shading enabled with a breaking angle of %f degrees\n", shadeAngleDegrees );
 			}
@@ -2495,6 +2504,10 @@ int LightMain( Args& args ){
 			if ( approximateTolerance > 0 ) {
 				Sys_Printf( "Approximating lightmaps within a byte tolerance of %d\n", approximateTolerance );
 			}
+		}
+		while ( args.takeArg( "-onesky" ) ) {
+			g_oneSky = true;
+			Sys_Printf( "Disabling multi sky lighting\n" );
 		}
 		while ( args.takeArg( "-deluxe", "-deluxemap" ) ) {
 			deluxemap = true;
@@ -2591,7 +2604,7 @@ int LightMain( Args& args ){
 
 		while ( args.takeArg( "-nobouncestore" ) ) {
 			bounceStore = false;
-			Sys_Printf( "Not storing BSP, lightmap and shader files between bounces\n" );
+			Sys_Printf( "Storing BSP, lightmap and shader files only once after last bounce\n" );
 		}
 
 		while ( args.takeArg( "-nocollapse" ) ) {
@@ -2833,22 +2846,22 @@ int LightMain( Args& args ){
 		}
 		while ( args.takeArg( "-dirtdepth" ) ) {
 			dirtDepth = atof( args.takeNext() );
-			if ( dirtDepth <= 0.0f ) {
+			if ( dirtDepth <= 0 ) {
 				dirtDepth = 128.0f;
 			}
 			Sys_Printf( "Dirtmapping depth set to %.1f\n", dirtDepth );
 		}
 		while ( args.takeArg( "-dirtscale" ) ) {
 			dirtScale = atof( args.takeNext() );
-			if ( dirtScale <= 0.0f ) {
-				dirtScale = 1.0f;
+			if ( dirtScale <= 0 ) {
+				dirtScale = 1;
 			}
 			Sys_Printf( "Dirtmapping scale set to %.1f\n", dirtScale );
 		}
 		while ( args.takeArg( "-dirtgain" ) ) {
 			dirtGain = atof( args.takeNext() );
-			if ( dirtGain <= 0.0f ) {
-				dirtGain = 1.0f;
+			if ( dirtGain <= 0 ) {
+				dirtGain = 1;
 			}
 			Sys_Printf( "Dirtmapping gain set to %.1f\n", dirtGain );
 		}
@@ -2870,7 +2883,6 @@ int LightMain( Args& args ){
 		{
 			Sys_Warning( "Unknown argument \"%s\"\n", args.takeFront() );
 		}
-
 	}
 
 	/* fix up falloff tolerance for sRGB */

@@ -71,7 +71,7 @@ public:
 		len *= 0.0625; // half / 8
 
 		Vector3 arrow( start );
-		for ( unsigned int i = 0, count = ( len < 32 ) ? 1 : static_cast<unsigned int>( len * 0.0625 ); i < count; i++ )
+		for ( unsigned int i = 0, count = ( len < 32 ) ? 1 : static_cast<unsigned int>( len * 0.0625 ); i < count; ++i )
 		{
 			vector3_add( arrow, vector3_scaled( dir, ( len < 32 ) ? len : 32 ) );
 			gl().glVertex3fv( vector3_to_array( arrow ) );
@@ -157,9 +157,9 @@ public:
 
 template<typename Functor>
 void TargetingEntity_forEach( const TargetingEntity& targets, const Functor& functor ){
-	for ( TargetingEntity::iterator i = targets.begin(); i != targets.end(); ++i )
+	for ( const auto *targetable : targets )
 	{
-		functor( ( *i )->world_position() );
+		functor( targetable->world_position() );
 	}
 }
 
@@ -167,9 +167,9 @@ typedef std::map<std::size_t, TargetingEntity> TargetingEntities;
 
 template<typename Functor>
 void TargetingEntities_forEach( const TargetingEntities& targetingEntities, const Functor& functor ){
-	for ( TargetingEntities::const_iterator i = targetingEntities.begin(); i != targetingEntities.end(); ++i )
+	for ( const auto& [ index, entity ] : targetingEntities )
 	{
-		TargetingEntity_forEach( ( *i ).second, functor );
+		TargetingEntity_forEach( entity, functor );
 	}
 }
 
@@ -197,14 +197,14 @@ public:
 			float max = 0;
 			for ( int i = 0; i < 3; ++i ){
 				if ( dir[i] < 0 ){
-					hack[i] *= -1.f;
+					hack[i] *= -1;
 				}
-				if ( fabs( dir[i] ) > max ){
+				if ( std::fabs( dir[i] ) > max ){
 					maxI = i;
-					max = fabs( dir[i] );
+					max = std::fabs( dir[i] );
 				}
 			}
-			hack[maxI] *= -1.f;
+			hack[maxI] *= -1;
 
 			const Vector3 ort( vector3_cross( dir, hack ) );
 			//vector3_normalise( ort );
@@ -265,7 +265,7 @@ public:
 		m_targetsChanged();
 	}
 
-	void insert( const char* key, EntityKeyValue& value ){
+	void insert( const char* key, EntityKeyValue& value ) override {
 		std::size_t index;
 		if ( readTargetKey( key, index ) ) {
 			TargetingEntities::iterator i = m_targetingEntities.insert( TargetingEntities::value_type( index, TargetingEntity() ) ).first;
@@ -273,7 +273,7 @@ public:
 			targetsChanged();
 		}
 	}
-	void erase( const char* key, EntityKeyValue& value ){
+	void erase( const char* key, EntityKeyValue& value ) override {
 		std::size_t index;
 		if ( readTargetKey( key, index ) ) {
 			TargetingEntities::iterator i = m_targetingEntities.find( index );
@@ -378,18 +378,18 @@ public:
 		m_targeting.targetsChanged();
 	}
 
-	void insert( const char* key, EntityKeyValue& value ){
+	void insert( const char* key, EntityKeyValue& value ) override {
 		if ( string_equal( key, g_targetable_nameKey ) ) {
 			value.attach( TargetedEntity::TargetnameChangedCaller( m_targeted ) );
 		}
 	}
-	void erase( const char* key, EntityKeyValue& value ){
+	void erase( const char* key, EntityKeyValue& value ) override {
 		if ( string_equal( key, g_targetable_nameKey ) ) {
 			value.detach( TargetedEntity::TargetnameChangedCaller( m_targeted ) );
 		}
 	}
 
-	const Vector3& world_position() const {
+	const Vector3& world_position() const override {
 #if 1
 		const AABB& bounds = Instance::worldAABB();
 		if ( aabb_valid( bounds ) ) {
@@ -431,17 +431,17 @@ public:
 		ASSERT_MESSAGE( erased, "cannot detach instance" );
 	}
 
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		if( g_showConnections ){
-			for ( TargetableInstances::const_iterator i = m_instances.begin(); i != m_instances.end(); ++i )
+			for ( const auto *instance : m_instances )
 			{
-				if ( ( *i )->path().top().get().visible() ) {
-					( *i )->render( renderer, volume );
+				if ( instance->path().top().get().visible() ) {
+					instance->render( renderer, volume );
 				}
 			}
 		}
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		renderSolid( renderer, volume );
 	}
 };

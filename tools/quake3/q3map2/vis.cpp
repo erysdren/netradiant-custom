@@ -39,7 +39,7 @@ vportal_t          *sorted_portals[ MAX_MAP_PORTALS * 2 ];
 static visPlane_t PlaneFromWinding( const fixedWinding_t *w ){
 	// calc plane
 	visPlane_t plane;
-	PlaneFromPoints( plane, w->points[0], w->points[1], w->points[2] );
+	PlaneFromPoints( plane, w->points );
 	return plane;
 }
 
@@ -82,11 +82,8 @@ static void SortPortals(){
 	for ( int i = 0; i < numportals * 2; ++i )
 		sorted_portals[i] = &portals[i];
 
-	if ( !nosort ) {
-		std::sort( sorted_portals, sorted_portals + numportals * 2, []( vportal_t* const & a, vportal_t* const & b ){
-			return a->nummightsee < b->nummightsee;
-		} );
-	}
+	if ( !nosort )
+		std::ranges::sort( Span( sorted_portals, numportals * 2 ), {}, &vportal_t::nummightsee );
 }
 
 
@@ -186,7 +183,6 @@ static void CalcPortalVis(){
 #else
 	RunThreadsOnIndividual( numportals * 2, true, PortalFlow );
 #endif
-
 }
 
 /*
@@ -268,7 +264,7 @@ static void CalcVis(){
 	                                        "distancecull" ) ){      /* sof2 compatibility */
 		farPlaneDist = atof( value );
 		farPlaneDistMode = value[strlen( value ) - 1 ];
-		if ( farPlaneDist != 0.0f ) {
+		if ( farPlaneDist != 0 ) {
 			Sys_Printf( "farplane distance = %.1f\n", farPlaneDist );
 			if ( farPlaneDistMode == 'o' )
 				Sys_Printf( "farplane Origin2Origin mode on\n" );
@@ -315,8 +311,8 @@ static void CalcVis(){
 				Sys_FPrintf( SYS_VRB, "%4i clusters have exactly %4i visible clusters\n", clustersizehistogram[i], i );
 			}
 			/* cast is to prevent integer overflow */
-			totalvis  += ( (double) i )                * ( (double) clustersizehistogram[i] );
-			totalvis2 += ( (double) i ) * ( (double) i ) * ( (double) clustersizehistogram[i] );
+			totalvis  += (double) i     * clustersizehistogram[i];
+			totalvis2 += (double) i * i * clustersizehistogram[i];
 
 			if ( minvis < 0 ) {
 				minvis = i;
@@ -341,7 +337,7 @@ static void CalcVis(){
    ==================
  */
 static void SetPortalSphere( vportal_t& p ){
-	Vector3 origin( 0 );
+	DoubleVector3 origin( 0 );
 
 	for ( const Vector3& point : Span( p.winding->points, p.winding->numpoints ) )
 	{
@@ -521,23 +517,23 @@ static fixedWinding_t *TryMergeWinding( fixedWinding_t *f1, fixedWinding_t *f2, 
 	//
 	// find a common edge
 	//
-	p1 = p2 = NULL; // stop compiler warning
+	p1 = p2 = nullptr; // stop compiler warning
 	j = 0;          //
 
-	for ( i = 0; i < f1->numpoints; i++ )
+	for ( i = 0; i < f1->numpoints; ++i )
 	{
 		p1 = &f1->points[i];
 		p2 = &f1->points[( i + 1 ) % f1->numpoints];
-		for ( j = 0; j < f2->numpoints; j++ )
+		for ( j = 0; j < f2->numpoints; ++j )
 		{
 			p3 = &f2->points[j];
 			p4 = &f2->points[( j + 1 ) % f2->numpoints];
-			for ( k = 0; k < 3; k++ )
+			for ( k = 0; k < 3; ++k )
 			{
-				if ( fabs( ( *p1 )[k] - ( *p4 )[k] ) > 0.1 ) { //EQUAL_EPSILON) //ME
+				if ( std::fabs( ( *p1 )[k] - ( *p4 )[k] ) > 0.1f ) { //EQUAL_EPSILON) //ME
 					break;
 				}
-				if ( fabs( ( *p2 )[k] - ( *p3 )[k] ) > 0.1 ) { //EQUAL_EPSILON) //ME
+				if ( std::fabs( ( *p2 )[k] - ( *p3 )[k] ) > 0.1f ) { //EQUAL_EPSILON) //ME
 					break;
 				}
 			}
@@ -551,8 +547,7 @@ static fixedWinding_t *TryMergeWinding( fixedWinding_t *f1, fixedWinding_t *f2, 
 	}
 
 	if ( i == f1->numpoints ) {
-		return NULL;            // no matching edges
-
+		return nullptr;            // no matching edges
 	}
 	//
 	// check slope of connected lines
@@ -564,7 +559,7 @@ static fixedWinding_t *TryMergeWinding( fixedWinding_t *f1, fixedWinding_t *f2, 
 	back = &f2->points[( j + 2 ) % f2->numpoints];
 	dot = vector3_dot( *back - *p1, normal );
 	if ( dot > CONTINUOUS_EPSILON ) {
-		return NULL;            // not a convex polygon
+		return nullptr;            // not a convex polygon
 	}
 	keep1 = ( dot < -CONTINUOUS_EPSILON );
 
@@ -574,7 +569,7 @@ static fixedWinding_t *TryMergeWinding( fixedWinding_t *f1, fixedWinding_t *f2, 
 	back = &f2->points[( j + f2->numpoints - 1 ) % f2->numpoints];
 	dot = vector3_dot( *back - *p2, normal );
 	if ( dot > CONTINUOUS_EPSILON ) {
-		return NULL;            // not a convex polygon
+		return nullptr;            // not a convex polygon
 	}
 	keep2 = ( dot < -CONTINUOUS_EPSILON );
 
@@ -620,19 +615,19 @@ static void MergeLeafPortals(){
 
 	nummerges = 0;
 	hintsmerged = 0;
-	for ( i = 0; i < portalclusters; i++ )
+	for ( i = 0; i < portalclusters; ++i )
 	{
 		leaf = &leafs[i];
 		if ( leaf->merged >= 0 ) {
 			continue;
 		}
-		for ( j = 0; j < leaf->numportals; j++ )
+		for ( j = 0; j < leaf->numportals; ++j )
 		{
 			p1 = leaf->portals[j];
 			if ( p1->removed ) {
 				continue;
 			}
-			for ( k = j + 1; k < leaf->numportals; k++ )
+			for ( k = j + 1; k < leaf->numportals; ++k )
 			{
 				p2 = leaf->portals[k];
 				if ( p2->removed ) {

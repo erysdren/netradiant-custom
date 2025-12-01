@@ -93,7 +93,7 @@ public:
 		: m_origin( origin ), m_angles( angles ){
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		Matrix4 mat = matrix4_rotation_for_euler_xyz_degrees( m_angles );
 		arrow_draw( m_origin, matrix4_transformed_direction( mat, Vector3( 1, 0, 0 ) ), matrix4_transformed_direction( mat, Vector3( 0, 1, 0 ) ), matrix4_transformed_direction( mat, Vector3( 0, 0, 1 ) ) );
 	}
@@ -281,7 +281,7 @@ class RenderableSolidAABB : public OpenGLRenderable
 public:
 	RenderableSolidAABB( const AABB& aabb ) : m_aabb( aabb ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		aabb_draw_solid( m_aabb, state );
 	}
 };
@@ -292,7 +292,7 @@ class RenderableWireframeAABB : public OpenGLRenderable
 public:
 	RenderableWireframeAABB( const AABB& aabb ) : m_aabb( aabb ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		aabb_draw_wire( m_aabb );
 	}
 };
@@ -304,7 +304,7 @@ public:
 /// - Provides undo support through the global undo system.
 class KeyValue final : public EntityKeyValue
 {
-	typedef UnsortedSet<KeyObserver> KeyObservers;
+	typedef UnsortedSet<KeyObserver, true> KeyObservers;
 
 	std::size_t m_refcount;
 	KeyObservers m_observers;
@@ -343,7 +343,7 @@ public:
 	}
 
 	void attach( const KeyObserver& observer ) override {
-		( *m_observers.insert ( observer ) )( c_str() );
+		( *m_observers.push_back( observer ) )( c_str() );
 	}
 	void detach( const KeyObserver& observer ) override {
 		observer( m_empty );
@@ -406,7 +406,7 @@ private:
 	typedef UnsortedMap<Key, KeyValuePtr> KeyValues;
 	KeyValues m_keyValues;
 
-	typedef UnsortedSet<Observer*> Observers;
+	typedef UnsortedSet<Observer*, true> Observers;
 	Observers m_observers;
 
 	ObservedUndoableObject<KeyValues> m_undo;
@@ -554,7 +554,7 @@ public:
 
 	void attach( Observer& observer ) override {
 		ASSERT_MESSAGE( !m_observerMutex, "observer cannot be attached during iteration" );
-		m_observers.insert( &observer );
+		m_observers.push_back( &observer );
 		for ( const auto& [ key, value ] : m_keyValues )
 		{
 			observer.insert( key.c_str(), *value );

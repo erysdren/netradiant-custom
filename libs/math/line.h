@@ -34,8 +34,7 @@ class Line___
 public:
 	BasicVector3<T> start, end;
 
-	Line___(){
-	}
+	Line___() = default;
 	Line___( const BasicVector3<T>& start_, const BasicVector3<T>& end_ ) : start( start_ ), end( end_ ){
 	}
 };
@@ -67,8 +66,7 @@ class Segment
 public:
 	Vector3 origin, extents;
 
-	Segment(){
-	}
+	Segment() = default;
 	Segment( const Vector3& origin_, const Vector3& extents_ ) :
 		origin( origin_ ), extents( extents_ ){
 	}
@@ -85,7 +83,7 @@ inline Segment segment_for_startend( const Vector3& start, const Vector3& end ){
 inline unsigned int segment_classify_plane( const Segment& segment, const Plane3& plane ){
 	double distance_origin = vector3_dot( plane.normal(), segment.origin ) + plane.dist();
 
-	if ( fabs( distance_origin ) < fabs( vector3_dot( plane.normal(), segment.extents ) ) ) {
+	if ( std::fabs( distance_origin ) < std::fabs( vector3_dot( plane.normal(), segment.extents ) ) ) {
 		return 1; // partially inside
 	}
 	else if ( distance_origin < 0 ) {
@@ -101,8 +99,7 @@ class BasicRay
 public:
 	BasicVector3<T> origin, direction;
 
-	BasicRay(){
-	}
+	BasicRay() = default;
 	BasicRay( const BasicVector3<T>& origin_, const BasicVector3<T>& direction_ ) :
 		origin( origin_ ), direction( direction_ ){
 	}

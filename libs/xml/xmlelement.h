@@ -38,10 +38,10 @@ public:
 	void insertAttribute( const char* name, const char* value ){
 		m_attrs.insert( attrs_t::value_type( name, value ) );
 	}
-	const char* name() const {
+	const char* name() const override {
 		return m_name;
 	}
-	const char* attribute( const char* name ) const {
+	const char* attribute( const char* name ) const override {
 		attrs_t::const_iterator i = m_attrs.find( name );
 		if ( i != m_attrs.end() ) {
 			return i->second;
@@ -50,10 +50,10 @@ public:
 			return "";
 		}
 	}
-	void forEachAttribute( XMLAttrVisitor& visitor ) const {
-		for ( attrs_t::const_iterator i = m_attrs.begin(); i != m_attrs.end(); ++i )
+	void forEachAttribute( XMLAttrVisitor& visitor ) const override {
+		for ( const auto& [ name, value ] : m_attrs )
 		{
-			visitor.visit( i->first, i->second );
+			visitor.visit( name, value );
 		}
 	}
 private:
@@ -72,10 +72,10 @@ public:
 	void insertAttribute( const char* name, const char* value ){
 		m_attrs.insert( attrs_t::value_type( name, value ) );
 	}
-	const char* name() const {
+	const char* name() const override {
 		return m_name.c_str();
 	}
-	const char* attribute( const char* name ) const {
+	const char* attribute( const char* name ) const override {
 		attrs_t::const_iterator i = m_attrs.find( name );
 		if ( i != m_attrs.end() ) {
 			return i->second.c_str();
@@ -84,10 +84,10 @@ public:
 			return "";
 		}
 	}
-	void forEachAttribute( XMLAttrVisitor& visitor ) const {
-		for ( attrs_t::const_iterator i = m_attrs.begin(); i != m_attrs.end(); ++i )
+	void forEachAttribute( XMLAttrVisitor& visitor ) const override {
+		for ( const auto& [ name, value ] : m_attrs )
 		{
-			visitor.visit( i->first.c_str(), i->second.c_str() );
+			visitor.visit( name.c_str(), value.c_str() );
 		}
 	}
 private:

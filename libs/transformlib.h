@@ -40,7 +40,7 @@ class IdentityTransform : public TransformNode
 {
 public:
 	/// \brief Returns the identity matrix.
-	const Matrix4& localToParent() const {
+	const Matrix4& localToParent() const override {
 		return g_matrix4_identity;
 	}
 };
@@ -57,7 +57,7 @@ public:
 		return m_localToParent;
 	}
 	/// \brief Returns the stored local->parent transform.
-	const Matrix4& localToParent() const {
+	const Matrix4& localToParent() const override {
 		return m_localToParent;
 	}
 };
@@ -74,9 +74,11 @@ typedef Vector3 Scale;
 /// [1]y(x) [5]      [9]y(z) [13]
 /// [2]z(x) [6]z(y)  [10]    [14]
 /// [3]     [7]      [11]    [15]
-struct Skew{
+struct Skew
+{
 	std::size_t index;
 	float amount;
+
 	Skew(){
 	}
 	Skew( std::size_t index_, float amount_ ) : index( index_ ), amount( amount_ ){

@@ -35,18 +35,7 @@
 #include "misc.h"
 #include "shapes.h"
 
-//////////////////////////////////////////////////////////////////////
-// Construction/Destruction
-//////////////////////////////////////////////////////////////////////
-
 bool bFacesAll[6] = {true, true, true, true, true, true};
-
-DShape::DShape(){
-}
-
-DShape::~DShape(){
-
-}
 
 void DShape::BuildRegularPrism( vec3_t min, vec3_t max, int nSides, bool bAlignTop ){
 	vec3_t vc[MAX_POLYGON_FACES + 2], vd[MAX_POLYGON_FACES + 2];
@@ -60,17 +49,17 @@ void DShape::BuildRegularPrism( vec3_t min, vec3_t max, int nSides, bool bAlignT
 	VectorAdd( max, min, origin );
 	VectorScale( origin, 0.5f, origin );
 
-	float phase = 0.0f;
+	float phase = 0;
 
 	if ( bAlignTop ) {
 		phase = -( Q_PI / nSides );
-		VectorScale( radius, static_cast<float>( 1.0 / cos( phase ) ), radius );
+		VectorScale( radius, 1.0 / cos( phase ), radius );
 	}
 
 	//----- Build Polygon Vertices -----
 
 	int i;
-	for ( i = 0; i < nSides; i++ )
+	for ( i = 0; i < nSides; ++i )
 	{
 		VectorCopy( origin, vc[i] );
 		VectorCopy( origin, vd[i] );
@@ -94,7 +83,7 @@ void DShape::BuildRegularPrism( vec3_t min, vec3_t max, int nSides, bool bAlignT
 
 	DBrush* pB = m_Container.GetWorldSpawn()->NewBrush();
 
-	for ( i = 1; i <= nSides; i++ )
+	for ( i = 1; i <= nSides; ++i )
 		pB->AddFace( vc[i - 1], vc[i], vd[i], GetCurrentTexture(), false );
 
 	pB->AddFace( vc[2], vc[1], vc[0], "textures/common/caulk", false );
@@ -117,17 +106,17 @@ void DShape::BuildInversePrism( vec3_t min, vec3_t max, int nSides, bool bAlignT
 	VectorAdd( max, min, origin );
 	VectorScale( origin, 0.5f, origin );
 
-	float phase = 0.0f;
+	float phase = 0;
 
 	if ( bAlignTop ) {
 		phase = -( Q_PI / nSides );
-		VectorScale( radius, static_cast<float>( 1.0 / cos( phase ) ), radius );
+		VectorScale( radius, 1.0 / cos( phase ), radius );
 	}
 
 	//----- Build Polygon Vertices -----
 
 	int i;
-	for ( i = 0; i < nSides; i++ )
+	for ( i = 0; i < nSides; ++i )
 	{
 		VectorCopy( origin, va[i] );
 		VectorCopy( origin, vb[i] );
@@ -147,7 +136,7 @@ void DShape::BuildInversePrism( vec3_t min, vec3_t max, int nSides, bool bAlignT
 
 	//----------------------------------
 
-	for ( i = 1; i <= nSides; i++ )
+	for ( i = 1; i <= nSides; ++i )
 	{
 		DBrush* pB = GetBoundingCube( min, max, "textures/common/caulk" );
 
@@ -193,17 +182,17 @@ void DShape::BuildBorderedPrism( vec3_t min, vec3_t max, int nSides, int nBorder
 		return;
 	}
 
-	float phase = 0.0f;
+	float phase = 0;
 
 	if ( bAlignTop ) {
 		phase = -( Q_PI / nSides );
-		VectorScale( radius, static_cast<float>( 1.0 / cos( phase ) ), radius );
+		VectorScale( radius, 1.0 / cos( phase ), radius );
 	}
 
 	//----- Build Polygon Vertices -----
 
 	int i;
-	for ( i = 0; i < nSides; i++ )
+	for ( i = 0; i < nSides; ++i )
 	{
 		VectorCopy( origin, va[i] );
 		VectorCopy( origin, vb[i] );
@@ -243,7 +232,7 @@ void DShape::BuildBorderedPrism( vec3_t min, vec3_t max, int nSides, int nBorder
 
 	//----------------------------------
 
-	for ( i = 1; i <= nSides; i++ )
+	for ( i = 1; i <= nSides; ++i )
 	{
 		DBrush* pB = GetBoundingCube( min, max, "textures/common/caulk" );
 
@@ -256,7 +245,7 @@ void DShape::BuildBorderedPrism( vec3_t min, vec3_t max, int nSides, int nBorder
 }
 
 DBrush* DShape::GetBoundingCube_Ext( vec3_t min, vec3_t max, const char *textureName, bool* bUseFaces, bool detail ){
-	DBrush* pB = new DBrush;
+	auto *pB = new DBrush;
 	//----- Build Outer Bounds ---------
 
 	vec3_t v1, v2, v3, v5, v6, v7;
@@ -304,7 +293,7 @@ DBrush* DShape::GetBoundingCube_Ext( vec3_t min, vec3_t max, const char *texture
 
 DBrush* DShape::GetBoundingCube( vec3_t min, vec3_t max, const char *textureName, DEntity* ent, bool* bUseFaces ){
 	DBrush* pB;
-	if ( ent == NULL ) {
+	if ( ent == nullptr ) {
 		pB = m_Container.GetWorldSpawn()->NewBrush();
 	}
 	else{
@@ -361,7 +350,7 @@ bool DShape::BuildPit( vec3_t min, vec3_t max ){
 		return false;
 	}
 
-	srand( time( NULL ) );
+	srand( time( nullptr ) );
 
 	vec3_t centre;
 	VectorAdd( min, max, centre );

@@ -24,7 +24,6 @@
 #include "modulesystem.h"
 #include "string/string.h"
 #include <map>
-#include <set>
 
 template<typename Type>
 class ModulesMap : public Modules<Type>
@@ -33,9 +32,9 @@ class ModulesMap : public Modules<Type>
 	modules_t m_modules;
 public:
 	~ModulesMap(){
-		for ( modules_t::iterator i = m_modules.begin(); i != m_modules.end(); ++i )
+		for ( auto& [ name, module ] : m_modules )
 		{
-			( *i ).second->release();
+			module->release();
 		}
 	}
 
@@ -68,13 +67,13 @@ public:
 		return 0;
 	}
 
-	Type* findModule( const char* name ){
+	Type* findModule( const char* name ) override {
 		return find( name );
 	}
-	void foreachModule( const typename Modules<Type>::Visitor& visitor ){
-		for ( modules_t::iterator i = m_modules.begin(); i != m_modules.end(); ++i )
+	void foreachModule( const typename Modules<Type>::Visitor& visitor ) override {
+		for ( auto& [ name, module ] : m_modules )
 		{
-			visitor.visit( ( *i ).first.c_str(), *static_cast<const Type*>( Module_getTable( *( *i ).second ) ) );
+			visitor.visit( name.c_str(), *static_cast<const Type*>( Module_getTable( *module ) ) );
 		}
 	}
 };
@@ -87,7 +86,7 @@ public:
 	InsertModules( ModulesMap<Type>& modules )
 		: m_modules( modules ){
 	}
-	void visit( const char* name, Module& module ) const {
+	void visit( const char* name, Module& module ) const override {
 		m_modules.insert( name, module );
 	}
 };
@@ -114,7 +113,7 @@ public:
 					}
 					Module* module = globalModuleServer().findModule( Type::Name, Type::Version, name );
 					if ( module == 0 ) {
-						globalErrorStream() << "ModulesRef::initialise: type=" << makeQuoted( Type::Name ) << " version=" << makeQuoted( Type::Version ) << " name=" << makeQuoted( name ) << " - not found\n";
+						globalErrorStream() << "ModulesRef::initialise: type=" << Quoted( Type::Name ) << " version=" << Quoted( Type::Version ) << " name=" << Quoted( name ) << " - not found\n";
 						// do not fail on missing image or model plugin, they can be optional
 						if ( !string_equal( Type::Name, "image" ) && !string_equal( Type::Name, "model" ) ){
 							globalModuleServer().setError( true );

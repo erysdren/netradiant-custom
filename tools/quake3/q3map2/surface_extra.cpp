@@ -54,6 +54,10 @@ void SetDefaultSampleSize( int sampleSize ){
 	seDefault.sampleSize = sampleSize;
 }
 
+void SetDefaultAmbientColor( const Vector3& color ){
+	seDefault.ambientColor = color;
+}
+
 
 
 /*
@@ -67,12 +71,13 @@ void SetSurfaceExtra( const mapDrawSurface_t& ds ){
 
 	/* copy out the relevant bits */
 	se.mds = &ds;
-	se.si = ds.shaderInfo;
-	se.parentSurfaceNum = ds.parent != NULL ? ds.parent->outputNum : -1;
-	se.entityNum = ds.entityNum;
-	se.castShadows = ds.castShadows;
-	se.recvShadows = ds.recvShadows;
-	se.sampleSize = ds.sampleSize;
+	se.si           = ds.shaderInfo;
+	se.parentSurfaceNum = ds.parent != nullptr ? ds.parent->outputNum : -1;
+	se.entityNum    = ds.entityNum;
+	se.castShadows  = ds.castShadows;
+	se.recvShadows  = ds.recvShadows;
+	se.sampleSize   = ds.sampleSize;
+	se.ambientColor = ds.ambientColor;
 	se.longestCurve = ds.longestCurve;
 	se.lightmapAxis = ds.lightmapAxis;
 
@@ -130,15 +135,15 @@ void WriteSurfaceExtraFile( const char *path ){
 		}
 
 		/* valid map drawsurf? */
-		if ( se->mds == NULL ) {
+		if ( se->mds == nullptr ) {
 			fprintf( sf, "\n" );
 		}
 		else
 		{
-			fprintf( sf, " // %s V: %d I: %d %s\n",
+			fprintf( sf, " // %s V: %zu I: %zu %s\n",
 			         surfaceTypeName( se->mds->type ),
-			         se->mds->numVerts,
-			         se->mds->numIndexes,
+			         se->mds->verts.size(),
+			         se->mds->indexes.size(),
 			         ( se->mds->planar ? "planar" : "" ) );
 		}
 
@@ -146,7 +151,7 @@ void WriteSurfaceExtraFile( const char *path ){
 		fprintf( sf, "{\n" );
 
 		/* shader */
-		if ( se->si != NULL ) {
+		if ( se->si != nullptr ) {
 			fprintf( sf, "\tshader %s\n", se->si->shader.c_str() );
 		}
 
@@ -173,6 +178,10 @@ void WriteSurfaceExtraFile( const char *path ){
 		/* lightmap sample size */
 		if ( se->sampleSize != seDefault.sampleSize || se == &seDefault ) {
 			fprintf( sf, "\tsampleSize %d\n", se->sampleSize );
+		}
+
+		if ( ( se->ambientColor != g_vector3_identity && se->ambientColor != seDefault.ambientColor ) || se == &seDefault ) { // 0 == use global
+			fprintf( sf, "\tambientColor ( %f %f %f )\n", se->ambientColor[0], se->ambientColor[1], se->ambientColor[2] );
 		}
 
 		/* longest curve */
@@ -246,7 +255,7 @@ void LoadSurfaceExtraFile( const char *path ){
 			/* shader */
 			if ( striEqual( token, "shader" ) ) {
 				GetToken( false );
-				se->si = ShaderInfoForShader( token );
+				se->si = &ShaderInfoForShader( token );
 			}
 
 			/* parent surface number */
@@ -277,6 +286,10 @@ void LoadSurfaceExtraFile( const char *path ){
 			else if ( striEqual( token, "sampleSize" ) ) {
 				GetToken( false );
 				se->sampleSize = atoi( token );
+			}
+
+			else if ( striEqual( token, "ambientColor" ) ) {
+				Parse1DMatrix( 3, se->ambientColor.data() );
 			}
 
 			/* longest curve */

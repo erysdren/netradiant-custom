@@ -43,18 +43,18 @@ static void autocaulk_write(){
 	FILE* file = SafeOpenWrite( filename, "wt" );
 
 	int fslime = 0;
-	ApplySurfaceParm( "slime", &fslime, NULL, NULL );
+	ApplySurfaceParm( "slime", &fslime, nullptr, nullptr );
 	int flava = 0;
-	ApplySurfaceParm( "lava", &flava, NULL, NULL );
+	ApplySurfaceParm( "lava", &flava, nullptr, nullptr );
 	// many setups have nodraw shader nonsolid, including vQ3; and nondrawnonsolid also... fall back to caulk in such case
 	// it would be better to decide in Radiant, as it has configurable per game common shaders, but it has no solidity info
-	const bool nodraw_is_solid = ShaderInfoForShader( "textures/common/nodraw" )->compileFlags & C_SOLID;
+	const bool nodraw_is_solid = ShaderInfoForShader( "textures/common/nodraw" ).compileFlags & C_SOLID;
 
 	for ( const brush_t& b : entities[0].brushes ) {
 		fprintf( file, "%i ", b.brushNum );
 		const shaderInfo_t* contentShader = b.contentShader;
 		const bool globalFog = ( contentShader->compileFlags & C_FOG )
-			&& std::all_of( b.sides.cbegin(), b.sides.cend(), []( const side_t& side ){ return side.visibleHull.empty(); } );
+			&& std::ranges::all_of( b.sides, []( const side_t& side ){ return side.visibleHull.empty(); } );
 		for( const side_t& side : b.sides ){
 			if( !side.visibleHull.empty() || ( side.compileFlags & C_NODRAW ) || globalFog ){
 				fprintf( file, "-" );
@@ -146,17 +146,15 @@ static void ProcessAdvertisements() {
  */
 
 static void SetCloneModelNumbers(){
-	int models;
-	char modelValue[ 16 ];
 	const char  *value, *value2, *value3;
 
 
 	/* start with 1 (worldspawn is model 0) */
-	models = 1;
+	int models = 1;
 	for ( std::size_t i = 1; i < entities.size(); ++i )
 	{
 		/* only entities with brushes or patches get a model number */
-		if ( entities[ i ].brushes.empty() && entities[ i ].patches == NULL ) {
+		if ( entities[ i ].brushes.empty() && entities[ i ].patches.empty() ) {
 			continue;
 		}
 
@@ -165,18 +163,14 @@ static void SetCloneModelNumbers(){
 			continue;
 
 		/* add the model key */
-		sprintf( modelValue, "*%d", models );
-		entities[ i ].setKeyValue( "model", modelValue );
-
-		/* increment model count */
-		models++;
+		entities[ i ].setKeyValue( "model", models++, "*%i" );
 	}
 
 	/* fix up clones */
 	for ( std::size_t i = 1; i < entities.size(); ++i )
 	{
 		/* only entities with brushes or patches get a model number */
-		if ( entities[ i ].brushes.empty() && entities[ i ].patches == NULL ) {
+		if ( entities[ i ].brushes.empty() && entities[ i ].patches.empty() ) {
 			continue;
 		}
 
@@ -202,12 +196,11 @@ static void SetCloneModelNumbers(){
 				models = atoi( &value3[ 1 ] );
 
 				/* add the model key */
-				sprintf( modelValue, "*%d", models );
-				entities[ i ].setKeyValue( "model", modelValue );
+				entities[ i ].setKeyValue( "model", models, "*%i" );
 
 				/* nuke the brushes/patches for this entity (fixme: leak!) */
-				brushlist_t *leak = new brushlist_t( std::move( entities[ i ].brushes ) ); // are brushes referenced elsewhere, so we do not nuke them really?
-				entities[ i ].patches = NULL;
+				auto *leak = new brushlist_t( std::move( entities[ i ].brushes ) ); // are brushes referenced elsewhere, so we do not nuke them really?
+				entities[ i ].patches.clear();
 			}
 		}
 	}
@@ -234,13 +227,13 @@ static void FixBrushSides( const entity_t& e ){
 		}
 
 		/* walk sideref list */
-		for ( const sideRef_t *sideRef = ds.sideRef; sideRef != NULL; sideRef = sideRef->next )
+		for ( const sideRef_t *sideRef = ds.sideRef; sideRef != nullptr; sideRef = sideRef->next )
 		{
 			/* get bsp brush side */
-			if ( sideRef->side == NULL || sideRef->side->outputNum < 0 ) {
+			if ( sideRef->side.outputNum < 0 ) {
 				continue;
 			}
-			bspBrushSide_t& side = bspBrushSides[ sideRef->side->outputNum ];
+			bspBrushSide_t& side = bspBrushSides[ sideRef->side.outputNum ];
 
 			/* set drawsurface */
 			side.surfaceNum = ds.outputNum;
@@ -357,7 +350,7 @@ static void ProcessWorldModel( entity_t& e ){
 	AddEntitySurfaceModels( e );
 
 	/* generate bsp brushes from map brushes */
-	EmitBrushes( e.brushes, &e.firstBrush, &e.numBrushes );
+	EmitBrushes( e );
 
 	/* add references to the detail brushes */
 	FilterDetailBrushesIntoTree( e, tree );
@@ -406,11 +399,12 @@ static void ProcessWorldModel( entity_t& e ){
 			/* get light */
 			if ( light.classname_is( "light" ) ) {
 				/* get flare shader */
-				const char *flareShader = NULL;
+				const char *flareShader = nullptr;
 				if ( light.read_keyvalue( flareShader, "_flareshader" ) || light.boolForKey( "_flare" ) ) {
 					/* get specifics */
 					const Vector3 origin( light.vectorForKey( "origin" ) );
 					Vector3 color( light.vectorForKey( "_color" ) );
+					ColorFromSRGB( color );
 					const int lightStyle = light.intForKey( "_style", "style" );
 					Vector3 normal;
 
@@ -418,19 +412,13 @@ static void ProcessWorldModel( entity_t& e ){
 					if ( light.read_keyvalue( value, "target" ) ) {
 						/* get target light */
 						const entity_t *target = FindTargetEntity( value );
-						if ( target != NULL ) {
+						if ( target != nullptr ) {
 							normal = VectorNormalized( target->vectorForKey( "origin" ) - origin );
 						}
 					}
 					else{
 						//%	normal.set( 0 );
 						normal = -g_vector3_axis_z;
-					}
-
-					if ( colorsRGB ) {
-						color[0] = Image_LinearFloatFromsRGBFloat( color[0] );
-						color[1] = Image_LinearFloatFromsRGBFloat( color[1] );
-						color[2] = Image_LinearFloatFromsRGBFloat( color[2] );
 					}
 
 					/* create the flare surface (note shader defaults automatically) */
@@ -484,7 +472,7 @@ static void ProcessSubModel( entity_t& e ){
 	AddEntitySurfaceModels( e );
 
 	/* generate bsp brushes from map brushes */
-	EmitBrushes( e.brushes, &e.firstBrush, &e.numBrushes );
+	EmitBrushes( e );
 
 	/* just put all the brushes in headnode */
 	tree.headnode->brushlist = e.brushes;
@@ -544,7 +532,7 @@ static void ProcessModels(){
 	{
 		/* get entity */
 		entity_t& entity = entities[ entityNum ];
-		if ( entity.brushes.empty() && entity.patches == NULL ) {
+		if ( entity.brushes.empty() && entity.patches.empty() ) {
 			continue;
 		}
 
@@ -641,12 +629,12 @@ int BSPMain( Args& args ){
 
 	/* set standard game flags */
 	maxLMSurfaceVerts = g_game->maxLMSurfaceVerts;
-	maxSurfaceVerts = g_game->maxSurfaceVerts;
+	maxSurfaceVerts   = g_game->maxSurfaceVerts;
 	maxSurfaceIndexes = g_game->maxSurfaceIndexes;
-	emitFlares = g_game->emitFlares;
-	texturesRGB = g_game->texturesRGB;
-	colorsRGB = g_game->colorsRGB;
-	keepLights = g_game->keepLights;
+	emitFlares        = g_game->emitFlares;
+	texturesRGB       = g_game->texturesRGB;
+	colorsRGB         = g_game->colorsRGB;
+	keepLights        = g_game->keepLights;
 
 	/* process arguments */
 	/* fixme: print more useful usage here */
@@ -751,7 +739,7 @@ int BSPMain( Args& args ){
 		}
 		while ( args.takeArg( "-np" ) ) {
 			npDegrees = std::max( 0.0, atof( args.takeNext() ) );
-			if ( npDegrees > 0.0f ) {
+			if ( npDegrees > 0 ) {
 				Sys_Printf( "Forcing nonplanar surfaces with a breaking angle of %f degrees\n", npDegrees );
 			}
 		}

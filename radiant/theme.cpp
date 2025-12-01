@@ -23,21 +23,40 @@
 #include <QApplication>
 #include <QMenu>
 #include <QActionGroup>
+#include <QFile>
 
 #include "preferences.h"
 #include "mainframe.h"
 #include "preferencesystem.h"
 #include "stringio.h"
+#include "stream/stringstream.h"
+#include "gtkutil/image.h"
 
 
 enum class ETheme{
 	Default = 0,
+	Fusion,
 	Dark,
-	Darker
+	Darker,
 };
 
-static QActionGroup *s_theme_group;
 static ETheme s_theme = ETheme::Dark;
+
+QString load_qss( const char *filename ){
+	if( QFile file( QString( AppPath_get() ) + "themes/" + filename ); file.open( QIODevice::OpenModeFlag::ReadOnly ) )
+		return file.readAll();
+	return {};
+}
+
+void set_icon_theme( bool light ){
+	static auto init = ( Bitmaps_generateLight( AppPath_get(), SettingsPath_get() ),
+	                     QIcon::setThemeSearchPaths( QIcon::themeSearchPaths() << AppPath_get() << SettingsPath_get() ), 1 );
+	(void)init;
+
+	BitmapsPath_set( light? StringStream( SettingsPath_get(), "bitmaps_light/" )
+	                      : StringStream( AppPath_get(), "bitmaps/" ) );
+	QIcon::setThemeName( light? "bitmaps_light" : "bitmaps" );
+}
 
 void theme_set( ETheme theme ){
 	s_theme = theme;
@@ -53,102 +72,22 @@ void theme_set( ETheme theme ){
 	}
 	defaults;
 
-	const char* sheet = R"(
-	QToolTip {
-		color: #ffffff;
-		background-color: #4D4F4B;
-		border: 1px solid white;
-	}
-
-	QScrollBar:vertical {
-		background: rgb( 73, 74, 71 );
-		border: 0px solid grey;
-		width: 7px;
-		margin: 0px 0px 0px 0px;
-	}
-	QScrollBar::handle:vertical {
-		border: 1px solid gray;
-		background: rgb( 111, 105, 100 );
-		min-height: 20px;
-	}
-	QScrollBar::add-line:vertical {
-		border: 0px solid grey;
-		background: #32CC99;
-		height: 0px;
-		subcontrol-position: bottom;
-		subcontrol-origin: margin;
-	}
-	QScrollBar::sub-line:vertical {
-		border: 0px solid grey;
-		background: #32CC99;
-		height: 0px;
-		subcontrol-position: top;
-		subcontrol-origin: margin;
-	}
-
-	QScrollBar:horizontal {
-		background: rgb( 73, 74, 71 );
-		border: 0px solid grey;
-		height: 7px;
-		margin: 0px 0px 0px 0px;
-	}
-	QScrollBar::handle:horizontal {
-		border: 1px solid gray;
-		background: rgb( 111, 105, 100 );
-		min-width: 20px;
-	}
-	QScrollBar::add-line:horizontal {
-		border: 0px solid grey;
-		background: #32CC99;
-		width: 0px;
-		subcontrol-position: right;
-		subcontrol-origin: margin;
-	}
-	QScrollBar::sub-line:horizontal {
-		border: 0px solid grey;
-		background: #32CC99;
-		width: 0px;
-		subcontrol-position: left;
-		subcontrol-origin: margin;
-	}
-
-	QScrollBar::handle:hover {
-		background: rgb( 250, 203, 129 );
-	}
-
-	QToolBar::separator:horizontal {
-		width: 1px;
-		margin: 3px 1px;
-		background-color: #aaaaaa;
-	}
-	QToolBar::separator:vertical {
-		height: 1px;
-		margin: 1px 3px;
-		background-color: #aaaaaa;
-	}
-	QToolButton {
-		padding: 0;
-		margin: 0;
-	}
-
-	QMenu::separator {
-		background: rgb( 93, 94, 91 );
-		height: 1px;
-		margin-top: 3px;
-		margin-bottom: 3px;
-		margin-left: 5px;
-		margin-right: 7px;
-	}
-	)";
-
 	if( theme == ETheme::Default ){
+		set_icon_theme( true );
 		if( !defaults.is1stThemeApplication ){
 			qApp->setPalette( defaults.palette );
 			qApp->setStyleSheet( QString() );
 			qApp->setStyle( defaults.style );
 		}
 	}
+	else if( theme == ETheme::Fusion ){
+		set_icon_theme( true );
+		qApp->setPalette( defaults.palette );
+		qApp->setStyleSheet( load_qss( "fusion.qss" ) ); //missing, stub to load custom qss
+		qApp->setStyle( "Fusion" );
+	}
 	else if( theme == ETheme::Dark ){
+		set_icon_theme( false );
 		qApp->setStyle( "Fusion" );
 		QPalette darkPalette;
 		const QColor darkColor = QColor( 83, 84, 81 );
@@ -163,22 +102,24 @@ void theme_set( ETheme theme ){
 		darkPalette.setColor( QPalette::ToolTipText, Qt::white );
 		darkPalette.setColor( QPalette::Text, Qt::white );
 		darkPalette.setColor( QPalette::Disabled, QPalette::Text, disabledColor );
-		darkPalette.setColor( QPalette::Button, darkColor.lighter( 130 ) );
+		darkPalette.setColor( QPalette::Disabled, QPalette::Light, disabledColor ); // disabled menu text shadow
+		darkPalette.setColor( QPalette::Button, darkColor.lighter( 130 ) ); //<>
 		darkPalette.setColor( QPalette::ButtonText, Qt::white );
-		darkPalette.setColor( QPalette::Disabled, QPalette::ButtonText, disabledColor.lighter( 130 ) );
+		darkPalette.setColor( QPalette::Disabled, QPalette::ButtonText, disabledColor.lighter( 130 ) ); //<>
 		darkPalette.setColor( QPalette::BrightText, Qt::red );
 		darkPalette.setColor( QPalette::Link, QColor( 42, 130, 218 ) );
 
-		darkPalette.setColor( QPalette::Highlight, QColor( 250, 203, 129 ) );
+		darkPalette.setColor( QPalette::Highlight, QColor( 250, 203, 129 ) ); //<>
 		darkPalette.setColor( QPalette::Inactive, QPalette::Highlight, disabledColor );
 		darkPalette.setColor( QPalette::HighlightedText, Qt::black );
 		darkPalette.setColor( QPalette::Disabled, QPalette::HighlightedText, disabledColor );
 
 		qApp->setPalette( darkPalette );
 
-		qApp->setStyleSheet( sheet );
+		qApp->setStyleSheet( load_qss( "dark.qss" ) );
 	}
 	else if( theme == ETheme::Darker ){
+		set_icon_theme( false );
 		qApp->setStyle( "Fusion" );
 		QPalette darkPalette;
 		const QColor darkColor = QColor( 45, 45, 45 );
@@ -186,12 +127,14 @@ void theme_set( ETheme theme ){
 		const QColor baseColor( 18, 18, 18 );
 		darkPalette.setColor( QPalette::Window, darkColor );
 		darkPalette.setColor( QPalette::WindowText, Qt::white );
+		darkPalette.setColor( QPalette::Disabled, QPalette::WindowText, disabledColor );
 		darkPalette.setColor( QPalette::Base, baseColor );
 		darkPalette.setColor( QPalette::AlternateBase, baseColor.darker( 130 ) );
 		darkPalette.setColor( QPalette::ToolTipBase, Qt::white );
 		darkPalette.setColor( QPalette::ToolTipText, Qt::white );
 		darkPalette.setColor( QPalette::Text, Qt::white );
 		darkPalette.setColor( QPalette::Disabled, QPalette::Text, disabledColor );
+		darkPalette.setColor( QPalette::Disabled, QPalette::Light, disabledColor ); // disabled menu text shadow
 		darkPalette.setColor( QPalette::Button, darkColor );
 		darkPalette.setColor( QPalette::ButtonText, Qt::white );
 		darkPalette.setColor( QPalette::Disabled, QPalette::ButtonText, disabledColor );
@@ -199,47 +142,40 @@ void theme_set( ETheme theme ){
 		darkPalette.setColor( QPalette::Link, QColor( 42, 130, 218 ) );
 
 		darkPalette.setColor( QPalette::Highlight, QColor( 42, 130, 218 ) );
+		darkPalette.setColor( QPalette::Inactive, QPalette::Highlight, disabledColor );
 		darkPalette.setColor( QPalette::HighlightedText, Qt::black );
 		darkPalette.setColor( QPalette::Disabled, QPalette::HighlightedText, disabledColor );
 
 		qApp->setPalette( darkPalette );
 
-		qApp->setStyleSheet( sheet );
+		qApp->setStyleSheet( load_qss( "darker.qss" ) );
 	}
 
 	defaults.is1stThemeApplication = false;
 }
 
-void theme_contruct_menu( class QMenu *menu ){
+void theme_construct_menu( class QMenu *menu ){
 	auto *m = menu->addMenu( "GUI Theme" );
 	m->setTearOffEnabled( g_Layout_enableDetachableMenus.m_value );
-	auto *group = s_theme_group = new QActionGroup( m );
-	{
-		auto *a = m->addAction( "Default" );
-		a->setCheckable( true );
-		group->addAction( a );
-	}
-	{
-		auto *a = m->addAction( "Dark" );
-		a->setCheckable( true );
-		group->addAction( a );
-	}
-	{
-		auto *a = m->addAction( "Darker" );
-		a->setCheckable( true );
-		group->addAction( a );
-	}
+	auto *group = new QActionGroup( m );
 
-	QObject::connect( s_theme_group, &QActionGroup::triggered, []( QAction *action ){
-		theme_set( static_cast<ETheme>( s_theme_group->actions().indexOf( action ) ) );
+	for( const auto *name : { "Default", "Fusion", "Dark", "Darker" } )
+	{
+		auto *a = m->addAction( name );
+		a->setCheckable( true );
+		group->addAction( a );
+	}
+	// init radio
+	if( const int value = static_cast<int>( s_theme ); 0 <= value && value < group->actions().size() )
+		group->actions().at( value )->setChecked( true );
+
+	QObject::connect( group, &QActionGroup::triggered, []( QAction *action ){
+		theme_set( static_cast<ETheme>( action->actionGroup()->actions().indexOf( action ) ) );
 	} );
 }
 
 void ThemeImport( int value ){
 	s_theme = static_cast<ETheme>( value );
-	if( s_theme_group != nullptr && 0 <= value && value < s_theme_group->actions().size() ){
-		s_theme_group->actions().at( value )->setChecked( true );
-	}
 }
 typedef FreeCaller<void(int), ThemeImport> ThemeImportCaller;
 
@@ -249,7 +185,10 @@ void ThemeExport( const IntImportCallback& importer ){
 typedef FreeCaller<void(const IntImportCallback&), ThemeExport> ThemeExportCaller;
 
 
-void theme_contruct(){
-	GlobalPreferenceSystem().registerPreference( "GUITheme", makeIntStringImportCallback( ThemeImportCaller() ), makeIntStringExportCallback( ThemeExportCaller() ) );
+void theme_construct(){
 	theme_set( s_theme ); // set theme here, not in importer, so it's set on the very 1st start too (when there is no preference to load)
+}
+
+void theme_registerGlobalPreference( class PreferenceSystem& preferences ){
+	preferences.registerPreference( "GUITheme", makeIntStringImportCallback( ThemeImportCaller() ), makeIntStringExportCallback( ThemeExportCaller() ) );
 }

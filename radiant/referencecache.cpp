@@ -24,8 +24,6 @@
 #include "debugging/debugging.h"
 
 #include "iscenegraph.h"
-#include "iselection.h"
-#include "iundo.h"
 #include "imap.h"
 MapModules& ReferenceAPI_getMapModules();
 #include "imodel.h"
@@ -91,14 +89,14 @@ NodeSmartReference MapResource_load( const MapFormat& format, const char* path, 
 	}
 	else
 	{
-		globalErrorStream() << "map path is not fully qualified: " << makeQuoted( fullpath ) << '\n';
+		globalErrorStream() << "map path is not fully qualified: " << Quoted( fullpath ) << '\n';
 	}
 
 	return root;
 }
 
 bool MapResource_saveFile( const MapFormat& format, scene::Node& root, GraphTraversalFunc traverse, const char* filename ){
-	//ASSERT_MESSAGE( path_is_absolute( filename ), "MapResource_saveFile: path is not absolute: " << makeQuoted( filename ) );
+	//ASSERT_MESSAGE( path_is_absolute( filename ), "MapResource_saveFile: path is not absolute: " << Quoted( filename ) );
 	globalOutputStream() << "Open file " << filename << " for write...";
 	TextFileOutputStream file( filename );
 	if ( !file.failed() ) {
@@ -121,7 +119,7 @@ bool file_saveBackup( const char* path ){
 	if ( !file_exists( path ) ) {
 		return true; // nothing to move, no wonder it failed
 	}
-	globalErrorStream() << "map path (or backup path) is not writable: " << makeQuoted( path ) << '\n';
+	globalErrorStream() << "map path (or backup path) is not writable: " << Quoted( path ) << '\n';
 	return false;
 }
 
@@ -136,11 +134,11 @@ bool MapResource_save( const MapFormat& format, scene::Node& root, const char* p
 			return MapResource_saveFile( format, root, Map_Traverse, fullpath );
 		}
 
-		globalErrorStream() << "failed to save map file: " << makeQuoted( fullpath ) << '\n';
+		globalErrorStream() << "failed to save map file: " << Quoted( fullpath ) << '\n';
 		return false;
 	}
 
-	globalErrorStream() << "map path is not fully qualified: " << makeQuoted( fullpath ) << '\n';
+	globalErrorStream() << "map path is not fully qualified: " << Quoted( fullpath ) << '\n';
 	return false;
 }
 
@@ -153,7 +151,7 @@ NodeSmartReference g_nullModel( g_nullNode );
 class NullModelLoader : public ModelLoader
 {
 public:
-	scene::Node& loadModel( ArchiveFile& file ){
+	scene::Node& loadModel( ArchiveFile& file ) override {
 		return g_nullModel;
 	}
 };
@@ -174,7 +172,7 @@ ModelLoader* ModelLoader_forType( const char* type ){
 		}
 		else
 		{
-			globalErrorStream() << "ERROR: Model type incorrectly registered: \"" << moduleName << "\"\n";
+			globalErrorStream() << "ERROR: Model type incorrectly registered: " << Quoted( moduleName ) << '\n';
 			return &g_NullModelLoader;
 		}
 	}
@@ -190,13 +188,13 @@ NodeSmartReference ModelResource_load( ModelLoader* loader, const char* name ){
 		ArchiveFile* file = GlobalFileSystem().openFile( name );
 
 		if ( file != 0 ) {
-			globalOutputStream() << "Loaded Model: \"" << name << "\"\n";
+			globalOutputStream() << "Loaded Model: " << Quoted( name ) << '\n';
 			model = loader->loadModel( *file );
 			file->release();
 		}
 		else
 		{
-			globalErrorStream() << "Model load failed: \"" << name << "\"\n";
+			globalErrorStream() << "Model load failed: " << Quoted( name ) << '\n';
 		}
 	}
 
@@ -292,14 +290,14 @@ NodeSmartReference Model_load( ModelLoader* loader, const char* path, const char
 			}
 			else
 			{
-				globalErrorStream() << "ERROR: Map type incorrectly registered: \"" << moduleName << "\"\n";
+				globalErrorStream() << "ERROR: Map type incorrectly registered: " << Quoted( moduleName ) << '\n';
 				return g_nullModel;
 			}
 		}
 		else
 		{
 			if ( string_not_empty( type ) ) {
-				globalErrorStream() << "Model type not supported: \"" << name << "\"\n";
+				globalErrorStream() << "Model type not supported: " << Quoted( name ) << '\n';
 			}
 			return g_nullModel;
 		}
@@ -349,7 +347,7 @@ struct ModelResource final : public Resource
 		if ( realised() ) {
 			unrealise();
 		}
-		ASSERT_MESSAGE( !realised(), "ModelResource::~ModelResource: resource reference still realised: " << makeQuoted( m_name ) );
+		ASSERT_MESSAGE( !realised(), "ModelResource::~ModelResource: resource reference still realised: " << Quoted( m_name ) );
 	}
 	// NOT COPYABLE
 	ModelResource( const ModelResource& ) = delete;
@@ -526,9 +524,9 @@ class HashtableReferenceCache : public ReferenceCache, public ModuleObserver
 			}
 		}
 		~ModelReferencesSnapshot(){
-			for ( Iterators::iterator i = m_iterators.begin(); i != m_iterators.end(); ++i )
+			for ( auto& it : m_iterators )
 			{
-				m_references.release( *i );
+				m_references.release( it );
 			}
 		}
 		iterator begin(){
@@ -557,50 +555,48 @@ public:
 		m_references.clear();
 	}
 
-	Resource* capture( const char* path ){
-		//globalOutputStream() << "capture: \"" << path << "\"\n";
+	Resource* capture( const char* path ) override {
+		//globalOutputStream() << "capture: " << Quoted( path ) << '\n';
 		return m_references.capture( CopiedString( path ) ).get();
 	}
-	void release( const char* path ){
+	void release( const char* path ) override {
 		m_references.release( CopiedString( path ) );
-		//globalOutputStream() << "release: \"" << path << "\"\n";
+		//globalOutputStream() << "release: " << Quoted( path ) << '\n';
 	}
 
-	void setEntityCreator( EntityCreator& entityCreator ){
+	void setEntityCreator( EntityCreator& entityCreator ) override {
 		g_entityCreator = &entityCreator;
 	}
 
 	bool realised() const {
 		return m_unrealised == 0;
 	}
-	void realise(){
+	void realise() override {
 		ASSERT_MESSAGE( m_unrealised != 0, "HashtableReferenceCache::realise: already realised" );
 		if ( --m_unrealised == 0 ) {
 			g_realised = true;
 
 			{
 				ModelReferencesSnapshot snapshot( m_references );
-				for ( ModelReferencesSnapshot::iterator i = snapshot.begin(); i != snapshot.end(); ++i )
+				for ( auto& ref : snapshot )
 				{
-					ModelReferences::value_type& value = *( *i );
-					if ( value.value.count() != 1 ) {
-						value.value.get()->realise();
+					if ( ref->value.count() != 1 ) {
+						ref->value->realise();
 					}
 				}
 			}
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		if ( ++m_unrealised == 1 ) {
 			g_realised = false;
 
 			{
 				ModelReferencesSnapshot snapshot( m_references );
-				for ( ModelReferencesSnapshot::iterator i = snapshot.begin(); i != snapshot.end(); ++i )
+				for ( auto& ref : snapshot )
 				{
-					ModelReferences::value_type& value = *( *i );
-					if ( value.value.count() != 1 ) {
-						value.value.get()->unrealise();
+					if ( ref->value.count() != 1 ) {
+						ref->value->unrealise();
 					}
 				}
 			}
@@ -610,9 +606,9 @@ public:
 	}
 	void refresh(){
 		ModelReferencesSnapshot snapshot( m_references );
-		for ( ModelReferencesSnapshot::iterator i = snapshot.begin(); i != snapshot.end(); ++i )
+		for ( auto& ref : snapshot )
 		{
-			ModelResource* resource = ( *( *i ) ).value.get();
+			ModelResource* resource = ref->value.get();
 			if ( !resource->isMap() ) {
 				resource->refresh();
 			}
@@ -635,17 +631,17 @@ public:
 
 void SaveReferences(){
 	ScopeDisableScreenUpdates disableScreenUpdates( "Processing...", "Saving Map" );
-	for ( HashtableReferenceCache::iterator i = g_referenceCache.begin(); i != g_referenceCache.end(); ++i )
+	for ( auto& ref : g_referenceCache )
 	{
-		( *i ).value->save();
+		ref.value->save();
 	}
 	MapChanged();
 }
 
 bool References_Saved(){
-	for ( HashtableReferenceCache::iterator i = g_referenceCache.begin(); i != g_referenceCache.end(); ++i )
+	for ( auto& ref : g_referenceCache )
 	{
-		scene::Node* node = ( *i ).value->getNode();
+		scene::Node* node = ref.value->getNode();
 		if ( node != 0 ) {
 			MapFile* map = Node_getMapFile( *node );
 			if ( map != 0 && !map->saved() ) {

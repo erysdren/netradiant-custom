@@ -34,8 +34,6 @@
 #include "container/stack.h"
 #include "typesystem.h"
 
-#include <functional>
-
 class Selector;
 class SelectionTest;
 class SelectionIntersection;
@@ -51,7 +49,7 @@ public:
 	virtual void gatherComponentsHighlight( std::vector<std::vector<Vector3>>& polygons, SelectionIntersection& intersection, SelectionTest& test, SelectionSystem::EComponentMode mode ) const = 0;
 };
 
-typedef std::function<void( const DoubleVector3& )> Vector3Callback;
+typedef Callback<void( const DoubleVector3& )> Vector3Callback;
 
 class ComponentEditable
 {
@@ -105,7 +103,7 @@ public:
 	typedef MemberCaller<NodeType<Type>, void(), &NodeType<Type>::initialise> InitialiseCaller;
 	TypeId getTypeId(){
 #if defined( _DEBUG )
-		ASSERT_MESSAGE( m_typeId != NODETYPEID_NONE, "node-type " << makeQuoted( Type::Name ) << " used before being initialised" );
+		ASSERT_MESSAGE( m_typeId != NODETYPEID_NONE, "node-type " << Quoted( Type::Name ) << " used before being initialised" );
 #endif
 		return m_typeId;
 	}
@@ -148,6 +146,8 @@ class NodeIdentityCast :
 {
 };
 
+class Layer;
+
 namespace scene
 {
 class Node
@@ -158,14 +158,13 @@ public:
 		eHidden = 1 << 0,
 		eFiltered = 1 << 1,
 		eExcluded = 1 << 2,
+		eLayerHidden = 1 << 3,
 	};
 
 	class Symbiot
 	{
 	public:
 		virtual void release() = 0;
-		virtual ~Symbiot(){
-		}
 	};
 
 private:
@@ -177,21 +176,22 @@ private:
 
 public:
 	bool m_isRoot;
+	Layer *m_layer; // nullptr for group entity node; they are not finely manageable and affect children visibility
 
-	bool isRoot(){
+	bool isRoot() const {
 		return m_isRoot;
 	}
 
-	Node( Symbiot* symbiot, void* node, NodeTypeCastTable& casts ) :
+	Node( Symbiot* symbiot, void* node, NodeTypeCastTable& casts, Layer *layer ) :
 		m_state( eVisible ),
 		m_refcount( 0 ),
 		m_symbiot( symbiot ),
 		m_node( node ),
 		m_casts( casts ),
-		m_isRoot( false ){
+		m_isRoot( false ),
+		m_layer( layer ){
 	}
-	~Node(){
-	}
+	~Node() = default;
 
 	void IncRef(){
 		ASSERT_MESSAGE( m_refcount < ( 1 << 24 ), "Node::decref: uninitialised refcount" );
@@ -223,26 +223,26 @@ public:
 	bool excluded( unsigned int state ) const {
 		return ( m_state & state ) != 0;
 	}
-	bool operator<( const scene::Node& other ){
+	bool operator<( const scene::Node& other ) const {
 		return this < &other;
 	}
-	bool operator==( const scene::Node& other ){
+	bool operator==( const scene::Node& other ) const {
 		return this == &other;
 	}
-	bool operator!=( const scene::Node& other ){
+	bool operator!=( const scene::Node& other ) const {
 		return this != &other;
 	}
 };
 
 
-class NullNode : public Node::Symbiot
+class NullNode final : public Node::Symbiot
 {
 	NodeTypeCastTable m_casts;
 	Node m_node;
 public:
-	NullNode() : m_node( this, 0, m_casts ){
+	NullNode() : m_node( this, 0, m_casts, nullptr ){
 	}
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
@@ -305,10 +305,10 @@ class delete_all : public scene::Traversable::Walker
 public:
 	delete_all( scene::Node& parent ) : m_parent( parent ){
 	}
-	bool pre( scene::Node& node ) const {
+	bool pre( scene::Node& node ) const override {
 		return false;
 	}
-	void post( scene::Node& node ) const {
+	void post( scene::Node& node ) const override {
 		Node_getTraversable( m_parent )->erase( node );
 	}
 };
@@ -335,7 +335,7 @@ class EntityWalker : public scene::Graph::Walker
 public:
 	EntityWalker( const Functor& functor ) : functor( functor ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( Node_isEntity( path.top() ) ) {
 			functor( instance );
 			return false;
@@ -385,10 +385,10 @@ public:
 	ParentBrushes( scene::Node& parent )
 		: m_parent( parent ){
 	}
-	bool pre( scene::Node& node ) const {
+	bool pre( scene::Node& node ) const override {
 		return false;
 	}
-	void post( scene::Node& node ) const {
+	void post( scene::Node& node ) const override {
 		if ( Node_isPrimitive( node ) ) {
 			Node_getTraversable( m_parent )->insert( node );
 		}
@@ -407,7 +407,7 @@ public:
 		: m_hasBrushes( hasBrushes ){
 		m_hasBrushes = true;
 	}
-	bool pre( scene::Node& node ) const {
+	bool pre( scene::Node& node ) const override {
 		if ( !Node_isPrimitive( node ) ) {
 			m_hasBrushes = false;
 		}
@@ -441,7 +441,7 @@ public:
 	typedef MemberCaller<InstanceType<Type>, void(), &InstanceType<Type>::initialise> InitialiseCaller;
 	TypeId getTypeId(){
 #if defined( _DEBUG )
-		ASSERT_MESSAGE( m_typeId != INSTANCETYPEID_NONE, "instance-type " << makeQuoted( Type::Name ) << " used before being initialised" );
+		ASSERT_MESSAGE( m_typeId != INSTANCETYPEID_NONE, "instance-type " << Quoted( Type::Name ) << " used before being initialised" );
 #endif
 		return m_typeId;
 	}
@@ -502,13 +502,13 @@ class Instance
 	public:
 		AABBAccumulateWalker( AABB& aabb ) : m_aabb( aabb ), m_depth( 0 ){
 		}
-		bool pre( const scene::Path& path, scene::Instance& instance ) const {
+		bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 			if ( m_depth == 1 ) {
 				aabb_extend_by_aabb_safe( m_aabb, instance.worldAABB() );
 			}
 			return ++m_depth != 2;
 		}
-		void post( const scene::Path& path, scene::Instance& instance ) const {
+		void post( const scene::Path& path, scene::Instance& instance ) const override {
 			--m_depth;
 		}
 	};
@@ -517,7 +517,7 @@ class Instance
 	class TransformChangedWalker : public scene::Graph::Walker
 	{
 	public:
-		bool pre( const scene::Path& path, scene::Instance& instance ) const {
+		bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 			instance.transformChangedLocal();
 			return true;
 		}
@@ -526,7 +526,7 @@ class Instance
 	class ParentSelectedChangedWalker : public scene::Graph::Walker
 	{
 	public:
-		bool pre( const scene::Path& path, scene::Instance& instance ) const {
+		bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 			instance.parentSelectedChanged();
 			return true;
 		}
@@ -540,13 +540,13 @@ class Instance
 		ChildSelectedWalker( bool& childSelected ) : m_childSelected( childSelected ), m_depth( 0 ){
 			m_childSelected = false;
 		}
-		bool pre( const scene::Path& path, scene::Instance& instance ) const {
+		bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 			if ( m_depth == 1 && !m_childSelected ) {
 				m_childSelected = instance.isSelected() || instance.childSelected();
 			}
 			return ++m_depth != 2;
 		}
-		void post( const scene::Path& path, scene::Instance& instance ) const {
+		void post( const scene::Path& path, scene::Instance& instance ) const override {
 			--m_depth;
 		}
 	};
@@ -623,10 +623,7 @@ class Instance
 		}
 	}
 
-	Instance( const scene::Instance& other );
-	Instance& operator=( const scene::Instance& other );
 public:
-
 	Instance( const scene::Path& path, Instance* parent, void* instance, InstanceTypeCastTable& casts ) :
 		m_path( path ),
 		m_parent( parent ),
@@ -644,8 +641,9 @@ public:
 		m_parentSelectedChanged( true ){
 		ASSERT_MESSAGE( ( parent == 0 ) == ( path.size() == 1 ), "instance has invalid parent" );
 	}
-	virtual ~Instance(){
-	}
+	virtual ~Instance() = default;
+	Instance( const scene::Instance& other ) = delete;
+	Instance& operator=( const scene::Instance& other ) = delete;
 
 	const scene::Path& path() const {
 		return m_path;
@@ -762,7 +760,7 @@ class InstanceWalker : public scene::Graph::Walker
 public:
 	InstanceWalker( const Functor& functor ) : m_functor( functor ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		//m_functor( instance );
 		//return true;
 		if ( path.top().get().visible() ) {
@@ -783,13 +781,13 @@ class ChildInstanceWalker : public scene::Graph::Walker
 public:
 	ChildInstanceWalker( const Functor& functor ) : m_functor( functor ), m_depth( 0 ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( m_depth == 1 ) {
 			m_functor( instance );
 		}
 		return ++m_depth != 2;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		--m_depth;
 	}
 };
@@ -894,12 +892,12 @@ public:
 	SelectChildren( const scene::Path& root )
 		: m_path( root ){
 	}
-	bool pre( scene::Node& node ) const {
+	bool pre( scene::Node& node ) const override {
 		m_path.push( makeReference( node ) );
 		selectPath( m_path, true );
 		return false;
 	}
-	void post( scene::Node& node ) const {
+	void post( scene::Node& node ) const override {
 		m_path.pop();
 	}
 };
@@ -920,6 +918,47 @@ inline bool Entity_isSelected( scene::Instance& entity ){
 		return entity.childSelected();
 	}
 	return Instance_isSelected( entity );
+}
+
+
+template<class Check>
+bool Traversable_all_of_children( scene::Traversable* traversable, const Check&& check ){
+	class Check_all : public scene::Traversable::Walker
+	{
+		const Check m_check;
+	public:
+		mutable bool m_all = true; // true for empty container
+		Check_all( Check check ) : m_check( check ){
+		}
+		bool pre( scene::Node& node ) const override {
+			if( m_all && !m_check( node ) )
+				m_all = false;
+			return m_all;
+		}
+	} check_all( check );
+
+	traversable->traverse( check_all );
+	return check_all.m_all;
+}
+
+template<class Check>
+bool Traversable_any_of_children( scene::Traversable* traversable, const Check&& check ){
+	class Check_all : public scene::Traversable::Walker
+	{
+		const Check m_check;
+	public:
+		mutable bool m_any = false; // false for empty container
+		Check_all( Check check ) : m_check( check ){
+		}
+		bool pre( scene::Node& node ) const override {
+			if( !m_any && m_check( node ) )
+				m_any = true;
+			return !m_any;
+		}
+	} check_all( check );
+
+	traversable->traverse( check_all );
+	return check_all.m_any;
 }
 
 
@@ -948,11 +987,11 @@ public:
 	void setCountChangedCallback( const Callback<void()>& countChanged ){
 		m_countChanged = countChanged;
 	}
-	void increment(){
+	void increment() override {
 		++m_count;
 		m_countChanged();
 	}
-	void decrement(){
+	void decrement() override {
 		--m_count;
 		m_countChanged();
 	}

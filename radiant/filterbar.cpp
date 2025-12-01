@@ -1,7 +1,5 @@
 #include "filterbar.h"
 #include "gtkmisc.h"
-#include "gtkutil/widget.h"
-#include "gtkutil/toolbar.h"
 #include "stream/stringstream.h"
 #include "select.h"
 #include "iundo.h"
@@ -10,6 +8,7 @@
 #include "commands.h"
 #include "gtkutil/accelerator.h"
 #include "generic/callback.h"
+#include "math/vector.h"
 
 #include <QEvent>
 #include <QMouseEvent>
@@ -59,7 +58,7 @@ class CommonFunc_tex : public CommonFunc
 	const std::vector<const char*> m_texNames;
 	std::size_t m_toggleTexNum{};
 public:
-	CommonFunc_tex( const std::vector<const char*>&& texNames ) : m_texNames( std::move( texNames ) ){}
+	CommonFunc_tex( std::vector<const char*>&& texNames ) : m_texNames( std::move( texNames ) ){}
 	void exec() override {
 		if ( m_recentFunc != this ){
 			m_toggleTexNum = 0;
@@ -97,55 +96,60 @@ public:
 
 class FilterToolbarHandler : public QObject
 {
+	std::optional<CommonFunc*> findFunc( const QPoint pos ){
+		if( QAction *action = m_toolbar->actionAt( pos ) )
+			if( auto it = m_actions.find( action ); it != m_actions.end() )
+				return it->second.get();
+		return {};
+	}
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick ){
-			QMouseEvent *mouseEvent = static_cast<QMouseEvent *>( event );
+			auto *mouseEvent = static_cast<QMouseEvent *>( event );
 			if( mouseEvent->button() == Qt::MouseButton::RightButton ){
-				QAction *action = m_toolbar->actionAt( mouseEvent->pos() );
-				if( action != nullptr ){
-					auto it = m_actions.find( action );
-					if( it != m_actions.end() ){
-						it->second->exec();
-						return true;
-					}
+				if( auto func = findFunc( mouseEvent->pos() ) ){
+					func.value()->exec();
+					return true;
 				}
 			}
 		}
-		else if( event->type() == QEvent::ContextMenu ){ // suppress context menu
-			return true;
+		else if( event->type() == QEvent::ContextMenu ){ // suppress context menu on special buttons
+			auto *contextEvent = static_cast<QContextMenuEvent *>( event );
+			if( contextEvent->reason() == QContextMenuEvent::Reason::Mouse && findFunc( contextEvent->pos() ) )
+				return true;
 		}
 		else if( event->type() == QEvent::Enter ){
 			CommonFunc::m_recentFunc = nullptr;
 		}
 		return QObject::eventFilter( obj, event ); // standard event processing
 	}
+	const QToolBar *m_toolbar;
 public:
+	FilterToolbarHandler( QToolBar *toolbar ) : QObject( toolbar ), m_toolbar( toolbar ){
+	}
 	std::map<QAction*, std::unique_ptr<CommonFunc>> m_actions;
-	static inline const QToolBar *m_toolbar{};
-}
-g_filter_toolbar_handler;
+};
 
 
 void create_filter_toolbar( QToolBar *toolbar ){
-	g_filter_toolbar_handler.m_toolbar = toolbar;
-	toolbar->installEventFilter( &g_filter_toolbar_handler );
+	auto *handler = new FilterToolbarHandler( toolbar );
+	toolbar->installEventFilter( handler );
 
 	QAction* button;
 
 	toolbar_append_toggle_button( toolbar, "World", "f-world.png", "FilterWorldBrushes" );
 
 	button = toolbar_append_toggle_button( toolbar, "Structural\nRightClick: MakeStructural", "f-structural.png", "FilterStructural" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_command( "MakeStructural" ) );
+	handler->m_actions.emplace( button, new CommonFunc_command( "MakeStructural" ) );
 
 	button = toolbar_append_toggle_button( toolbar, "Details\nRightClick: MakeDetail", "f-details.png", "FilterDetails" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_command( "MakeDetail" ) );
+	handler->m_actions.emplace( button, new CommonFunc_command( "MakeDetail" ) );
 
 	button = toolbar_append_toggle_button( toolbar, "Func_Groups\nRightClick: create func_group", "f-funcgroups.png", "FilterFuncGroups" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_group );
+	handler->m_actions.emplace( button, new CommonFunc_group );
 
-	toolbar_append_toggle_button( toolbar, "Patches", "patch_wireframe.png", "FilterPatches" );
-	toolbar->addSeparator();
+	toolbar_append_toggle_button( toolbar, "Patches", "f-patches.png", "FilterPatches" );
+	toolbar_append_separator( toolbar );
 
 //	if ( g_pGameDescription->mGameType == "doom3" ) {
 //		button = toolbar_append_toggle_button( toolbar, "Visportals", "f-areaportal.png", "FilterVisportals" );
@@ -155,42 +159,42 @@ void create_filter_toolbar( QToolBar *toolbar ){
 //	}
 
 	button = toolbar_append_toggle_button( toolbar, "Translucent\nRightClick: toggle tex\n\tnoDraw\n\tnoDrawNonSolid", "f-translucent.png", "FilterTranslucent" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_tex( std::vector<const char*>{ "nodraw", "nodrawnonsolid" } ) );
+	handler->m_actions.emplace( button, new CommonFunc_tex( { "nodraw", "nodrawnonsolid" } ) );
 
 	button = toolbar_append_toggle_button( toolbar, "Liquids\nRightClick: toggle tex\n\twaterCaulk\n\tlavaCaulk\n\tslimeCaulk", "f-liquids.png", "FilterLiquids" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_tex( std::vector<const char*>{ "watercaulk", "lavacaulk", "slimecaulk" } ) );
+	handler->m_actions.emplace( button, new CommonFunc_tex( { "watercaulk", "lavacaulk", "slimecaulk" } ) );
 
 	button = toolbar_append_toggle_button( toolbar, "Caulk\nRightClick: tex Caulk", "f-caulk.png", "FilterCaulk" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_tex( std::vector<const char*>{ "caulk" } ) );
+	handler->m_actions.emplace( button, new CommonFunc_tex( { "caulk" } ) );
 
 	button = toolbar_append_toggle_button( toolbar, "Clips\nRightClick: toggle tex\n\tplayerClip\n\tweapClip", "f-clip.png", "FilterClips" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_tex( std::vector<const char*>{ "clip", "weapclip" } ) );
+	handler->m_actions.emplace( button, new CommonFunc_tex( { "clip", "weapclip" } ) );
 
 	button = toolbar_append_toggle_button( toolbar, "HintsSkips\nRightClick: toggle tex\n\thint\n\thintLocal\n\thintSkip", "f-hint.png", "FilterHintsSkips" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_tex( std::vector<const char*>{ "hint", "hintlocal", "hintskip" } ) );
+	handler->m_actions.emplace( button, new CommonFunc_tex( { "hint", "hintlocal", "hintskip" } ) );
 
 	button = toolbar_append_toggle_button( toolbar, "Sky", "f-sky.png", "FilterSky" );
 
 	//toolbar_append_toggle_button( toolbar, "Paths", "texture_lock.png", "FilterPaths" );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 	toolbar_append_toggle_button( toolbar, "Entities", "f-entities.png", "FilterEntities" );
-	toolbar_append_toggle_button( toolbar, "Point Entities", "status_entity.png", "FilterPointEntities" );
+	toolbar_append_toggle_button( toolbar, "Point Entities", "f-pointentities.png", "FilterPointEntities" );
 	toolbar_append_toggle_button( toolbar, "Lights", "f-lights.png", "FilterLights" );
 	toolbar_append_toggle_button( toolbar, "Models", "f-models.png", "FilterModels" );
 
 	button = toolbar_append_toggle_button( toolbar, "Triggers\nRightClick: tex Trigger", "f-triggers.png", "FilterTriggers" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_tex( std::vector<const char*>{ "trigger" } ) );
+	handler->m_actions.emplace( button, new CommonFunc_tex( { "trigger" } ) );
 
 	//toolbar_append_toggle_button( toolbar, "Decals", "f-decals.png", "FilterDecals" );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 	//toolbar_append_button( toolbar, "InvertFilters", "f-invert.png", "InvertFilters" );
 
 	toolbar_append_button( toolbar, "ResetFilters", "f-reset.png", "ResetFilters" );
 
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 	button = toolbar_append_toggle_button( toolbar, "Region Set Selection\nRightClick: Region Off", "f-region.png", "RegionSetSelection" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_command( "RegionOff" ) );
+	handler->m_actions.emplace( button, new CommonFunc_command( "RegionOff" ) );
 
 	button = toolbar_append_toggle_button( toolbar, "Hide Selected\nRightClick: Show Hidden", "f-hide.png", "HideSelected" );
-	g_filter_toolbar_handler.m_actions.emplace( button, new CommonFunc_command( "ShowHidden" ) );
+	handler->m_actions.emplace( button, new CommonFunc_command( "ShowHidden" ) );
 }

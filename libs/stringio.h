@@ -30,7 +30,7 @@
 #include "generic/callback.h"
 
 inline float string_read_float( const char* string ){
-	return static_cast<float>( atof( string ) );
+	return atof( string );
 }
 
 inline int string_read_int( const char* string ){
@@ -219,10 +219,10 @@ inline bool string_parse_size( const char* string, std::size_t& i ){
 
 
 //#define RETURN_FALSE_IF_FAIL( expression ) if ( !expression ) {return false; }else
-#define RETURN_FALSE_IF_FAIL( expression ) do{ if ( !expression ) {return false; } }while( 0 )
+#define RETURN_FALSE_IF_FAIL( expression ) do{ if ( !expression ) { return false; } }while( false )
 
 inline void Tokeniser_unexpectedError( Tokeniser& tokeniser, const char* token, const char* expected ){
-	globalErrorStream() << tokeniser.getLine() << ':' << tokeniser.getColumn() << ": parse error at '" << ( token != 0 ? token : "#EOF" ) << "': expected '" << expected << "'\n";
+	globalErrorStream() << tokeniser.getLine() << ':' << tokeniser.getColumn() << ": parse error at " << SingleQuoted( token != 0 ? token : "#EOF" ) << ": expected " << SingleQuoted( expected ) << '\n';
 }
 
 
@@ -233,7 +233,7 @@ inline bool Tokeniser_getFloat( Tokeniser& tokeniser, float& f ){
 	}
 	//fallback for 1.#IND 1.#INF 1.#QNAN cases, happening sometimes after texture locking algorithms
 	else if ( token != 0 && strstr( token, ".#" ) ) {
-		globalWarningStream() << "Warning: " << tokeniser.getLine() << ':' << tokeniser.getColumn() << ": expected parse problem at '" << token << "': wanted '#number'\nProcessing anyway\n";
+		globalWarningStream() << "Warning: " << tokeniser.getLine() << ':' << tokeniser.getColumn() << ": expected parse problem at " << SingleQuoted( token ) << ": wanted '#number'\nProcessing anyway\n";
 //		*strstr( token, ".#" ) = '\0';
 		return true;
 	}
@@ -285,6 +285,21 @@ inline bool Tokeniser_nextTokenIsDigit( Tokeniser& tokeniser ){
 	char c = *token;
 	tokeniser.ungetToken();
 	return std::isdigit( c ) != 0;
+}
+
+inline bool Tokeniser_inlineTokenAvailable( Tokeniser& tokeniser ){
+	const size_t line = tokeniser.getLine();
+	if ( tokeniser.getToken() ) {
+		tokeniser.ungetToken();
+		return line == tokeniser.getLine();
+	}
+	return false;
+}
+
+inline void Tokeniser_skipToNextLine( Tokeniser& tokeniser ){
+	const size_t line = tokeniser.getLine();
+	while ( tokeniser.getToken() && line == tokeniser.getLine() ) {}
+	tokeniser.ungetToken();
 }
 
 

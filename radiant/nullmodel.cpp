@@ -26,10 +26,8 @@
 #include "iscenegraph.h"
 #include "irender.h"
 #include "iselection.h"
-#include "iundo.h"
 #include "ientity.h"
 #include "ireference.h"
-#include "igl.h"
 #include "cullable.h"
 #include "renderable.h"
 #include "selectable.h"
@@ -49,17 +47,17 @@ class NullModel :
 	RenderableWireframeAABB m_aabb_wire;
 public:
 	NullModel() : m_aabb_local( Vector3( 0, 0, 0 ), Vector3( 8, 8, 8 ) ), m_aabb_solid( m_aabb_local ), m_aabb_wire( m_aabb_local ){
-		m_state = GlobalShaderCache().capture( "" );
+		m_state = GlobalShaderCache().capture( "nomodel" );
 	}
 	~NullModel(){
-		GlobalShaderCache().release( "" );
+		GlobalShaderCache().release( "nomodel" );
 	}
 
-	VolumeIntersectionValue intersectVolume( const VolumeTest& volume, const Matrix4& localToWorld ) const {
+	VolumeIntersectionValue intersectVolume( const VolumeTest& volume, const Matrix4& localToWorld ) const override {
 		return volume.TestAABB( m_aabb_local, localToWorld );
 	}
 
-	const AABB& localAABB() const {
+	const AABB& localAABB() const override {
 		return m_aabb_local;
 	}
 
@@ -104,10 +102,10 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	Bounded& get( NullType<Bounded>){
+	Bounded& get( NullType<Bounded> ){
 		return m_nullmodel;
 	}
-	Cullable& get( NullType<Cullable>){
+	Cullable& get( NullType<Cullable> ){
 		return m_nullmodel;
 	}
 
@@ -116,19 +114,19 @@ public:
 		m_nullmodel( nullmodel ){
 	}
 
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_nullmodel.renderSolid( renderer, volume, Instance::localToWorld() );
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_nullmodel.renderWireframe( renderer, volume, Instance::localToWorld() );
 	}
 
-	void testSelect( Selector& selector, SelectionTest& test ){
+	void testSelect( Selector& selector, SelectionTest& test ) override {
 		m_nullmodel.testSelect( selector, test, Instance::localToWorld() );
 	}
 };
 
-class NullModelNode : public scene::Node::Symbiot, public scene::Instantiable
+class NullModelNode final : public scene::Node::Symbiot, public scene::Instantiable
 {
 	class TypeCasts
 	{
@@ -150,27 +148,27 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	NullModelNode() : m_node( this, this, StaticTypeCasts::instance().get() ){
+	NullModelNode() : m_node( this, this, StaticTypeCasts::instance().get(), nullptr ){
 		m_node.m_isRoot = true;
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new NullModelInstance( path, parent, m_nullmodel );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };

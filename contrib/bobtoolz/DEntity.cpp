@@ -53,7 +53,7 @@
 DEntity::DEntity( const char *classname, int ID ){
 	SetClassname( classname );
 	m_nID = ID;
-	QER_Entity = NULL;
+	QER_Entity = nullptr;
 }
 
 DEntity::~DEntity(){
@@ -116,14 +116,14 @@ bool DEntity::LoadFromPrt( char *filename ){
 	ClearEPairs();
 
 	bool build = false;
-	for ( unsigned int i = 0; i < portals.node_count; i++ )
+	for ( unsigned int i = 0; i < portals.node_count; ++i )
 	{
 		build = false;
 		DBrush* brush = NewBrush();
 
-		for ( unsigned int j = 0; j < portals.node[i].portal_count; j++ )
+		for ( unsigned int j = 0; j < portals.node[i].portal_count; ++j )
 		{
-			for ( unsigned int k = 0; k < portals.node[i].portal[j].point_count - 2; k++ )
+			for ( unsigned int k = 0; k < portals.node[i].portal[j].point_count - 2; ++k )
 			{
 				vec3_t v1, v2, normal, n;
 				VectorSubtract( portals.node[i].portal[j].point[k + 2].p, portals.node[i].portal[j].point[k + 1].p, v1 );
@@ -152,7 +152,7 @@ bool DEntity::LoadFromPrt( char *filename ){
 			}
 		}
 		if ( build ) {
-			brush->BuildInRadiant( false, NULL );
+			brush->BuildInRadiant( false, nullptr );
 		}
 	}
 
@@ -166,7 +166,7 @@ class BrushSelectedVisitor : public SelectionSystem::Visitor
 public:
 	BrushSelectedVisitor( const Functor& functor ) : m_functor( functor ){
 	}
-	void visit( scene::Instance& instance ) const {
+	void visit( scene::Instance& instance ) const override {
 		if ( Node_isBrush( instance.path().top() ) ) {
 			m_functor( instance );
 		}
@@ -198,7 +198,7 @@ class PatchSelectedVisitor : public SelectionSystem::Visitor
 public:
 	PatchSelectedVisitor( const Functor& functor ) : m_functor( functor ){
 	}
-	void visit( scene::Instance& instance ) const {
+	void visit( scene::Instance& instance ) const override {
 		if ( Node_isPatch( instance.path().top() ) ) {
 			m_functor( instance );
 		}
@@ -267,7 +267,7 @@ bool* DEntity::BuildDuplicateList(){
 }
 
 void DEntity::SelectBrushes( bool *selectList ){
-	if ( selectList == NULL ) {
+	if ( selectList == nullptr ) {
 		return;
 	}
 
@@ -310,7 +310,7 @@ bool DEntity::LoadFromEntity( scene::Node& ent, const LoadOptions options ) {
 			load_brushes_t( DEntity* entity, const LoadOptions options )
 				: m_entity( entity ), m_options( options ){
 			}
-			bool pre( scene::Node& node ) const {
+			bool pre( scene::Node& node ) const override {
 				if( !( m_options.loadVisibleOnly && !node.visible() ) ){
 					scene::Path path( NodeReference( GlobalSceneGraph().root() ) );
 					path.push( NodeReference( *m_entity->QER_Entity ) );
@@ -345,7 +345,7 @@ bool DEntity::LoadFromEntity( scene::Node& ent, const LoadOptions options ) {
 
 void DEntity::RemoveNonCheckBrushes( const std::vector<CopiedString>& exclusionList ){
 	std::erase_if( brushList, [&]( DBrush *brush ){
-		if ( std::any_of( exclusionList.cbegin(), exclusionList.cend(), [brush]( const CopiedString& tex ){ return brush->HasTexture( tex.c_str() ); } ) ) {
+		if ( std::ranges::any_of( exclusionList, [brush]( const CopiedString& tex ){ return brush->HasTexture( tex.c_str() ); } ) ) {
 			delete brush;
 			return true;
 		}
@@ -385,7 +385,7 @@ void DEntity::BuildInRadiant( bool allowDestruction ){
 		Node_getTraversable( GlobalSceneGraph().root() )->insert( node );
 
 		for ( DBrush *brush : brushList )
-			brush->BuildInRadiant( allowDestruction, NULL, node.get_pointer() );
+			brush->BuildInRadiant( allowDestruction, nullptr, node.get_pointer() );
 
 		for ( DPatch *patch : patchList )
 			patch->BuildInRadiant( node.get_pointer() );
@@ -395,7 +395,7 @@ void DEntity::BuildInRadiant( bool allowDestruction ){
 	else
 	{
 		for ( DBrush *brush : brushList )
-			brush->BuildInRadiant( allowDestruction, NULL );
+			brush->BuildInRadiant( allowDestruction, nullptr );
 
 		for ( DPatch *patch : patchList )
 			patch->BuildInRadiant();
@@ -447,7 +447,7 @@ void DEntity::LoadEPairList( Entity *epl ){
 		load_epairs_t( DEntity* entity )
 			: m_entity( entity ){
 		}
-		void visit( const char* key, const char* value ){
+		void visit( const char* key, const char* value ) override {
 			if ( strcmp( key, "classname" ) == 0 ) {
 				m_entity->SetClassname( value );
 			}
@@ -455,14 +455,13 @@ void DEntity::LoadEPairList( Entity *epl ){
 				m_entity->AddEPair( key, value );
 			}
 		}
-
 	} load_epairs( this );
 
 	epl->forEachKeyValue( load_epairs );
 }
 
-bool DEntity::ResetTextures( const char* textureName, float fScale[2],     float fShift[2],     int rotation, const char* newTextureName,
-                             bool bResetTextureName,  bool bResetScale[2], bool bResetShift[2], bool bResetRotation, bool rebuild ){
+bool DEntity::ResetTextures( const char* textureName, const float fScale[2],     const float fShift[2],     int rotation, const char* newTextureName,
+                             bool bResetTextureName,  const bool bResetScale[2], const bool bResetShift[2], bool bResetRotation, bool rebuild ){
 	bool reset = false;
 
 	for ( DBrush *brush : brushList )
@@ -473,7 +472,7 @@ bool DEntity::ResetTextures( const char* textureName, float fScale[2],     float
 			reset = true;
 			if ( rebuild ) {
 				Node_getTraversable( *brush->QER_entity )->erase( *brush->QER_brush );
-				brush->BuildInRadiant( false, NULL, brush->QER_entity );
+				brush->BuildInRadiant( false, nullptr, brush->QER_entity );
 			}
 		}
 	}
@@ -507,7 +506,7 @@ DEPair* DEntity::FindEPairByKey( const char* keyname ){
 void DEntity::RemoveFromRadiant(){
 	Node_getTraversable( GlobalSceneGraph().root() )->erase( *QER_Entity );
 
-	QER_Entity = NULL;
+	QER_Entity = nullptr;
 }
 
 void DEntity::SpawnString( const char* key, const char* defaultstring, const char** out ){
@@ -533,10 +532,10 @@ void DEntity::SpawnInt( const char* key, const char* defaultstring, int* out ){
 void DEntity::SpawnFloat( const char* key, const char* defaultstring, float* out ){
 	DEPair* pEP = FindEPairByKey( key );
 	if ( pEP ) {
-		*out = static_cast<float>( atof( pEP->value.c_str() ) );
+		*out = atof( pEP->value.c_str() );
 	}
 	else {
-		*out = static_cast<float>( atof( defaultstring ) );
+		*out = atof( defaultstring );
 	}
 }
 
@@ -550,7 +549,7 @@ void DEntity::SpawnVector( const char* key, const char* defaultstring, vec_t* ou
 	}
 }
 
-int DEntity::GetBrushCount( void ) {
+int DEntity::GetBrushCount() {
 	return static_cast<int>( brushList.size() );
 }
 
@@ -560,5 +559,5 @@ DBrush* DEntity::FindBrushByPointer( scene::Node& brush ) {
 			return pBrush;
 		}
 	}
-	return NULL;
+	return nullptr;
 }

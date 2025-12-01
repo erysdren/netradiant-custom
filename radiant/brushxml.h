@@ -29,21 +29,21 @@
 inline void FaceTexdef_BP_importXML( FaceTexdef& texdef, const char* xmlContent ){
 	StringTokeniser content( xmlContent );
 
-	texdef.m_projection.m_brushprimit_texdef.coords[0][0] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_brushprimit_texdef.coords[0][1] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_brushprimit_texdef.coords[0][2] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_brushprimit_texdef.coords[1][0] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_brushprimit_texdef.coords[1][1] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_brushprimit_texdef.coords[1][2] = static_cast<float>( atof( content.getToken() ) );
+	texdef.m_projection.m_brushprimit_texdef.coords[0][0] = atof( content.getToken() );
+	texdef.m_projection.m_brushprimit_texdef.coords[0][1] = atof( content.getToken() );
+	texdef.m_projection.m_brushprimit_texdef.coords[0][2] = atof( content.getToken() );
+	texdef.m_projection.m_brushprimit_texdef.coords[1][0] = atof( content.getToken() );
+	texdef.m_projection.m_brushprimit_texdef.coords[1][1] = atof( content.getToken() );
+	texdef.m_projection.m_brushprimit_texdef.coords[1][2] = atof( content.getToken() );
 }
 inline void FaceTexdef_importXML( FaceTexdef& texdef, const char* xmlContent ){
 	StringTokeniser content( xmlContent );
 
-	texdef.m_projection.m_texdef.shift[0] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_texdef.shift[1] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_texdef.rotate = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_texdef.scale[0] = static_cast<float>( atof( content.getToken() ) );
-	texdef.m_projection.m_texdef.scale[1] = static_cast<float>( atof( content.getToken() ) );
+	texdef.m_projection.m_texdef.shift[0] = atof( content.getToken() );
+	texdef.m_projection.m_texdef.shift[1] = atof( content.getToken() );
+	texdef.m_projection.m_texdef.rotate   = atof( content.getToken() );
+	texdef.m_projection.m_texdef.scale[0] = atof( content.getToken() );
+	texdef.m_projection.m_texdef.scale[1] = atof( content.getToken() );
 
 	ASSERT_MESSAGE( texdef_sane( texdef.m_projection.m_texdef ), "FaceTexdef_importXML: bad texdef" );
 }
@@ -217,9 +217,9 @@ inline void FacePlane_exportXML( const FacePlane& facePlane, XMLImporter& import
 
 	{
 		// write planepts
-		for ( int i = 0; i < 3; i++ )
+		for ( int i = 0; i < 3; ++i )
 		{
-			for ( int j = 0; j < 3; j++ )
+			for ( int j = 0; j < 3; ++j )
 			{
 				importer << Face::m_quantise( facePlane.planePoints()[i][j] ) << ' ';
 			}
@@ -340,7 +340,7 @@ public:
 	BrushXMLImporter( Brush& brush ) : m_brush( brush ){
 		m_xml_state.push_back( xml_state_t::eDefault );
 	}
-	void pushElement( const XMLElement& element ){
+	void pushElement( const XMLElement& element ) override {
 		switch ( m_xml_state.back().state() )
 		{
 		case xml_state_t::eDefault:
@@ -361,7 +361,7 @@ public:
 			break;
 		}
 	}
-	void popElement( const char* name ){
+	void popElement( const char* name ) override {
 		ASSERT_MESSAGE( !m_xml_state.empty(), "parse error" );
 		m_xml_state.pop_back();
 
@@ -377,7 +377,7 @@ public:
 			break;
 		}
 	}
-	std::size_t write( const char* data, std::size_t length ){
+	std::size_t write( const char* data, std::size_t length ) override {
 		switch ( m_xml_state.back().state() )
 		{
 		case xml_state_t::eFace:
@@ -397,19 +397,19 @@ class BrushXMLExporter : public XMLExporter
 public:
 	BrushXMLExporter( const Brush& brush ) : m_brush( brush ){
 	}
-	void exportXML( XMLImporter& importer ){
+	void exportXML( XMLImporter& importer ) override {
 		m_brush.evaluateBRep(); // ensure b-rep is up-to-date, so that non-contributing faces can be identified.
 		ASSERT_MESSAGE( m_brush.hasContributingFaces(), "exporting an empty brush" );
 
 		const StaticElement brushElement( "brush" );
 		importer.pushElement( brushElement );
 
-		for ( Brush::const_iterator i = m_brush.begin(); i != m_brush.end(); ++i )
+		for ( const auto& face : m_brush )
 		{
-			if ( ( *i )->contributes() ) {
+			if ( face->contributes() ) {
 				const StaticElement element( "plane" );
 				importer.pushElement( element );
-				FaceXMLExporter( *( *i ) ).exportXML( importer );
+				FaceXMLExporter( *face ).exportXML( importer );
 				importer.popElement( element.name() );
 			}
 		}

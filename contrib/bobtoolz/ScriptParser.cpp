@@ -20,36 +20,36 @@
 #include "ScriptParser.h"
 #include <cstring>
 
-CScriptParser::CScriptParser( void ) :
-	m_pScript( NULL ),
-	m_pScriptSection( NULL ),
-	m_pLastScriptSection( NULL ),
-	m_pToken( NULL ) {
+CScriptParser::CScriptParser() :
+	m_pScript( nullptr ),
+	m_pScriptSection( nullptr ),
+	m_pLastScriptSection( nullptr ),
+	m_pToken( nullptr ) {
 	ClearBuffer();
 }
 
-CScriptParser::~CScriptParser( void ) {
+CScriptParser::~CScriptParser() {
 	ClearBuffer();
 }
 
-void CScriptParser::ClearBuffer( void ) {
+void CScriptParser::ClearBuffer() {
 	if ( m_pScript ) {
 		delete[] m_pScript;
-		m_pScript = NULL;
+		m_pScript = nullptr;
 	}
 	if ( m_pToken ) {
 		delete[] m_pToken;
-		m_pToken = NULL;
+		m_pToken = nullptr;
 	}
-	m_pScriptSection = NULL;
-	m_pLastScriptSection = NULL;
+	m_pScriptSection = nullptr;
+	m_pLastScriptSection = nullptr;
 	memset( m_breakChars, 0, sizeof( m_breakChars ) );
 }
 
 const char* CScriptParser::MakeToken( const char* pToken ) {
 	if ( m_pToken ) {
 		delete[] m_pToken;
-		m_pToken = NULL;
+		m_pToken = nullptr;
 	}
 
 	if ( !pToken ) {
@@ -171,7 +171,7 @@ void CScriptParser::SkipWhitespace( bool* pbNewLines ) {
 	}
 }
 
-void CScriptParser::SkipBracedSection( void ) {
+void CScriptParser::SkipBracedSection() {
 	const char      *token;
 	int depth;
 
@@ -189,7 +189,7 @@ void CScriptParser::SkipBracedSection( void ) {
 	} while ( depth && *m_pScriptSection );
 }
 
-void CScriptParser::SkipRestOfLine( void ) {
+void CScriptParser::SkipRestOfLine() {
 	char    *p;
 	int c;
 
@@ -202,26 +202,26 @@ void CScriptParser::SkipRestOfLine( void ) {
 	m_pScriptSection = p;
 }
 
-void CScriptParser::UndoGetToken( void ) {
+void CScriptParser::UndoGetToken() {
 	if ( !m_pLastScriptSection ) {
 		return;
 	}
 	m_pScriptSection = m_pLastScriptSection;
-	m_pLastScriptSection = NULL;
+	m_pLastScriptSection = nullptr;
 }
 
-void CScriptParser::ResetParseSession( void ) {
+void CScriptParser::ResetParseSession() {
 	if ( !m_pScript ) {
 		return;
 	}
 
 	m_pScriptSection = m_pScript;
-	m_pLastScriptSection = NULL;
+	m_pLastScriptSection = nullptr;
 }
 
-char* CScriptParser::GetBufferCopy( void ) {
+char* CScriptParser::GetBufferCopy() {
 	if ( !m_pScript ) {
-		return NULL;
+		return nullptr;
 	}
 
 	int len = static_cast<int>( strlen( m_pScript ) );
@@ -230,7 +230,7 @@ char* CScriptParser::GetBufferCopy( void ) {
 	return pBuffer;
 }
 
-int CScriptParser::GetTokenOffset( void ) {
+int CScriptParser::GetTokenOffset() {
 	if ( !m_pScript || !m_pScriptSection ) {
 		return 0;
 	}
@@ -254,7 +254,7 @@ void CScriptParser::LoadScript( const char* pScript ) {
 }
 
 void CScriptParser::AddBreakChar( char c ) {
-	for ( int i = 0; i < SP_MAX_BREAKCHARS; i++ ) {
+	for ( int i = 0; i < SP_MAX_BREAKCHARS; ++i ) {
 		if ( !m_breakChars[i] ) {
 			m_breakChars[i] = c;
 			return;
@@ -265,7 +265,7 @@ void CScriptParser::AddBreakChar( char c ) {
 }
 
 bool CScriptParser::IsBreakChar( char c ) {
-	for ( int i = 0; i < SP_MAX_BREAKCHARS; i++ ) {
+	for ( int i = 0; i < SP_MAX_BREAKCHARS; ++i ) {
 		if ( !m_breakChars[i] ) {
 			return false;
 		}

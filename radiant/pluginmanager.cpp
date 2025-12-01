@@ -29,22 +29,51 @@
 #include "qerplugin.h"
 #include "iplugin.h"
 
-#include "math/vector.h"
 #include "string/string.h"
 
 #include "error.h"
 #include "select.h"
 #include "plugin.h"
 
-#include "modulesystem.h"
-
 #include "stream/stringstream.h"
 #include "commands.h"
 
 #include <list>
 
+StringBuffer plugin_construct_command_name( const char *pluginName, const char *commandName ){
+	StringBuffer str( 64 );
+
+	if( !string_equal_prefix_nocase( commandName, pluginName ) ){ //plugin name is not part of command name
+		str.push_string( pluginName );
+		str.push_string( "::" );
+	}
+	/* remove spaces + camelcasify */
+	const char* p = commandName;
+	bool wasspace = false;
+	while( *p ){
+		if( *p == ' ' ){
+			wasspace = true;
+		}
+		else if( wasspace ){
+			wasspace = false;
+			str.push_back( std::toupper( *p ) );
+		}
+		else{
+			str.push_back( *p );
+		}
+		++p;
+	}
+	/* del trailing periods */
+	while( !str.empty() && str.back() == '.' ){
+		str.pop_back();
+	}
+	*str.c_str() = std::tolower( *str.c_str() ); //put to the end of the list this way //not in Qt 🤔
+
+	return str;
+}
+
 /* plugin manager --------------------------------------- */
-class CPluginSlot : public IPlugIn
+class CPluginSlot final : public IPlugIn
 {
 	CopiedString m_menu_name;
 	const _QERPluginTable *mpTable;
@@ -76,11 +105,11 @@ public:
 	void Dispatch( const char *p );
 
 // IPlugIn ------------------------------------------------------------
-	const char* getMenuName();
-	std::size_t getCommandCount();
-	const char* getCommand( std::size_t n );
-	const char* getCommandTitle( std::size_t n );
-	const char* getGlobalCommand( std::size_t n );
+	const char* getMenuName() override;
+	std::size_t getCommandCount() override;
+	const char* getCommand( std::size_t n ) override;
+	const char* getCommandTitle( std::size_t n ) override;
+	const char* getGlobalCommand( std::size_t n ) override;
 };
 
 CPluginSlot::CPluginSlot( QWidget* main_window, const char* name, const _QERPluginTable& table ){
@@ -93,7 +122,7 @@ CPluginSlot::CPluginSlot( QWidget* main_window, const char* name, const _QERPlug
 	StringTokeniser commandTokeniser( commands, ",;" );
 	StringTokeniser titleTokeniser( titles, ",;" );
 
-	while ( 1 ) {
+	while ( true ) {
 		const char* cmdToken = commandTokeniser.getToken();
 		const char *titleToken = titleTokeniser.getToken();
 		if( string_empty( cmdToken ) )
@@ -105,34 +134,8 @@ CPluginSlot::CPluginSlot( QWidget* main_window, const char* name, const _QERPlug
 			m_CommandTitleStrings.push_back( titleToken );
 
 		m_callbacks.emplace_back( PluginCaller( this, m_CommandStrings.back().c_str() ) );
-		StringBuffer str( 64 );
-		{
-			if( !string_equal_prefix_nocase( cmdToken, getMenuName() ) ){ //plugin name is not part of command name
-				str.push_string( getMenuName() );
-				str.push_string( "::" );
-			}
-			/* remove spaces + camelcasify */
-			const char* p = cmdToken;
-			bool wasspace = false;
-			while( *p ){
-				if( *p == ' ' ){
-					wasspace = true;
-				}
-				else if( wasspace ){
-					wasspace = false;
-					str.push_back( std::toupper( *p ) );
-				}
-				else{
-					str.push_back( *p );
-				}
-				++p;
-			}
-			/* del trailing periods */
-			while( !str.empty() && str.back() == '.' ){
-				str.pop_back();
-			}
-			*str.c_str() = std::tolower( *str.c_str() ); //put to the end of the list this way //not in Qt 🤔
-		}
+
+		const auto str = plugin_construct_command_name( getMenuName(), cmdToken );
 		m_globalCommandNames.emplace_back( str.c_str() );
 		if ( !plugin_menu_special( cmdToken ) ) //ain't special
 			GlobalCommands_insert( str.c_str(), makeCallback( m_callbacks.back() ) );
@@ -149,24 +152,15 @@ std::size_t CPluginSlot::getCommandCount(){
 }
 
 const char* CPluginSlot::getCommand( std::size_t n ){
-	std::list<CopiedString>::iterator i = m_CommandStrings.begin();
-	while ( n-- != 0 )
-		++i;
-	return ( *i ).c_str();
+	return std::next( m_CommandStrings.begin(), n )->c_str();
 }
 
 const char* CPluginSlot::getCommandTitle( std::size_t n ){
-	std::list<CopiedString>::iterator i = m_CommandTitleStrings.begin();
-	while ( n-- != 0 )
-		++i;
-	return ( *i ).c_str();
+	return std::next( m_CommandTitleStrings.begin(), n )->c_str();
 }
 
 const char* CPluginSlot::getGlobalCommand( std::size_t n ){
-	std::list<CopiedString>::iterator i = m_globalCommandNames.begin();
-	while ( n-- != 0 )
-		++i;
-	return ( *i ).c_str();
+	return std::next( m_globalCommandNames.begin(), n )->c_str();
 }
 
 void CPluginSlot::Dispatch( const char *p ){
@@ -180,31 +174,20 @@ class CPluginSlots
 {
 	std::list<CPluginSlot *> mSlots;
 public:
-	virtual ~CPluginSlots();
+	~CPluginSlots(){
+		for ( auto& pluginSlot : mSlots )
+			delete std::exchange( pluginSlot, nullptr );
+	}
 
 	void AddPluginSlot( QWidget* main_window, const char* name, const _QERPluginTable& table ){
 		mSlots.push_back( new CPluginSlot( main_window, name, table ) );
 	}
 
-	void PopulateMenu( PluginsVisitor& menu );
+	void PopulateMenu( PluginsVisitor& menu ){
+		for ( auto *pluginSlot : mSlots )
+			menu.visit( *pluginSlot );
+	}
 };
-
-CPluginSlots::~CPluginSlots(){
-	std::list<CPluginSlot *>::iterator iSlot;
-	for ( iSlot = mSlots.begin(); iSlot != mSlots.end(); ++iSlot )
-	{
-		delete *iSlot;
-		*iSlot = 0;
-	}
-}
-
-void CPluginSlots::PopulateMenu( PluginsVisitor& menu ){
-	std::list<CPluginSlot *>::iterator iPlug;
-	for ( iPlug = mSlots.begin(); iPlug != mSlots.end(); ++iPlug )
-	{
-		menu.visit( *( *iPlug ) );
-	}
-}
 
 CPluginSlots g_plugin_slots;
 
@@ -218,7 +201,7 @@ void FillPluginSlots( CPluginSlots& slots, QWidget* main_window ){
 		AddPluginVisitor( CPluginSlots& slots, QWidget* main_window )
 			: m_slots( slots ), m_main_window( main_window ){
 		}
-		void visit( const char* name, const _QERPluginTable& table ) const {
+		void visit( const char* name, const _QERPluginTable& table ) const override {
 			m_slots.AddPluginSlot( m_main_window, name, table );
 		}
 	} visitor( slots, main_window );

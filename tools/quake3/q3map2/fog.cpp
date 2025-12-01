@@ -30,6 +30,7 @@
 
 /* dependencies */
 #include "q3map2.h"
+#include <optional>
 
 
 
@@ -43,13 +44,10 @@ static int numFogPatchFragments;
    converts a patch drawsurface to a mesh_t
  */
 
-static mesh_t *DrawSurfToMesh( mapDrawSurface_t *ds ){
-	mesh_t *m = safe_malloc( sizeof( *m ) );
-	m->width = ds->patchWidth;
-	m->height = ds->patchHeight;
-	m->verts = safe_malloc( sizeof( m->verts[ 0 ] ) * m->width * m->height );
-	memcpy( m->verts, ds->verts, sizeof( m->verts[ 0 ] ) * m->width * m->height );
-
+static mesh_t DrawSurfToMesh( const mapDrawSurface_t& ds ){
+	const size_t size = sizeof( ds.verts[ 0 ] ) * ds.patchWidth * ds.patchHeight;
+	mesh_t m( ds.patchWidth, ds.patchHeight, safe_malloc( size ) );
+	memcpy( m.verts, ds.verts.data(), size );
 	return m;
 }
 
@@ -59,24 +57,24 @@ static mesh_t *DrawSurfToMesh( mapDrawSurface_t *ds ){
    SplitMeshByPlane()
    chops a mesh by a plane
  */
-
-static void SplitMeshByPlane( mesh_t *in, const Plane3f& plane, mesh_t **front, mesh_t **back ){
+/// \returns either {front, back} or {front, {}} or {{}, back}
+/// frees or reuses \param in
+static std::pair<std::optional<mesh_t>, std::optional<mesh_t>> SplitMeshByPlane( mesh_t& in, const Plane3f& plane ){
 	int w, h, split;
 	float d[MAX_PATCH_SIZE][MAX_PATCH_SIZE];
 	bspDrawVert_t   *dv, *v1, *v2;
 	int c_front, c_back, c_on;
-	mesh_t  *f, *b;
 	int i;
 	float frac;
 	int frontAprox, backAprox;
 
 	for ( i = 0; i < 2; ++i ) {
-		dv = in->verts;
+		dv = in.verts;
 		c_front = 0;
 		c_back = 0;
 		c_on = 0;
-		for ( h = 0; h < in->height; ++h ) {
-			for ( w = 0; w < in->width; ++w, ++dv ) {
+		for ( h = 0; h < in.height; ++h ) {
+			for ( w = 0; w < in.width; ++w, ++dv ) {
 				d[h][w] = plane3_distance_to_point( plane, dv->xyz );
 				if ( d[h][w] > ON_EPSILON ) {
 					c_front++;
@@ -90,21 +88,16 @@ static void SplitMeshByPlane( mesh_t *in, const Plane3f& plane, mesh_t **front, 
 			}
 		}
 
-		*front = NULL;
-		*back = NULL;
-
 		if ( !c_front ) {
-			*back = in;
-			return;
+			return { {}, in };
 		}
 		if ( !c_back ) {
-			*front = in;
-			return;
+			return { in, {} };
 		}
 
 		// find a split point
 		split = -1;
-		for ( w = 0; w < in->width - 1; ++w ) {
+		for ( w = 0; w < in.width - 1; ++w ) {
 			if ( ( d[0][w] < 0 ) != ( d[0][w + 1] < 0 ) ) {
 				if ( split == -1 ) {
 					split = w;
@@ -116,30 +109,27 @@ static void SplitMeshByPlane( mesh_t *in, const Plane3f& plane, mesh_t **front, 
 		if ( split == -1 ) {
 			if ( i == 1 ) {
 				Sys_FPrintf( SYS_WRN | SYS_VRBflag, "No crossing points in patch\n" );
-				*front = in;
-				return;
+				return { in, {} };
 			}
 
-			in = TransposeMesh( in );
+			TransposeMesh( in );
 			InvertMesh( in );
 			continue;
 		}
 
 		// make sure the split point stays the same for all other rows
-		for ( h = 1; h < in->height; ++h ) {
-			for ( w = 0; w < in->width - 1; ++w ) {
+		for ( h = 1; h < in.height; ++h ) {
+			for ( w = 0; w < in.width - 1; ++w ) {
 				if ( ( d[h][w] < 0 ) != ( d[h][w + 1] < 0 ) ) {
 					if ( w != split ) {
 						Sys_Printf( "multiple crossing points for patch -- can't clip\n" );
-						*front = in;
-						return;
+						return { in, {} };
 					}
 				}
 			}
 			if ( ( d[h][split] < 0 ) == ( d[h][split + 1] < 0 ) ) {
 				Sys_Printf( "differing crossing points for patch -- can't clip\n" );
-				*front = in;
-				return;
+				return { in, {} };
 			}
 		}
 
@@ -148,91 +138,81 @@ static void SplitMeshByPlane( mesh_t *in, const Plane3f& plane, mesh_t **front, 
 
 
 	// create two new meshes
-	f = safe_malloc( sizeof( *f ) );
-	f->width = split + 2;
-	if ( !( f->width & 1 ) ) {
-		f->width++;
+	mesh_t  f( split + 2, in.height, nullptr ), b( in.width - split, in.height, nullptr );
+	if ( !( f.width & 1 ) ) {
+		f.width++;
 		frontAprox = 1;
 	}
 	else {
 		frontAprox = 0;
 	}
-	if ( f->width > MAX_PATCH_SIZE ) {
+	if ( f.width > MAX_PATCH_SIZE ) {
 		Error( "MAX_PATCH_SIZE after split" );
 	}
-	f->height = in->height;
-	f->verts = safe_malloc( sizeof( f->verts[0] ) * f->width * f->height );
+	f.verts = safe_malloc( sizeof( f.verts[0] ) * f.numVerts() );
 
-	b = safe_malloc( sizeof( *b ) );
-	b->width = in->width - split;
-	if ( !( b->width & 1 ) ) {
-		b->width++;
+	if ( !( b.width & 1 ) ) {
+		b.width++;
 		backAprox = 1;
 	}
 	else {
 		backAprox = 0;
 	}
-	if ( b->width > MAX_PATCH_SIZE ) {
+	if ( b.width > MAX_PATCH_SIZE ) {
 		Error( "MAX_PATCH_SIZE after split" );
 	}
-	b->height = in->height;
-	b->verts = safe_malloc( sizeof( b->verts[0] ) * b->width * b->height );
-
-	if ( d[0][0] > 0 ) {
-		*front = f;
-		*back = b;
-	}
-	else {
-		*front = b;
-		*back = f;
-	}
+	b.verts = safe_malloc( sizeof( b.verts[0] ) * b.numVerts() );
 
 	// distribute the points
-	for ( w = 0; w < in->width; ++w ) {
-		for ( h = 0; h < in->height; ++h ) {
+	for ( w = 0; w < in.width; ++w ) {
+		for ( h = 0; h < in.height; ++h ) {
 			if ( w <= split ) {
-				f->verts[ h * f->width + w ] = in->verts[ h * in->width + w ];
+				f.verts[ h * f.width + w ] = in.verts[ h * in.width + w ];
 			}
 			else {
-				b->verts[ h * b->width + w - split + backAprox ] = in->verts[ h * in->width + w ];
+				b.verts[ h * b.width + w - split + backAprox ] = in.verts[ h * in.width + w ];
 			}
 		}
 	}
 
 	// clip the crossing line
-	for ( h = 0; h < in->height; h++ )
+	for ( h = 0; h < in.height; ++h )
 	{
-		dv = &f->verts[ h * f->width + split + 1 ];
-		v1 = &in->verts[ h * in->width + split ];
-		v2 = &in->verts[ h * in->width + split + 1 ];
+		dv = &f.verts[ h * f.width + split + 1 ];
+		v1 = &in.verts[ h * in.width + split ];
+		v2 = &in.verts[ h * in.width + split + 1 ];
 
 		frac = d[h][split] / ( d[h][split] - d[h][split + 1] );
 
 		/* interpolate */
-		//%	for( i = 0; i < 10; i++ )
+		//%	for( i = 0; i < 10; ++i )
 		//%		dv->xyz[ i ] = v1->xyz[ i ] + frac * (v2->xyz[ i ] - v1->xyz[ i ]);
 		//%	dv->xyz[10] = 0;	// set all 4 colors to 0
 		LerpDrawVertAmount( v1, v2, frac, dv );
 
 		if ( frontAprox ) {
-			f->verts[ h * f->width + split + 2 ] = *dv;
+			f.verts[ h * f.width + split + 2 ] = *dv;
 		}
-		b->verts[ h * b->width ] = *dv;
+		b.verts[ h * b.width ] = *dv;
 		if ( backAprox ) {
-			b->verts[ h * b->width + 1 ] = *dv;
+			b.verts[ h * b.width + 1 ] = *dv;
 		}
 	}
 
 	/*
 	   PrintMesh( in );
-	   Sys_Printf( "\n" );
 	   PrintMesh( f );
-	   Sys_Printf( "\n" );
 	   PrintMesh( b );
-	   Sys_Printf( "\n" );
 	 */
 
-	FreeMesh( in );
+	in.freeVerts();
+
+	if ( d[0][0] > 0 )
+		return { f, b };
+	else
+		return { b, f };
+
+
 }
 
 
@@ -241,80 +221,73 @@ static void SplitMeshByPlane( mesh_t *in, const Plane3f& plane, mesh_t **front, 
    chops a patch up by a fog brush
  */
 
-static bool ChopPatchSurfaceByBrush( mapDrawSurface_t *ds, const brush_t *b ){
-	int i, j;
-	mesh_t      *outside[MAX_BRUSH_SIDES];
-	int numOutside;
-	mesh_t      *m, *front, *back;
+static bool ChopPatchSurfaceByBrush( mapDrawSurface_t& ds, const brush_t *b ){
+	mesh_t      outside[MAX_BRUSH_SIDES];
+	int numOutside = 0;
 
-	m = DrawSurfToMesh( ds );
-	numOutside = 0;
+	mesh_t m = DrawSurfToMesh( ds );
 
 	// only split by the top and bottom planes to avoid
 	// some messy patch clipping issues
 
-	for ( i = 4; i <= 5; ++i ) {
+	for ( int i = 4; i <= 5; ++i ) {
 		const plane_t& plane = mapplanes[ b->sides[ i ].planenum ];
 
-		SplitMeshByPlane( m, plane.plane, &front, &back );
+		auto [front, back] = SplitMeshByPlane( m, plane.plane );
 
 		if ( !back ) {
 			// nothing actually contained inside
-			for ( j = 0; j < numOutside; ++j ) {
-				FreeMesh( outside[j] );
+			for ( int j = 0; j < numOutside; ++j ) {
+				outside[j].freeVerts();
 			}
+			front->freeVerts();
 			return false;
 		}
-		m = back;
+		m = *back;
 
 		if ( front ) {
 			if ( numOutside == MAX_BRUSH_SIDES ) {
 				Error( "MAX_BRUSH_SIDES" );
 			}
-			outside[ numOutside ] = front;
+			outside[ numOutside ] = *front;
 			numOutside++;
 		}
 	}
 
 	/* all of outside fragments become separate drawsurfs */
 	numFogPatchFragments += numOutside;
-	for ( i = 0; i < numOutside; i++ )
+	for ( int i = 0; i < numOutside; ++i )
 	{
 		/* transpose and invert the chopped patch (fixes potential crash. fixme: why?) */
-		outside[ i ] = TransposeMesh( outside[ i ] );
+		TransposeMesh( outside[ i ] );
 		InvertMesh( outside[ i ] );
 
 		/* ydnar: do this the hacky right way */
-		mapDrawSurface_t *newds = AllocDrawSurface( ESurfaceType::Patch );
-		memcpy( newds, ds, sizeof( *ds ) );
-		newds->patchWidth = outside[ i ]->width;
-		newds->patchHeight = outside[ i ]->height;
-		newds->numVerts = outside[ i ]->width * outside[ i ]->height;
-		newds->verts = safe_malloc( newds->numVerts * sizeof( *newds->verts ) );
-		memcpy( newds->verts, outside[ i ]->verts, newds->numVerts * sizeof( *newds->verts ) );
+		mapDrawSurface_t& newds = AllocDrawSurface( ESurfaceType::Patch );
+		newds = ds;
+		newds.patchWidth = outside[ i ].width;
+		newds.patchHeight = outside[ i ].height;
+		newds.verts.assign( outside[ i ].verts, outside[ i ].verts + outside[ i ].numVerts() );
 
 		/* free the source mesh */
-		FreeMesh( outside[ i ] );
+		outside[ i ].freeVerts();
 	}
 
 	/* only rejigger this patch if it was chopped */
-	//%	Sys_Printf( "Inside: %d x %d\n", m->width, m->height );
+	//%	Sys_Printf( "Inside: %d x %d\n", m.width, m.height );
 	if ( numOutside > 0 ) {
 		/* transpose and invert the chopped patch (fixes potential crash. fixme: why?) */
-		m = TransposeMesh( m );
+		TransposeMesh( m );
 		InvertMesh( m );
 
 		/* replace ds with m */
-		ds->patchWidth = m->width;
-		ds->patchHeight = m->height;
-		ds->numVerts = m->width * m->height;
-		free( ds->verts );
-		ds->verts = safe_malloc( ds->numVerts * sizeof( *ds->verts ) );
-		memcpy( ds->verts, m->verts, ds->numVerts * sizeof( *ds->verts ) );
+		ds.patchWidth = m.width;
+		ds.patchHeight = m.height;
+		ds.verts.assign( m.verts, m.verts + m.numVerts() );
 	}
 
 	/* free the source mesh and return */
-	FreeMesh( m );
+	m.freeVerts();
 	return true;
 }
 
@@ -325,22 +298,22 @@ static bool ChopPatchSurfaceByBrush( mapDrawSurface_t *ds, const brush_t *b ){
    creates a winding from a surface's verts
  */
 
-winding_t WindingFromDrawSurf( const mapDrawSurface_t *ds ){
+winding_t WindingFromDrawSurf( const mapDrawSurface_t& ds ){
 	// we use the first point of the surface, maybe something more clever would be useful
 	// (actually send the whole draw surface would be cool?)
-	if ( ds->numVerts >= MAX_POINTS_ON_WINDING ) {
-		const int max = std::min( ds->numVerts, 256 );
+	if ( ds.verts.size() >= MAX_POINTS_ON_WINDING ) {
+		const int max = std::min( ds.numVerts(), 256 );
 		Vector3 p[256];
 
-		for ( int i = 0; i < max; i++ ) {
-			p[i] = ds->verts[i].xyz;
+		for ( int i = 0; i < max; ++i ) {
+			p[i] = ds.verts[i].xyz;
 		}
 
 		xml_Winding( "WindingFromDrawSurf failed: MAX_POINTS_ON_WINDING exceeded", p, max, true );
 	}
 
-	winding_t w = AllocWinding( ds->numVerts );
-	for ( const bspDrawVert_t& vert : Span( ds->verts, ds->numVerts ) ) {
+	winding_t w = AllocWinding( ds.verts.size() );
+	for ( const bspDrawVert_t& vert : ds.verts ) {
 		w.push_back( vert.xyz );
 	}
 	return w;
@@ -353,15 +326,16 @@ winding_t WindingFromDrawSurf( const mapDrawSurface_t *ds ){
    chops up a face drawsurface by a fog brush, with a potential fragment left inside
  */
 
-static bool ChopFaceSurfaceByBrush( const entity_t& e, mapDrawSurface_t *ds, const brush_t *b ){
+static bool ChopFaceSurfaceByBrush( const entity_t& e, mapDrawSurface_t& ds, const brush_t *b ){
 	std::list<winding_t> outside;
 	mapDrawSurface_t    *newds;
 
 
 	/* dummy check */
-	if ( ds->sideRef == NULL || ds->sideRef->side == NULL ) {
+	if ( ds.sideRef == nullptr ) {
 		return false;
 	}
+	const side_t& sideRef = ds.sideRef->side;
 
 	/* initial setup */
 	winding_t w = WindingFromDrawSurf( ds );
@@ -373,12 +347,12 @@ static bool ChopFaceSurfaceByBrush( const entity_t& e, mapDrawSurface_t *ds, con
 		const plane_t& plane = mapplanes[ side.planenum ];
 
 		/* handle coplanar outfacing (don't fog) */
-		if ( ds->sideRef->side->planenum == side.planenum ) {
+		if ( sideRef.planenum == side.planenum ) {
 			return false;
 		}
 
 		/* handle coplanar infacing (keep inside) */
-		if ( ( ds->sideRef->side->planenum ^ 1 ) == side.planenum ) {
+		if ( ( sideRef.planenum ^ 1 ) == side.planenum ) {
 			continue;
 		}
 
@@ -404,11 +378,10 @@ static bool ChopFaceSurfaceByBrush( const entity_t& e, mapDrawSurface_t *ds, con
 
 	/* all of outside fragments become separate drawsurfs */
 	numFogFragments += outside.size();
-	const side_t *s = ds->sideRef->side;
 	for ( const winding_t& wi : outside )
 	{
-		newds = DrawSurfaceForSide( e, *ds->mapBrush, *s, wi );
-		newds->fogNum = ds->fogNum;
+		newds = DrawSurfaceForSide( e, *ds.mapBrush, sideRef, wi );
+		newds->fogNum = ds.fogNum;
 	}
 
 	/* ydnar: the old code neglected to snap to 0.125 for the fragment
@@ -416,14 +389,14 @@ static bool ChopFaceSurfaceByBrush( const entity_t& e, mapDrawSurface_t *ds, con
 	          the right thing and uses the original surface's brush side */
 
 	/* build a drawsurf for it */
-	newds = DrawSurfaceForSide( e, *ds->mapBrush, *s, w );
-	if ( newds == NULL ) {
+	newds = DrawSurfaceForSide( e, *ds.mapBrush, sideRef, w );
+	if ( newds == nullptr ) {
 		return false;
 	}
 
 	/* copy new to original */
 	ClearSurface( ds );
-	memcpy( ds, newds, sizeof( mapDrawSurface_t ) );
+	ds = *newds;
 
 	/* didn't really add a new drawsurface... :) */
 	numMapDrawSurfs--;
@@ -459,20 +432,20 @@ void FogDrawSurfaces( const entity_t& e ){
 
 		/* clip each surface into this, but don't clip any of the resulting fragments to the same brush */
 		numBaseDrawSurfs = numMapDrawSurfs;
-		for ( int i = 0; i < numBaseDrawSurfs; i++ )
+		for ( int i = 0; i < numBaseDrawSurfs; ++i )
 		{
 			/* get the drawsurface */
-			mapDrawSurface_t *ds = &mapDrawSurfs[ i ];
+			mapDrawSurface_t& ds = mapDrawSurfs[ i ];
 
 			/* no fog? */
-			if ( ds->shaderInfo->noFog ) {
+			if ( ds.shaderInfo->noFog ) {
 				continue;
 			}
 
 			/* global fog doesn't have a brush */
-			if ( fog.brush == NULL ) {
+			if ( fog.brush == nullptr ) {
 				/* don't re-fog already fogged surfaces */
-				if ( ds->fogNum >= 0 ) {
+				if ( ds.fogNum > FOG_INVALID ) {
 					continue;
 				}
 				fogged = 1;
@@ -481,7 +454,7 @@ void FogDrawSurfaces( const entity_t& e ){
 			{
 				/* find drawsurface bounds */
 				MinMax minmax;
-				for ( const bspDrawVert_t& vert : Span( ds->verts, ds->numVerts ) )
+				for ( const bspDrawVert_t& vert : ds.verts )
 					minmax.extend( vert.xyz );
 
 				/* check against the fog brush */
@@ -490,7 +463,7 @@ void FogDrawSurfaces( const entity_t& e ){
 				}
 
 				/* ydnar: gs mods: handle the various types of surfaces */
-				switch ( ds->type )
+				switch ( ds.type )
 				{
 				/* handle brush faces */
 				case ESurfaceType::Face:
@@ -519,7 +492,7 @@ void FogDrawSurfaces( const entity_t& e ){
 			/* is this surface fogged? */
 			if ( fogged ) {
 				numFogged += fogged;
-				ds->fogNum = fogNum;
+				ds.fogNum = fogNum;
 			}
 		}
 	}
@@ -545,7 +518,7 @@ int FogForPoint( const Vector3& point, float epsilon ){
 	for ( size_t i = 0; i < mapFogs.size(); ++i )
 	{
 		/* sof2: global fog doesn't reference a brush */
-		if ( mapFogs[ i ].brush == NULL ) {
+		if ( mapFogs[ i ].brush == nullptr ) {
 			fogNum = i;
 			continue;
 		}
@@ -579,19 +552,17 @@ int FogForPoint( const Vector3& point, float epsilon ){
  */
 
 int FogForBounds( const MinMax& minmax, float epsilon ){
-	int fogNum;
-
 	/* start with bogus fog num */
-	fogNum = defaultFogNum;
+	int fogNum = defaultFogNum;
 
 	/* init */
-	float bestVolume = 0.0f;
+	float bestVolume = 0;
 
 	/* walk the list of fog volumes */
 	for ( size_t i = 0; i < mapFogs.size(); ++i )
 	{
 		/* sof2: global fog doesn't reference a brush */
-		if ( mapFogs[ i ].brush == NULL ) {
+		if ( mapFogs[ i ].brush == nullptr ) {
 			fogNum = i;
 			continue;
 		}
@@ -683,10 +654,10 @@ void CreateMapFogs(){
 		/* set up fog */
 		fog_t& fog = mapFogs.emplace_back();
 		fog.si = ShaderInfoForShaderNull( globalFog );
-		if ( fog.si == NULL ) {
+		if ( fog.si == nullptr ) {
 			Error( "Invalid shader \"%s\" referenced trying to add global fog", globalFog );
 		}
-		fog.brush = NULL;
+		fog.brush = nullptr;
 		fog.visibleSide = -1;
 
 		/* set as default fog */
@@ -694,7 +665,7 @@ void CreateMapFogs(){
 
 		/* mark all worldspawn brushes as fogged */
 		for ( brush_t& brush : entities[ 0 ].brushes )
-			ApplySurfaceParm( "fog", &brush.contentFlags, NULL, &brush.compileFlags );
+			ApplySurfaceParm( "fog", &brush.contentFlags, nullptr, &brush.compileFlags );
 	}
 
 	/* emit some stats */

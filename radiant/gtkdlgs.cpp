@@ -42,7 +42,6 @@
 
 #include "igl.h"
 #include "iscenegraph.h"
-#include "iselection.h"
 
 #include <QDialog>
 #include <QVBoxLayout>
@@ -59,8 +58,6 @@
 #include <QComboBox>
 
 #include "os/path.h"
-#include "math/aabb.h"
-#include "container/array.h"
 #include "generic/static.h"
 #include "stream/stringstream.h"
 #include "gtkutil/messagebox.h"
@@ -68,7 +65,6 @@
 
 #include "gtkmisc.h"
 #include "brushmanip.h"
-#include "build.h"
 #include "qe3.h"
 #include "texwindow.h"
 #include "xywindow.h"
@@ -277,10 +273,10 @@ void DoSides( EBrushPrefab type ){
 	QDialog dialog( MainFrame_getWindow(), Qt::Dialog | Qt::WindowCloseButtonHint );
 	dialog.setWindowTitle( "Arbitrary sides" );
 
-	auto spin = new SpinBox;
-	auto check = new QCheckBox( "Truncate" );
+	auto *spin = new SpinBox;
+	auto *check = new QCheckBox( "Truncate" );
 	{
-		auto form = new QFormLayout( &dialog );
+		auto *form = new QFormLayout( &dialog );
 		form->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 
 		QLabel* label = new SpinBoxLabel( "Sides:", spin );
@@ -315,7 +311,7 @@ void DoSides( EBrushPrefab type ){
 		}
 		spin->selectAll();
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
 			form->addWidget( buttons );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
 			QObject::connect( buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject );
@@ -337,18 +333,21 @@ void DoAbout(){
 	dialog.setWindowTitle( "About NetRadiant" );
 
 	{
-		auto vbox = new QVBoxLayout( &dialog );
+		auto *vbox = new QVBoxLayout( &dialog );
 		{
-			auto hbox = new QHBoxLayout;
+			auto *hbox = new QHBoxLayout;
 			vbox->addLayout( hbox );
 			{
-				auto label = new QLabel;
-				label->setPixmap( new_local_image( "logo.png" ) );
+				auto *label = new QLabel;
+				auto pixmap = new_local_image( "logo.png" );
+				pixmap.setDevicePixelRatio( label->devicePixelRatio() );
+				// target 0.5 of the image size
+				label->setPixmap( pixmap.scaledToHeight( pixmap.height() * label->devicePixelRatio() * pixmap.logicalDpiX() / ( 96 * 2 ), Qt::TransformationMode::SmoothTransformation ) );
 				hbox->addWidget( label );
 			}
 
 			{
-				auto label = new QLabel( "NetRadiant " RADIANT_VERSION "\n"
+				auto *label = new QLabel( "NetRadiant " RADIANT_VERSION "\n"
 				                         __DATE__ "\n\n"
 				                         RADIANT_ABOUTMSG "\n\n"
 				                         "This program is free software\n"
@@ -358,42 +357,42 @@ void DoAbout(){
 			}
 
 			{
-				auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok, Qt::Orientation::Vertical );
+				auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok, Qt::Orientation::Vertical );
 				QObject::connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
 				hbox->addWidget( buttons );
 				{
-					auto button = buttons->addButton( "Credits", QDialogButtonBox::ButtonRole::NoRole );
+					auto *button = buttons->addButton( "Credits", QDialogButtonBox::ButtonRole::NoRole );
 					QObject::connect( button, &QPushButton::clicked, [](){ OpenURL( StringStream( AppPath_get(), "credits.html" ) ); } );
 					button->setEnabled( false );
 				}
 				{
-					auto button = buttons->addButton( "Changelog", QDialogButtonBox::ButtonRole::NoRole );
+					auto *button = buttons->addButton( "Changelog", QDialogButtonBox::ButtonRole::NoRole );
 					QObject::connect( button, &QPushButton::clicked, [](){ OpenURL( StringStream( AppPath_get(), "docs/changelog-custom.txt" ) ); } );
 				}
 				{
-					auto button = buttons->addButton( "About Qt", QDialogButtonBox::ButtonRole::NoRole );
+					auto *button = buttons->addButton( "About Qt", QDialogButtonBox::ButtonRole::NoRole );
 					QObject::connect( button, &QPushButton::clicked, &QApplication::aboutQt );
 				}
 			}
 		}
 		{
 			{
-				auto frame = new QGroupBox( "OpenGL Properties" );
+				auto *frame = new QGroupBox( "OpenGL Properties" );
 				vbox->addWidget( frame );
 				{
-					auto form = new QFormLayout( frame );
+					auto *form = new QFormLayout( frame );
 					form->addRow( "Vendor:", new QLabel( reinterpret_cast<const char*>( gl().glGetString( GL_VENDOR ) ) ) );
 					form->addRow( "Version:", new QLabel( reinterpret_cast<const char*>( gl().glGetString( GL_VERSION ) ) ) );
 					form->addRow( "Renderer:", new QLabel( reinterpret_cast<const char*>( gl().glGetString( GL_RENDERER ) ) ) );
 				}
 			}
 			{
-				auto frame = new QGroupBox( "OpenGL Extensions" );
+				auto *frame = new QGroupBox( "OpenGL Extensions" );
 				vbox->addWidget( frame );
 				{
-					auto textView = new QPlainTextEdit( reinterpret_cast<const char*>( gl().glGetString( GL_EXTENSIONS ) ) );
+					auto *textView = new QPlainTextEdit( reinterpret_cast<const char*>( gl().glGetString( GL_EXTENSIONS ) ) );
 					textView->setReadOnly( true );
-					auto box = new QVBoxLayout( frame );
+					auto *box = new QVBoxLayout( frame );
 					box->addWidget( textView );
 				}
 			}
@@ -415,20 +414,20 @@ bool DoLightIntensityDlg( int *intensity ){
 	QDialog dialog( MainFrame_getWindow(), Qt::Dialog | Qt::WindowCloseButtonHint );
 	dialog.setWindowTitle( "Set Light intensity" );
 
-	auto spin = new SpinBox( -99999, 99999, *intensity );
+	auto *spin = new SpinBox( -99999, 99999, *intensity );
 
-	auto check = new QCheckBox( "Don't show this dialog until restart" );
+	auto *check = new QCheckBox( "Don't show this dialog until restart" );
 	QObject::connect( check, &QCheckBox::toggled, []( bool checked ){ g_dontDoLightIntensityDlg = checked; } );
 
 	{
-		auto form = new QFormLayout( &dialog );
+		auto *form = new QFormLayout( &dialog );
 		form->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 		form->addRow( new QLabel( "Tip: ESC for default, ENTER to validate" ) );
 		form->addRow( new SpinBoxLabel( "Intensity:", spin ), spin );
 		form->addWidget( check );
 
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
 			form->addWidget( buttons );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
 			QObject::connect( buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject );
@@ -604,8 +603,8 @@ retry:
 ?save font size
 	ctrl+d duplicate line, selection
 	find and replace
-f3, shift+f3, ctrl+f
-ctrl+s
+	f3, shift+f3, ctrl+f
+	ctrl+s
 	move selected text block with alt+arrows
 	move line up/dn too
 	ctrl+x to cut whole line
@@ -824,11 +823,9 @@ static const std::vector<ShaderFormat> g_shaderGeneralFormats{
 			"metalsteps",
 			"monsterclip",
 			"nodamage",
-			"nodlight",
 			"nodraw",
 			"nodrop",
 			"noimpact",
-			"nomarks",
 			"nolightmap",
 			"nosteps",
 			"nonsolid",
@@ -843,6 +840,12 @@ static const std::vector<ShaderFormat> g_shaderGeneralFormats{
 			"trans",
 			"trigger",
 			"water",
+		}
+	},
+	{
+		"surfaceparm %s", c_pageSurf, c_colorKeyLv1E, { // these take effect w/o bsp rebuild
+			"nodlight",
+			"nomarks",
 		}
 	},
 	{
@@ -1398,7 +1401,7 @@ ShaderHighlighter::ShaderHighlighter( QTextDocument *parent )
 				else if( string_equal_prefix( c, "%s" ) ){ // string
 					++c;
 					pattern += ")((?:"; // extra inner non capturing group, as space may be added
-					for( const auto value : format.values ){
+					for( const auto *value : format.values ){
 						pattern += value;
 						pattern += '|';
 					}
@@ -1612,7 +1615,7 @@ public:
 protected:
 	bool event( QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ){
-			QKeyEvent *keyEvent = static_cast<QKeyEvent *>( event );
+			auto *keyEvent = static_cast<QKeyEvent *>( event );
 			// fix leaking keys
 			if( keyEvent->key() == Qt::Key_Enter
 			 || keyEvent->key() == Qt::Key_Return
@@ -1635,12 +1638,12 @@ protected:
 		}
 		QLineEdit::keyPressEvent( event );
 	}
-private:
+public:
 	void search( const QString &text, bool reverse = false, bool words = false, bool casesens = false ){
 		QTextDocument::FindFlags flag;
-		if( reverse ) flag |= QTextDocument::FindBackward;
+		if( reverse )  flag |= QTextDocument::FindBackward;
 		if( casesens ) flag |= QTextDocument::FindCaseSensitively;
-		if( words ) flag |= QTextDocument::FindWholeWords;
+		if( words )    flag |= QTextDocument::FindWholeWords;
 
 		QTextCursor cursor = m_textEdit.textCursor();
 		QTextCursor cursorSaved = cursor; // save the cursor position
@@ -1810,7 +1813,7 @@ public:
 protected:
 	bool event( QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ){
-			QKeyEvent *keyEvent = static_cast<QKeyEvent *>( event );
+			auto *keyEvent = static_cast<QKeyEvent *>( event );
 			// fix leaking shortcuts
 			if( keyEvent->key() == Qt::Key_PageUp
 			 || keyEvent->key() == Qt::Key_PageDown
@@ -1820,6 +1823,18 @@ protected:
 			 || keyEvent == QKeySequence::StandardKey::DeleteEndOfWord
 			 || keyEvent == QKeySequence::StandardKey::DeleteStartOfWord )
 				event->accept();
+			// Copy reimplementation to make it work in readonly mode
+			if( keyEvent == QKeySequence::StandardKey::Copy && textCursor().hasSelection() && !keyEvent->isAutoRepeat() ){
+				this->copy();
+				event->accept();
+				return true;
+			}
+			// SelectAll reimplementation to make it work in readonly mode
+			if( keyEvent == QKeySequence::StandardKey::SelectAll && !keyEvent->isAutoRepeat() ){
+				this->selectAll();
+				event->accept();
+				return true;
+			}
 			// cut current line w/o selection
 			if( keyEvent == QKeySequence::StandardKey::Cut && !textCursor().hasSelection() ){
 				auto cursor = textCursor();
@@ -2029,7 +2044,7 @@ private:
 			LoadTexturesByTypeVisitor( const char* dirstring, TexTree& texTree ) :
 				m_dirstring( dirstring ), m_texTree( texTree ), m_stringStream( 64 )
 			{}
-			void visit( const char* minor, const _QERPlugImageTable& table ) const {
+			void visit( const char* minor, const _QERPlugImageTable& table ) const override {
 				GlobalFileSystem().forEachFile( m_dirstring, minor, InsertCaller( *this ), 99 );
 			}
 		};
@@ -2099,7 +2114,7 @@ private:
 						};
 						if( i < tokens.size() ){ // token is available
 							if( tokens[i] == "%s" ){
-								for( const auto value : format.values ){
+								for( const auto *value : format.values ){
 									push_token( value );
 								}
 							}
@@ -2121,11 +2136,10 @@ private:
 						}
 					};
 
-					const auto values_contain = []( const std::vector<const char*> values, const QString& string ){
-						for( const auto value : values )
-							if( string.compare( value, Qt::CaseSensitivity::CaseInsensitive ) == 0 )
-								return true;
-						return false;
+					const auto values_contain = []( const std::vector<const char*>& values, const QString& string ){
+						return std::ranges::any_of( values, [&string]( const char *value ){
+							return string.compare( value, Qt::CaseSensitivity::CaseInsensitive ) == 0;
+						} );
 					};
 
 					if( i == line.size() - 1 ){ // last word, partial match is okay
@@ -2135,7 +2149,7 @@ private:
 							}
 							else{ // partial match
 								if( !selectedText.back().isSpace() ){
-									for( const auto v : format.values ){
+									for( const auto *v : format.values ){
 										QString value( v );
 										if( value.startsWith( word, Qt::CaseSensitivity::CaseInsensitive ) ){
 											if( i + 1 < tokens.size() ) // there is next token, add space
@@ -2251,6 +2265,7 @@ class TextEditor : public QObject
 	QWidget *m_window = 0;
 	QPlainTextEdit *m_textView; // slave, text widget from the gtk editor
 	QPushButton *m_button; // save button
+	QLineEdit_search *m_searchEntry;
 	CopiedString m_filename;
 
 	void construct(){
@@ -2281,7 +2296,7 @@ class TextEditor : public QObject
 		QObject::connect( m_button, &QAbstractButton::clicked, [this](){ editor_save(); } );
 
 		{
-			QLabel *label = new QLabel;
+			auto *label = new QLabel;
 			// label->setOpenExternalLinks( true );
 			hbox->addWidget( label );
 			QObject::connect( label, &QLabel::linkActivated, []( const QString& link ){
@@ -2313,7 +2328,7 @@ class TextEditor : public QObject
 						else if( page.back() == '$' ){ // no explicit id, id = one of values
 							page.back() = '#';
 							const QString txt = m_textView->textCursor().block().text();
-							for( const auto value : shaderFormat->values ){
+							for( const auto *value : shaderFormat->values ){
 								if( txt.contains( QRegularExpression( QString( "\\b" ) + value + "\\b" ) ) ){
 									page += value;
 									break;
@@ -2332,14 +2347,14 @@ class TextEditor : public QObject
 			QObject::connect( m_textView, &QPlainTextEdit::textChanged, cb );
 		}
 
-		auto *search = new QLineEdit_search( *m_textView );
-		hbox->addWidget( search );
+		m_searchEntry = new QLineEdit_search( *m_textView );
+		hbox->addWidget( m_searchEntry );
 	}
 	void editor_save(){
-		FILE *f = fopen( m_filename.c_str(), "wb" ); //write in binary mode to preserve line feeds
+		FILE *f = fopen( m_filename.c_str(), "wt" );
 
 		if ( f == nullptr ) {
-			globalErrorStream() << "Error saving file" << makeQuoted( m_filename ) << '\n';
+			globalErrorStream() << "Error saving file" << Quoted( m_filename ) << '\n';
 			return;
 		}
 
@@ -2357,7 +2372,7 @@ class TextEditor : public QObject
 			if( ret == EMessageBoxReturn::eIDYES ){
 				editor_save();
 			}
-			if( ret == EMessageBoxReturn::eIDNO ){ // discard changes
+			else if( ret == EMessageBoxReturn::eIDNO ){ // discard changes
 				m_textView->clear(); // unset isModified flag this way to avoid messagebox on next opening
 			}
 			else if( ret == EMessageBoxReturn::eIDCANCEL ){
@@ -2407,6 +2422,32 @@ protected:
 				return true;
 			}
 		}
+		if( event->type() == QEvent::ShortcutOverride ){
+			auto *keyEvent = static_cast<QKeyEvent *>( event );
+			if( keyEvent == QKeySequence::StandardKey::Save ){
+				if( !keyEvent->isAutoRepeat() && m_textView->document()->isModified() )
+					editor_save();
+			}
+			else if( keyEvent == QKeySequence::StandardKey::Find ){
+				if( auto cursor = m_textView->textCursor(); cursor.hasSelection() )
+					m_searchEntry->setText( cursor.selectedText() );
+				m_searchEntry->setFocus();
+			}
+			else if( keyEvent == QKeySequence::StandardKey::FindNext ){
+				if( !m_searchEntry->text().isEmpty() )
+					m_searchEntry->search( m_searchEntry->text() );
+			}
+			else if( keyEvent == QKeySequence::StandardKey::FindPrevious ){
+				if( !m_searchEntry->text().isEmpty() )
+					m_searchEntry->search( m_searchEntry->text(), true );
+			}
+			else{
+				return QObject::eventFilter( obj, event ); // standard event processing
+			}
+			// handled
+			event->accept();
+			return true;
+		}
 		return QObject::eventFilter( obj, event ); // standard event processing
 	}
 };
@@ -2434,11 +2475,11 @@ void DoShaderView( const char *shaderFileName, const char *shaderName, bool exte
 #ifdef WIN32
 			ShellExecute( (HWND)MainFrame_getWindow()->effectiveWinId(), 0, pathFull.c_str(), 0, 0, SW_SHOWNORMAL );
 #else
-			globalWarningStream() << "Failed to open '" << pathFull << "'\nSet Shader Editor Command in preferences\n";
+			globalWarningStream() << "Failed to open " << SingleQuoted( pathFull ) << "\nSet Shader Editor Command in preferences\n";
 #endif
 		}
 		else{
-			auto command = StringStream( g_TextEditor_editorCommand, ' ', makeQuoted( pathFull ) );
+			auto command = StringStream( g_TextEditor_editorCommand, ' ', Quoted( pathFull ) );
 			globalOutputStream() << "Launching: " << command << '\n';
 			// note: linux does not return false if the command failed so it will assume success
 			if ( !Q_Exec( 0, command.c_str(), 0, true, false ) )

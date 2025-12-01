@@ -203,7 +203,6 @@ void DoPolygons(){
 			else{
 				poly.BuildRegularPrism( vMin, vMax, rs.nSides, rs.bAlignTop );
 			}
-
 		}
 
 		poly.Commit();
@@ -226,7 +225,7 @@ void DoResetTextures(){
 
 	const char* texName;
 	if ( 1 /*g_SelectedFaceTable.m_pfnGetSelectedFaceCount() != 1*/ ) {
-		texName = NULL;
+		texName = nullptr;
 	}
 	else
 	{
@@ -304,7 +303,7 @@ void DoBuildStairs(){
 			{
 
 				// Get Step Dimensions
-				float stairHeight = (float)rs.stairHeight;
+				float stairHeight = rs.stairHeight;
 				float stairWidth;
 				if ( ( rs.direction == MOVE_EAST ) || ( rs.direction == MOVE_WEST ) ) {
 					stairWidth = ( size[0] ) / numSteps;
@@ -326,7 +325,7 @@ void DoBuildStairs(){
 
 
 				// Build The Steps
-				for ( int i = 0; i < numSteps; i++ )
+				for ( int i = 0; i < numSteps; ++i )
 				{
 					if ( rs.style == STYLE_BOB ) {
 						Build_StairStep_Wedge( rs.direction, vMin, vMax, rs.mainTexture, rs.riserTexture, rs.bUseDetail );
@@ -348,7 +347,6 @@ void DoBuildStairs(){
 }
 
 void DoBuildDoors(){
-	UndoableCommand undo( "bobToolz.buildDoors" );
 	// ensure we have something selected
 	if ( GlobalSelectionSystem().countSelected() != 1 ) {
 		//DoMessageBox( "Invalid number of brushes selected, choose 1 only", "Error", EMessageBoxType::Error );
@@ -360,11 +358,12 @@ void DoBuildDoors(){
 	{
 		const char *tex = GetCurrentTexture();
 		strcpy( rs.mainTexture, tex + ( string_equal_prefix_nocase( tex, "textures/" )
-									  ? strlen( "textures/" )
-									  : 0 ) );
+		                              ? strlen( "textures/" )
+		                              : 0 ) );
 	}
 
 	if ( DoDoorsBox( &rs ) ) {
+		UndoableCommand undo( "bobToolz.buildDoors" );
 		vec3_t vMin, vMax;
 
 		{
@@ -379,6 +378,22 @@ void DoBuildDoors(){
 		              rs.bScaleTrimH, rs.bScaleTrimV,
 		              ( std::string( "textures/" ) + rs.mainTexture ).c_str(), ( std::string( "textures/" ) + rs.trimTexture ).c_str(),
 		              rs.nOrientation ); // shapes.cpp
+	}
+}
+
+void DoBuildApertureDoors(){
+	// ensure we have something selected
+	if ( !( GlobalSelectionSystem().countSelected() > 0 && Node_isBrush( GlobalSelectionSystem().ultimateSelected().path().top() ) ) ) {
+		//DoMessageBox( "Invalid number of brushes selected, choose 1 only", "Error", EMessageBoxType::Error );
+		globalErrorStream() << "bobToolz BuildDoors: Invalid number of brushes selected, choose 1 only.\n";
+		return;
+	}
+
+	static ApertureDoorRS rs;
+	// rs.textureMain = GetCurrentTexture();
+
+	if ( DoApertureDoorsBox( &rs ) ) {
+		BuildApertureDoors( GlobalSelectionSystem().ultimateSelected(), rs );
 	}
 }
 
@@ -511,7 +526,7 @@ void DoMergePatches(){
 		}
 	}
 
-	for( auto instance : patches.instances_erase )
+	for( auto *instance : patches.instances_erase )
 	{
 		scene::Instance* parent = instance->parent();
 		Path_deleteTop( instance->path() );
@@ -640,15 +655,15 @@ void DoCaulkSelection() {
 	UndoableCommand undo( "bobToolz.caulkSelection" );
 	DEntity world;
 
-	float fScale[2] = { 0.5f, 0.5f };
-	float fShift[2] = { 0.0f, 0.0f };
+	const float fScale[2] = { 0.5f, 0.5f };
+	const float fShift[2] = { 0.0f, 0.0f };
 
-	bool bResetScale[2] = { false, false };
-	bool bResetShift[2] = { false, false };
+	const bool bResetScale[2] = { false, false };
+	const bool bResetShift[2] = { false, false };
 
 	world.LoadSelectedBrushes();
 	world.LoadSelectedPatches();
-	world.ResetTextures( NULL, fScale, fShift, 0, "textures/common/caulk", true, bResetScale, bResetShift, false, true );
+	world.ResetTextures( nullptr, fScale, fShift, 0, "textures/common/caulk", true, bResetScale, bResetShift, false, true );
 }
 
 void DoTreePlanter() {
@@ -686,7 +701,7 @@ typedef DPoint* pntTripple[3];
 
 void DoFlipTerrain() {
 	UndoableCommand undo( "bobToolz.flipTerrain" );
-	vec3_t vUp = { 0.f, 0.f, 1.f };
+	const vec3_t vUp = { 0, 0, 1 };
 	int i;
 
 	// ensure we have something selected
@@ -700,7 +715,7 @@ void DoFlipTerrain() {
 	brushes[0] = &GlobalSelectionSystem().ultimateSelected();
 	brushes[1] = &GlobalSelectionSystem().penultimateSelected();
 	//ensure we have only Brushes selected.
-	for ( i = 0; i < 2; i++ )
+	for ( i = 0; i < 2; ++i )
 	{
 		if ( !Node_isBrush( brushes[i]->path().top() ) ) {
 			//DoMessageBox( "No brushes selected, select ONLY brushes", "Error", EMessageBoxType::Error );
@@ -711,7 +726,7 @@ void DoFlipTerrain() {
 	DBrush Brushes[2];
 	DPlane* Planes[2];
 	pntTripple Points[2];
-	for ( i = 0; i < 2; i++ ) {
+	for ( i = 0; i < 2; ++i ) {
 		Brushes[i].LoadFromBrush( *brushes[i], false );
 		if ( !( Planes[i] = Brushes[i].FindPlaneWithClosestNormal( vUp ) ) || Brushes[i].FindPointsForPlane( Planes[i], Points[i], 3 ) != 3 ) {
 			//DoMessageBox( "Error", "Error", EMessageBoxType::Error );
@@ -728,8 +743,8 @@ void DoFlipTerrain() {
 
 	int dontmatch[2] = { -1, -1 };
 	bool found = false;
-	for ( i = 0; i < 3; i++ ) {
-		for ( int j = 0; j < 3 && !found; j++ ) {
+	for ( i = 0; i < 3; ++i ) {
+		for ( int j = 0; j < 3 && !found; ++j ) {
 			if ( VectorCompare( ( Points[0] )[i]->_pnt, ( Points[1] )[j]->_pnt ) ) {
 				found = true;
 				break;
@@ -747,8 +762,8 @@ void DoFlipTerrain() {
 		return;
 	}
 
-	for ( i = 0; i < 3; i++ ) {
-		for ( int j = 0; j < 3 && !found; j++ ) {
+	for ( i = 0; i < 3; ++i ) {
+		for ( int j = 0; j < 3 && !found; ++j ) {
 			if ( VectorCompare( ( Points[1] )[i]->_pnt, ( Points[0] )[j]->_pnt ) ) {
 				found = true;
 				break;
@@ -771,7 +786,7 @@ void DoFlipTerrain() {
 	vec3_t plnpntsshr[3];
 
 	VectorCopy( ( Points[0] )[dontmatch[0]]->_pnt, plnpnts1[0] );
-	for ( i = 0; i < 3; i++ ) {
+	for ( i = 0; i < 3; ++i ) {
 		if ( dontmatch[0] != i ) {
 			VectorCopy( ( Points[0] )[i]->_pnt, plnpnts1[1] );
 			break;
@@ -780,7 +795,7 @@ void DoFlipTerrain() {
 	VectorCopy( ( Points[1] )[dontmatch[1]]->_pnt, plnpnts1[2] );
 
 	VectorCopy( ( Points[1] )[dontmatch[1]]->_pnt, plnpnts2[0] );
-	for ( i = 0; i < 3; i++ ) {
+	for ( i = 0; i < 3; ++i ) {
 		if ( dontmatch[1] != i && !VectorCompare( ( Points[1] )[i]->_pnt, plnpnts1[1] ) ) {
 			VectorCopy( ( Points[1] )[i]->_pnt, plnpnts2[1] );
 			break;
@@ -798,7 +813,7 @@ void DoFlipTerrain() {
 	}
 	plnpntsshr[2][2] -= 16;
 
-	for ( i = 0; i < 3; i++ ) {
+	for ( i = 0; i < 3; ++i ) {
 		if ( mins2[i] < mins1[i] ) {
 			mins1[i] = mins2[i];
 		}
@@ -847,9 +862,9 @@ void DoFlipTerrain() {
 		newBrushes[1]->AddFace( plnpntsshr[2], plnpntsshr[1], plnpntsshr[0], "textures/common/caulk", true );
 	}
 
-	for ( i = 0; i < 2; i++ ) {
+	for ( i = 0; i < 2; ++i ) {
 		newBrushes[i]->RemoveRedundantPlanes();
-		newBrushes[i]->BuildInRadiant( false, NULL, brushes[i]->path().parent().get_pointer() );
+		newBrushes[i]->BuildInRadiant( false, nullptr, brushes[i]->path().parent().get_pointer() );
 		Path_deleteTop( brushes[i]->path() );
 		delete newBrushes[i];
 	}
@@ -865,10 +880,10 @@ public:
 	ExplodeWalker( scene::Node* entitynode, scene::Cloneable* entitycloneable, scene::Traversable* traversableroot )
 	: m_entitynode( entitynode ), m_entitycloneable( entitycloneable ), m_traversableroot( traversableroot ){
 	}
-	bool pre( scene::Node& node ) const {
+	bool pre( scene::Node& node ) const override {
 		return false;
 	}
-	void post( scene::Node& node ) const {
+	void post( scene::Node& node ) const override {
 		NodeSmartReference clone( m_entitycloneable->clone() ); // duplicate entity
 		m_traversableroot->insert( clone );
 

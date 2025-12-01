@@ -37,13 +37,6 @@
 #include <QVBoxLayout>
 
 #include "gtkutil/guisettings.h"
-#include "gtkutil/widget.h"
-#include "gtkutil/accelerator.h"
-#include "entityinspector.h"
-#include "gtkmisc.h"
-#include "console.h"
-#include "commands.h"
-
 
 class GroupDlg
 {
@@ -92,7 +85,7 @@ void GroupDlg::Create( QWidget* parent ){
 	g_guiSettings.addWindow( m_window, "GroupDlg/geometry", 444, 777 );
 
 	{
-		auto box = new QVBoxLayout( m_window );
+		auto *box = new QVBoxLayout( m_window );
 		box->setContentsMargins( 0, 0, 0, 0 );
 		m_pNotebook = new QTabWidget;
 		m_pNotebook->setTabPosition( QTabWidget::TabPosition::South );

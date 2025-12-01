@@ -31,9 +31,6 @@
 class IPlugIn
 {
 public:
-	IPlugIn() { }
-	virtual ~IPlugIn() { }
-
 	virtual const char* getMenuName() = 0;
 	virtual std::size_t getCommandCount() = 0;
 	virtual const char* getCommand( std::size_t ) = 0;
@@ -71,3 +68,7 @@ inline bool plugin_menu_special( const char* text ){
 	       || plugin_submenu_in( text )
 	       || plugin_submenu_out( text );
 }
+
+#include "stream/stringstream.h"
+
+StringBuffer plugin_construct_command_name( const char *pluginName, const char *commandName );

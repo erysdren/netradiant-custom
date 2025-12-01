@@ -23,7 +23,6 @@
 
 
 #include "gtkutil/widget.h"
-#include "gtkutil/menu.h"
 #include "gtkmisc.h"
 #include "brushnode.h"
 #include "map.h"
@@ -34,8 +33,6 @@
 #include "dialog.h"
 #include "xywindow.h"
 #include "preferences.h"
-
-#include <list>
 
 void Brush_ConstructCuboid( Brush& brush, const AABB& bounds, const char* shader, const TextureProjection& projection ){
 	const unsigned char box[3][2] = { { 0, 1 }, { 2, 0 }, { 1, 2 } };
@@ -237,9 +234,9 @@ void Brush_ConstructSphere( Brush& brush, const AABB& bounds, std::size_t sides,
 
 	double dt = 2 * c_pi / sides;
 	double dp = c_pi / sides;
-	for ( std::size_t i = 0; i < sides; i++ )
+	for ( std::size_t i = 0; i < sides; ++i )
 	{
-		for ( std::size_t j = 0; j < sides - 1; j++ )
+		for ( std::size_t j = 0; j < sides - 1; ++j )
 		{
 			double t = i * dt;
 			double p = float( j * dp - c_pi / 2 );
@@ -254,7 +251,7 @@ void Brush_ConstructSphere( Brush& brush, const AABB& bounds, std::size_t sides,
 
 	{
 		double p = ( sides - 1 ) * dp - c_pi / 2;
-		for ( std::size_t i = 0; i < sides; i++ )
+		for ( std::size_t i = 0; i < sides; ++i )
 		{
 			double t = i * dt;
 
@@ -288,7 +285,7 @@ void Brush_ConstructRock( Brush& brush, const AABB& bounds, std::size_t sides, c
 	const Vector3& mid = bounds.origin;
 	Vector3 planepts[3];
 
-	for ( std::size_t j = 0; j < sides; j++ )
+	for ( std::size_t j = 0; j < sides; ++j )
 	{
 		planepts[0][0] = rand() - ( RAND_MAX / 2 );
 		planepts[0][1] = rand() - ( RAND_MAX / 2 );
@@ -327,16 +324,16 @@ constexpr double X = .525731112119133606;
 constexpr double Z = .850650808352039932;
 // 12 vertices
 static const DoubleVector3 vdata[12] = {
-	{ -X, 0.0, Z}, {X, 0.0, Z}, { -X, 0.0, -Z}, {X, 0.0, -Z},
-	{0.0, Z, X}, {0.0, Z, -X}, {0.0, -Z, X}, {0.0, -Z, -X},
-	{Z, X, 0.0}, { -Z, X, 0.0}, {Z, -X, 0.0}, { -Z, -X, 0.0}
+	{-X, 0, Z}, { X, 0, Z}, {-X, 0,-Z}, { X, 0,-Z},
+	{ 0, Z, X}, { 0, Z,-X}, { 0,-Z, X}, { 0,-Z,-X},
+	{ Z, X, 0}, {-Z, X, 0}, { Z,-X, 0}, {-Z,-X, 0}
 };
 // 20 faces
 static constexpr unsigned int tindices[20][3] = {
-	{0, 4, 1}, {0, 9, 4}, {9, 5, 4}, {4, 5, 8}, {4, 8, 1},
-	{8, 10, 1}, {8, 3, 10}, {5, 3, 8}, {5, 2, 3}, {2, 7, 3},
-	{7, 10, 3}, {7, 6, 10}, {7, 11, 6}, {11, 0, 6}, {0, 1, 6},
-	{6, 1, 10}, {9, 0, 11}, {9, 11, 2}, {9, 2, 5}, {7, 2, 11}
+	{0,  4,  1}, {0, 9,  4}, {9,  5, 4}, { 4, 5, 8}, {4, 8,  1},
+	{8, 10,  1}, {8, 3, 10}, {5,  3, 8}, { 5, 2, 3}, {2, 7,  3},
+	{7, 10,  3}, {7, 6, 10}, {7, 11, 6}, {11, 0, 6}, {0, 1,  6},
+	{6,  1, 10}, {9, 0, 11}, {9, 11, 2}, { 9, 2, 5}, {7, 2, 11}
 };
 
 void drawtri( const DoubleVector3& a, const DoubleVector3& b, const DoubleVector3& c, std::size_t subdivisions, bool truncate, std::vector<quickhull::Vector3<double>>& pointCloud ) {
@@ -379,7 +376,7 @@ void Brush_ConstructIcosahedron( Brush& brush, const AABB& bounds, std::size_t s
 
 	std::vector<quickhull::Vector3<double>> pointCloud;
 
-	for( int i = 0; i < 20; i++ ){
+	for( int i = 0; i < 20; ++i ){
 		drawtri( vdata[tindices[i][0]], vdata[tindices[i][1]], vdata[tindices[i][2]], subdivisions, truncate, pointCloud );
 	}
 
@@ -389,7 +386,7 @@ void Brush_ConstructIcosahedron( Brush& brush, const AABB& bounds, std::size_t s
 	const size_t triangleCount = indexBuffer.size() / 3;
 	std::vector<Plane3> planes;
 	for( size_t i = 0; i < triangleCount; ++i ) {
-		DoubleVector3 p[3];
+		PlanePoints p;
 		for( size_t j = 0; j < 3; ++j ){
 			p[j] = DoubleVector3( pointCloud[indexBuffer[i * 3 + j]].x,
 			                      pointCloud[indexBuffer[i * 3 + j]].y,
@@ -397,7 +394,7 @@ void Brush_ConstructIcosahedron( Brush& brush, const AABB& bounds, std::size_t s
 		}
 		const Plane3 plane = plane3_for_points( p );
 		if( plane3_valid( plane ) ){
-			if( std::none_of( planes.begin(), planes.end(), [&plane]( const Plane3& pla ){ return plane3_equal( plane, pla ); } ) ){
+			if( std::ranges::none_of( planes, [&plane]( const Plane3& pla ){ return plane3_equal( plane, pla ); } ) ){
 				planes.push_back( plane );
 				brush.addPlane( p[0] * radius + mid, p[1] * radius + mid, p[2] * radius + mid, shader, projection );
 			}
@@ -470,7 +467,7 @@ void ConstructRegionBrushes( scene::Node* brushes[6], const Vector3& region_mins
 	                     ? texdef_name_default()
 	                     : texdef_name_valid( g_regionBoxShader.c_str() )
 	                     ? g_regionBoxShader.c_str()
-	                     : ( globalWarningStream() << "g_regionBoxShader " << makeQuoted( g_regionBoxShader ) << " !texdef_name_valid()\n"
+	                     : ( globalWarningStream() << "g_regionBoxShader " << Quoted( g_regionBoxShader ) << " !texdef_name_valid()\n"
 	                     , texdef_name_default() );
 
 	{
@@ -478,7 +475,7 @@ void ConstructRegionBrushes( scene::Node* brushes[6], const Vector3& region_mins
 		const Vector3 mins( region_mins - Vector3( 32 ) );
 
 		// vary maxs
-		for ( std::size_t i = 0; i < 3; i++ )
+		for ( std::size_t i = 0; i < 3; ++i )
 		{
 			Vector3 maxs( region_maxs + Vector3( 32 ) );
 			maxs[i] = region_mins[i];
@@ -491,7 +488,7 @@ void ConstructRegionBrushes( scene::Node* brushes[6], const Vector3& region_mins
 		const Vector3 maxs( region_maxs + Vector3( 32 ) );
 
 		// vary mins
-		for ( std::size_t i = 0; i < 3; i++ )
+		for ( std::size_t i = 0; i < 3; ++i )
 		{
 			Vector3 mins( region_mins - Vector3( 32 ) );
 			mins[i] = region_maxs[i];
@@ -851,13 +848,7 @@ void Brush_ConstructPlacehoderCuboid( scene::Node& node, const AABB& bounds ){
 }
 
 bool Brush_hasShader( const Brush& brush, const char* name ){
-	for ( Brush::const_iterator i = brush.begin(); i != brush.end(); ++i )
-	{
-		if ( shader_equal( ( *i )->GetShader(), name ) ) {
-			return true;
-		}
-	}
-	return false;
+	return std::ranges::any_of( brush, [name]( const FaceSmartPointer& face ){ return shader_equal( face->GetShader(), name ); } );
 }
 
 class BrushSelectByShaderWalker : public scene::Graph::Walker
@@ -867,7 +858,7 @@ public:
 	BrushSelectByShaderWalker( const char* name )
 		: m_name( name ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			Brush* brush = Node_getBrush( path.top() );
 			if ( brush != 0 && Brush_hasShader( *brush, m_name ) ) {
@@ -995,7 +986,7 @@ class filter_face_shader : public FaceFilter
 public:
 	filter_face_shader( const char* shader ) : m_shader( shader ){
 	}
-	bool filter( const Face& face ) const {
+	bool filter( const Face& face ) const override {
 		return shader_equal( face.GetShader(), m_shader );
 	}
 };
@@ -1006,7 +997,7 @@ class filter_face_shader_prefix : public FaceFilter
 public:
 	filter_face_shader_prefix( const char* prefix ) : m_prefix( prefix ){
 	}
-	bool filter( const Face& face ) const {
+	bool filter( const Face& face ) const override {
 		return shader_equal_n( face.GetShader(), m_prefix, strlen( m_prefix ) );
 	}
 };
@@ -1017,7 +1008,7 @@ class filter_face_flags : public FaceFilter
 public:
 	filter_face_flags( int flags ) : m_flags( flags ){
 	}
-	bool filter( const Face& face ) const {
+	bool filter( const Face& face ) const override {
 		return ( face.getShader().shaderFlags() & m_flags ) != 0;
 	}
 };
@@ -1028,7 +1019,7 @@ class filter_face_contents : public FaceFilter
 public:
 	filter_face_contents( int contents ) : m_contents( contents ){
 	}
-	bool filter( const Face& face ) const {
+	bool filter( const Face& face ) const override {
 		return ( face.getShader().m_flags.m_contentFlags & m_contents ) != 0;
 	}
 };
@@ -1041,7 +1032,7 @@ class filter_brush_any_face : public BrushFilter
 public:
 	filter_brush_any_face( FaceFilter* filter ) : m_filter( filter ){
 	}
-	bool filter( const Brush& brush ) const {
+	bool filter( const Brush& brush ) const override {
 #if 1
 		for( const auto& face : brush )
 			if( m_filter->filter( *face ) )
@@ -1065,7 +1056,7 @@ class filter_brush_all_faces : public BrushFilter
 public:
 	filter_brush_all_faces( FaceFilter* filter ) : m_filter( filter ){
 	}
-	bool filter( const Brush& brush ) const {
+	bool filter( const Brush& brush ) const override {
 #if 1
 		for( const auto& face : brush )
 			if( !m_filter->filter( *face ) )

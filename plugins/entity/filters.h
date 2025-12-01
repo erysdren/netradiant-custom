@@ -45,8 +45,7 @@ public:
 
 	ClassnameFilter( Entity& entity, scene::Node& node ) : m_node( node ), m_entity( entity ){
 	}
-	~ClassnameFilter(){
-	}
+	~ClassnameFilter() = default;
 
 	void instanceAttach(){
 		GlobalFilterSystem().registerFilterable( *this );
@@ -55,7 +54,7 @@ public:
 		GlobalFilterSystem().unregisterFilterable( *this );
 	}
 
-	void updateFiltered(){
+	void updateFiltered() override {
 		if ( entity_filtered( m_entity ) ) {
 			m_node.enable( scene::Node::eFiltered );
 		}

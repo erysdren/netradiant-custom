@@ -173,7 +173,7 @@ class UniqueVertexBuffer
 	RenderIndex find_or_insert( const Vertex& vertex ){
 		RenderIndex index = 0;
 
-		while ( 1 )
+		while ( true )
 		{
 			if ( vertex < m_data[index] ) {
 				bnode& node = m_btree[index];
@@ -323,9 +323,7 @@ inline bool operator!=( const Colour4b& self, const Colour4b& other ){
 /// \brief A 3-float vertex.
 struct Vertex3f : public Vector3
 {
-	Vertex3f(){
-	}
-
+	Vertex3f() = default;
 	Vertex3f( float _x, float _y, float _z )
 		: Vector3( _x, _y, _z ){
 	}
@@ -383,9 +381,7 @@ inline Vector3& vertex3f_to_vector3( Vertex3f& vertex ){
 /// \brief A 3-float normal.
 struct Normal3f : public Vector3
 {
-	Normal3f(){
-	}
-
+	Normal3f() = default;
 	Normal3f( float _x, float _y, float _z )
 		: Vector3( _x, _y, _z ){
 	}
@@ -441,9 +437,7 @@ inline Vector3& normal3f_to_vector3( Normal3f& normal ){
 /// \brief A 2-float texture-coordinate set.
 struct TexCoord2f : public Vector2
 {
-	TexCoord2f(){
-	}
-
+	TexCoord2f() = default;
 	TexCoord2f( float _s, float _t )
 		: Vector2( _s, _t ){
 	}
@@ -682,9 +676,9 @@ inline spherical_t spherical_from_normal3f( const Normal3f& normal ){
 
 inline Normal3f normal3f_from_spherical( const spherical_t& spherical ){
 	return Normal3f(
-	           static_cast<float>( cos( spherical.longditude ) * sin( spherical.latitude ) ),
-	           static_cast<float>( sin( spherical.longditude ) * sin( spherical.latitude ) ),
-	           static_cast<float>( cos( spherical.latitude ) )
+	           cos( spherical.longditude ) * sin( spherical.latitude ),
+	           sin( spherical.longditude ) * sin( spherical.latitude ),
+	           cos( spherical.latitude )
 	       );
 }
 
@@ -747,8 +741,7 @@ struct PointVertex
 	Colour4b colour;
 	Vertex3f vertex;
 
-	PointVertex(){
-	}
+	PointVertex() = default;
 	PointVertex( Vertex3f _vertex )
 		: colour( Colour4b( 255, 255, 255, 255 ) ), vertex( _vertex ){
 	}
@@ -781,8 +774,7 @@ struct DepthTestedPointVertex
 	Vertex3f vertex;
 	GLuint query = 0;
 
-	DepthTestedPointVertex(){
-	}
+	DepthTestedPointVertex() = default;
 	~DepthTestedPointVertex(){
 		if( query != 0 )
 			gl().glDeleteQueries( 1, &query );
@@ -863,7 +855,7 @@ public:
 	RenderablePointArray( const Array<PointVertex_t>& array, GLenum mode )
 		: m_array( array ), m_mode( mode ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 #define NV_DRIVER_BUG 0
 #if NV_DRIVER_BUG
 		gl().glColorPointer( 4, GL_UNSIGNED_BYTE, 0, 0 );
@@ -884,7 +876,7 @@ public:
 		: m_mode( mode ){
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		pointvertex_gl_array( &m_vector.front() );
 		gl().glDrawArrays( m_mode, 0, GLsizei( m_vector.size() ) );
 	}
@@ -916,7 +908,7 @@ public:
 		: m_mode( mode ), m_vertices( vertices ){
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		pointvertex_gl_array( m_vertices.data() );
 		gl().glDrawArrays( m_mode, 0, m_vertices.size() );
 	}
@@ -932,7 +924,7 @@ public:
 		: m_mode( mode ), m_indices( indices ), m_vertices( vertices ){
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 #if 1
 		pointvertex_gl_array( m_vertices.data() );
 		gl().glDrawElements( m_mode, GLsizei( m_indices.size() ), RenderIndexTypeID, m_indices.data() );
@@ -965,7 +957,7 @@ public:
 	RenderableDepthTestedPointArray( Array<DepthTestedPointVertex>& array, GLenum mode )
 		: m_array( array ), m_mode( mode ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		if( state & RENDER_COLOURWRITE ){ // render depending on visibility
 			for( auto& p : m_array ){
 				GLuint sampleCount;
@@ -1053,8 +1045,8 @@ inline void draw_circle( const std::size_t segments, const float radius, PointVe
 
 		{
 			const double theta = increment * count;
-			x = static_cast<float>( radius * cos( theta ) );
-			y = static_cast<float>( radius * sin( theta ) );
+			x = radius * cos( theta );
+			y = radius * sin( theta );
 		}
 
 		remap_policy::set( j->vertex, y,-x, 0 );
@@ -1192,11 +1184,11 @@ inline void ArbitraryMeshTriangle_calcTangents( const ArbitraryMeshVertex& a, co
 		    )
 		);
 
-		if ( fabs( cross.x() ) > 0.000001f ) {
+		if ( std::fabs( cross.x() ) > 0.000001f ) {
 			s.x() = -cross.y() / cross.x();
 		}
 
-		if ( fabs( cross.x() ) > 0.000001f ) {
+		if ( std::fabs( cross.x() ) > 0.000001f ) {
 			t.x() = -cross.z() / cross.x();
 		}
 	}
@@ -1215,11 +1207,11 @@ inline void ArbitraryMeshTriangle_calcTangents( const ArbitraryMeshVertex& a, co
 		    )
 		);
 
-		if ( fabs( cross.x() ) > 0.000001f ) {
+		if ( std::fabs( cross.x() ) > 0.000001f ) {
 			s.y() = -cross.y() / cross.x();
 		}
 
-		if ( fabs( cross.x() ) > 0.000001f ) {
+		if ( std::fabs( cross.x() ) > 0.000001f ) {
 			t.y() = -cross.z() / cross.x();
 		}
 	}
@@ -1238,11 +1230,11 @@ inline void ArbitraryMeshTriangle_calcTangents( const ArbitraryMeshVertex& a, co
 		    )
 		);
 
-		if ( fabs( cross.x() ) > 0.000001f ) {
+		if ( std::fabs( cross.x() ) > 0.000001f ) {
 			s.z() = -cross.y() / cross.x();
 		}
 
-		if ( fabs( cross.x() ) > 0.000001f ) {
+		if ( std::fabs( cross.x() ) > 0.000001f ) {
 			t.z() = -cross.z() / cross.x();
 		}
 	}
@@ -1287,7 +1279,7 @@ public:
 			tex = 0;
 		}
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		if( tex > 0 ){
 			gl().glBindTexture( GL_TEXTURE_2D, tex );
 			//Here we draw the texturemaped quads.

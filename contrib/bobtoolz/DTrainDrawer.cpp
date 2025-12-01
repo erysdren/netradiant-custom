@@ -20,6 +20,7 @@
 #include "DTrainDrawer.h"
 
 #include <list>
+#include <ranges>
 
 #include "DPoint.h"
 #include "DPlane.h"
@@ -45,7 +46,7 @@ DTrainDrawer::DTrainDrawer() {
 	GlobalShaderCache().attachRenderable( *this );
 }
 
-DTrainDrawer::~DTrainDrawer( void ) {
+DTrainDrawer::~DTrainDrawer() {
 	GlobalShaderCache().detachRenderable( *this );
 	destroyShaders();
 
@@ -54,18 +55,18 @@ DTrainDrawer::~DTrainDrawer( void ) {
 }
 
 void DTrainDrawer::ClearSplines() {
-	for ( std::list<splinePoint_t *>::const_iterator deadSpline = m_splineList.begin(); deadSpline != m_splineList.end(); deadSpline++ ) {
-		( *deadSpline )->m_pointList.clear();
-		( *deadSpline )->m_vertexList.clear();
-		delete ( *deadSpline );
+	for ( auto *deadSpline : m_splineList ) {
+		deadSpline->m_pointList.clear();
+		deadSpline->m_vertexList.clear();
+		delete deadSpline;
 	}
 
 	m_splineList.clear();
 }
 
 void DTrainDrawer::ClearPoints() {
-	for ( std::list<controlPoint_t *>::const_iterator deadPoint = m_pointList.begin(); deadPoint != m_pointList.end(); deadPoint++ ) {
-		delete *deadPoint;
+	for ( auto *deadPoint : m_pointList ) {
+		delete deadPoint;
 	}
 
 	m_pointList.clear();
@@ -86,7 +87,7 @@ void CalculateSpline_r( vec3_t* v, int count, vec3_t out, float tension ) {
 
 	vec3_t* v2 = new vec3_t[count - 1];
 
-	for ( int i = 0; i < count - 1; i++ ) {
+	for ( int i = 0; i < count - 1; ++i ) {
 		VectorSubtract( v[i + 1], v[i], dist );
 		VectorMA( v[i], tension, dist, v2[i] );
 	}
@@ -97,15 +98,12 @@ void CalculateSpline_r( vec3_t* v, int count, vec3_t out, float tension ) {
 }
 
 void DTrainDrawer::render( RenderStateFlags state ) const {
-	for ( std::list<splinePoint_t* >::const_iterator sp = m_splineList.begin(); sp != m_splineList.end(); sp++ ) {
-		splinePoint_t* pSP = ( *sp );
-
+	for ( const auto *sp : m_splineList ) {
 		gl().glBegin( GL_LINE_STRIP );
-		for ( std::list<DPoint >::const_iterator v = pSP->m_vertexList.begin(); v != pSP->m_vertexList.end(); v++ ) {
-			gl().glVertex3fv( ( *v )._pnt );
+		for ( const auto& v : sp->m_vertexList ) {
+			gl().glVertex3fv( v._pnt );
 		}
 		gl().glEnd();
-
 	}
 }
 
@@ -182,7 +180,7 @@ public:
 		const char* targetname;
 		vec3_t vOrigin;
 
-		e.SpawnString( "targetname", NULL, &targetname );
+		e.SpawnString( "targetname", nullptr, &targetname );
 		e.SpawnVector( "origin", "0 0 0", vOrigin );
 
 		if ( !strcmp( classname, "info_train_spline_main" ) ) {
@@ -191,7 +189,7 @@ public:
 				return;
 			}
 
-			e.SpawnString( "target", NULL, &target );
+			e.SpawnString( "target", nullptr, &target );
 
 			if ( !target ) {
 				drawer.AddControlPoint( targetname, vOrigin );
@@ -199,16 +197,16 @@ public:
 			else {
 				splinePoint_t* pSP = drawer.AddSplinePoint( targetname, target, vOrigin );
 
-				e.SpawnString( "control", NULL, &control );
+				e.SpawnString( "control", nullptr, &control );
 
 				if ( control ) {
 					AddSplineControl( control, pSP );
 
-					for ( int j = 2;; j++ ) {
+					for ( int j = 2;; ++j ) {
 						char buffer[32];
 						sprintf( buffer, "control%i", j );
 
-						e.SpawnString( buffer, NULL, &control );
+						e.SpawnString( buffer, nullptr, &control );
 						if ( !control ) {
 							break;
 						}
@@ -233,69 +231,66 @@ void DTrainDrawer::BuildPaths() {
 	Scene_forEachEntity( EntityBuildPaths( *this ) );
 
 	std::list<splinePoint_t* >::const_iterator sp;
-	for ( sp = m_splineList.begin(); sp != m_splineList.end(); sp++ ) {
-		splinePoint_t* pSP = ( *sp );
-
-		controlPoint_t* pTarget = FindControlPoint( pSP->strTarget );
+	for ( auto *sp : m_splineList ) {
+		controlPoint_t* pTarget = FindControlPoint( sp->strTarget );
 
 		if ( !pTarget ) {
-			globalWarningStream() << "couldn't find target " << pSP->strTarget;
+			globalWarningStream() << "couldn't find target " << sp->strTarget;
 			return;
 //			continue;
 		}
 
-		pSP->pTarget = pTarget;
+		sp->pTarget = pTarget;
 
 
-		for ( std::list<controlPoint_t >::iterator cp = pSP->m_pointList.begin(); cp != pSP->m_pointList.end(); cp++ ) {
-			controlPoint_t* pControl = FindControlPoint( ( *cp ).strName );
+		for ( auto& cp : sp->m_pointList ) {
+			controlPoint_t* pControl = FindControlPoint( cp.strName );
 			if ( !pControl ) {
-				globalWarningStream() << "couldn't find control " << ( *cp ).strName;
+				globalWarningStream() << "couldn't find control " << cp.strName;
 				return;
 			}
 
-			VectorCopy( pControl->vOrigin, ( *cp ).vOrigin );
+			VectorCopy( pControl->vOrigin, cp.vOrigin );
 		}
 	}
 
 	m_bDisplay = true;
 
-	for ( sp = m_splineList.begin(); sp != m_splineList.end(); sp++ ) {
-		splinePoint_t* pSP = ( *sp );
+	for ( auto *sp : m_splineList ) {
 		DPoint out;
 
-		if ( !pSP->pTarget ) {
+		if ( !sp->pTarget ) {
 			continue;
 		}
 
-		std::size_t count = pSP->m_pointList.size() + 2;
-		vec3_t* v = new vec3_t[count];
+		std::size_t count = sp->m_pointList.size() + 2;
+		auto *v = new vec3_t[count];
 
-		VectorCopy( pSP->point.vOrigin, v[0] );
+		VectorCopy( sp->point.vOrigin, v[0] );
 
 		int i = 1;
-		for ( std::list<controlPoint_t>::reverse_iterator cp = pSP->m_pointList.rbegin(); cp != pSP->m_pointList.rend(); cp++ ) {
-			VectorCopy( ( *cp ).vOrigin, v[i] );
+		for ( const auto& cp : std::ranges::reverse_view( sp->m_pointList ) ) {
+			VectorCopy( cp.vOrigin, v[i] );
 			i++;
 		}
-		VectorCopy( pSP->pTarget->vOrigin, v[i] );
+		VectorCopy( sp->pTarget->vOrigin, v[i] );
 
-		for ( float tension = 0.0f; tension <= 1.f; tension += 0.01f ) {
+		for ( float tension = 0; tension <= 1; tension += 0.01f ) {
 			CalculateSpline_r( v, static_cast<int>( count ), out._pnt, tension );
-			pSP->m_vertexList.push_front( out );
+			sp->m_vertexList.push_front( out );
 		}
 
 		delete[] v;
 
-		VectorCopy( pSP->pTarget->vOrigin, out._pnt );
-		pSP->m_vertexList.push_front( out );
+		VectorCopy( sp->pTarget->vOrigin, out._pnt );
+		sp->m_vertexList.push_front( out );
 	}
 
 	SceneChangeNotify();
 }
 
 void DTrainDrawer::AddControlPoint( const char* name, vec_t* origin ){
-	controlPoint_t* pCP = new controlPoint_t;
+	auto *pCP = new controlPoint_t;
 
 	strncpy( pCP->strName, name, std::size( pCP->strName ) - 1 );
 	pCP->strName[ std::size( pCP->strName ) - 1 ] = '\0';
@@ -305,7 +300,7 @@ void DTrainDrawer::AddControlPoint( const char* name, vec_t* origin ){
 }
 
 splinePoint_t* DTrainDrawer::AddSplinePoint( const char* name, const char* target, vec_t* origin ){
-	splinePoint_t* pSP = new splinePoint_t;
+	auto *pSP = new splinePoint_t;
 
 	strncpy( pSP->point.strName, name, std::size( pSP->point.strName ) - 1 );
 	pSP->point.strName[ std::size( pSP->point.strName ) - 1 ] = '\0';
@@ -318,17 +313,17 @@ splinePoint_t* DTrainDrawer::AddSplinePoint( const char* name, const char* targe
 }
 
 controlPoint_t* DTrainDrawer::FindControlPoint( const char* name ){
-	for ( std::list<controlPoint_t*>::const_iterator cp = m_pointList.begin(); cp != m_pointList.end(); cp++ ) {
-		if ( !strcmp( name, ( *cp )->strName ) ) {
-			return ( *cp );
+	for ( auto *cp : m_pointList ) {
+		if ( string_equal( name, cp->strName ) ) {
+			return cp;
 		}
 	}
 
-	for ( std::list<splinePoint_t*>::const_iterator sp = m_splineList.begin(); sp != m_splineList.end(); sp++ ) {
-		if ( !strcmp( name, ( *sp )->point.strName ) ) {
-			return &( ( *sp )->point );
+	for ( auto *sp : m_splineList ) {
+		if ( string_equal( name, sp->point.strName ) ) {
+			return &sp->point;
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }

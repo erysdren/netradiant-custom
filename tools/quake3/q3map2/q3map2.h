@@ -69,6 +69,7 @@
 #include <forward_list>
 #include <algorithm>
 #include "qmath.h"
+#include "unsortedset.h"
 
 #include <cstddef>
 #include <cstdlib>
@@ -120,7 +121,7 @@
 
 
 /* bsp */
-#define MAX_PATCH_SIZE          32
+#define MAX_PATCH_SIZE          31
 #define MAX_BRUSH_SIDES         1024
 #define MAX_BUILD_SIDES         1024
 
@@ -129,6 +130,8 @@
 #define CLIP_EPSILON            0.1f
 #define PLANESIDE_EPSILON       0.001f
 #define PLANENUM_LEAF           -1
+constexpr int AREA_INVALID    = -1;
+constexpr int CLUSTER_OPAQUE  = -1;
 
 enum class EBrushType
 {
@@ -164,12 +167,15 @@ enum class EBrushType
 #define DEFAULT_LIGHTMAP_SAMPLE_OFFSET  1.0f
 #define DEFAULT_SUBDIVIDE_THRESHOLD     1.0f
 
+#define CLUSTER_NORMAL           0
 #define CLUSTER_UNMAPPED        -1
 #define CLUSTER_OCCLUDED        -2
 #define CLUSTER_FLOODED         -3
 
-#define FLAG_FORCE_SUBSAMPLING 1
+#define FLAG_FORCE_SUBSAMPLING  1
 #define FLAG_ALREADY_SUBSAMPLED 2
+
+#define MAX_SKIES               32 // how many light emitting skies can shine separately and only where they should
 
 
 /* -------------------------------------------------------------------------------
@@ -303,8 +309,20 @@ struct bspDrawVert_t
 	Color4b color[ MAX_LIGHTMAPS ];             /* RBSP */
 };
 
+inline const bspDrawVert_t c_bspDrawVert_t0 =
+{
+	.xyz{ 0 },
+	.st{ 0, 0 },
+	.lightmap{ { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
+	.normal{ 0 },
+	.color{ { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }
+};
+
 using TriRef = std::array<const bspDrawVert_t *, 3>;
 using QuadRef = std::array<const bspDrawVert_t *, 4>;
+
+using DrawVerts = std::vector<bspDrawVert_t>;
+using DrawIndexes = std::vector<int>;
 
 
 enum bspSurfaceType_t
@@ -380,7 +398,8 @@ struct image_t
 	int width, height;
 	byte *pixels = nullptr;
 
-	image_t() = default;
+	image_t(){
+	}
 	image_t( const char *name, const char *filename, int width, int height, byte *pixels ) :
 		name( name ),
 		filename( filename ),
@@ -410,6 +429,7 @@ struct sun_t
 	Vector3 direction, color;
 	float photons, deviance, filterRadius;
 	int numSamples, style;
+	int skyIndex = -1;
 };
 
 struct skylight_t
@@ -419,6 +439,7 @@ struct skylight_t
 	int horizon_min = 0;
 	int horizon_max = 90;
 	bool sample_color = true;
+	int skyIndex = -1;
 };
 
 
@@ -474,7 +495,6 @@ enum class EColorMod
 
 struct colorMod_t
 {
-	colorMod_t   *next;
 	EColorMod type;
 	float data[ 16 ];
 };
@@ -489,7 +509,7 @@ enum class EImplicitMap
 };
 
 
-struct shaderInfo_t
+struct shaderInfo_t_data
 {
 	String64 shader;
 	int surfaceFlags;
@@ -504,12 +524,12 @@ struct shaderInfo_t
 	char                *remapShader;                   /* ydnar: remap a shader in final stage */
 	char                *deprecateShader;               /* vortex: shader is deprecated and replaced by this on use */
 
-	std::list<surfaceModel_t> surfaceModels;            /* ydnar: for distribution of models */
-	std::list<foliage_t>      foliage;                  /* ydnar/splash damage: wolf et foliage */
+	std::forward_list<surfaceModel_t> surfaceModels;    /* ydnar: for distribution of models */
+	std::forward_list<foliage_t>      foliage;          /* ydnar/splash damage: wolf et foliage */
 
 	float subdivisions;                                 /* from a "tesssize xxx" */
 	float backsplashFraction;                           /* floating point value, usually 0.05 */
-	float backsplashDistance;                           /* default 16 */
+	float backsplashDistance;                           /* default 23 */
 	float lightSubdivide;                               /* default 999 */
 	float lightFilterRadius;                            /* ydnar: lightmap filtering/blurring radius for lights created by this shader (default: 0) */
 
@@ -533,7 +553,7 @@ struct shaderInfo_t
 	Vector3 vecs[ 2 ];                                  /* ydnar: explicit texture vectors for [0,1] texture space */
 	tcMod_t mod;                                        /* ydnar: q3map_tcMod matrix for djbob :) */
 	Vector3 lightmapAxis{ 0 };                          /* ydnar: explicit lightmap axis projection */
-	colorMod_t          *colorMod;                      /* ydnar: q3map_rgb/color/alpha/Set/Mod support */
+	std::forward_list<colorMod_t> colorMod;             /* ydnar: q3map_rgb/color/alpha/Set/Mod support */
 
 	int furNumLayers;                                   /* ydnar: number of fur layers */
 	float furOffset;                                    /* ydnar: offset of each layer */
@@ -575,6 +595,7 @@ struct shaderInfo_t
 
 	std::vector<skylight_t>  skylights;                 /* ydnar */
 	std::vector<sun_t>  suns;                           /* ydnar */
+	int	skyIndex = -1;                                  /* shaders that are used and emit sun/skylight get unique emitter index */
 
 	Vector3 color{ 0 };                                 /* normalized color */
 	Color4f averageColor = { 0, 0, 0, 0 };
@@ -599,6 +620,16 @@ struct shaderInfo_t
 	char                *shaderText;                    /* ydnar */
 	bool custom;
 	bool finished;
+};
+
+struct shaderInfo_t : public shaderInfo_t_data
+{
+	const String64 shader;
+	shaderInfo_t( const char *shaderName ) : shaderInfo_t_data{}, shader( shaderName ){ // zero-initialze shaderInfo_t_data
+	}
+	void copyData( const shaderInfo_t& other ) noexcept {
+		static_cast<shaderInfo_t_data&>( *this ) = static_cast<const shaderInfo_t_data&>( other );
+	}
 };
 
 
@@ -669,7 +700,9 @@ struct side_t
 struct sideRef_t
 {
 	sideRef_t           *next;
-	const side_t        *side;
+	const side_t        &side;
+	sideRef_t( sideRef_t *next, const side_t &side ) : next( next ), side( side ){
+	}
 };
 
 
@@ -701,6 +734,7 @@ struct brush_t
 	int lightmapSampleSize;                 /* jal : entity based _lightmapsamplesize */
 	float lightmapScale;
 	float shadeAngleDegrees;                /* jal : entity based _shadeangle */
+	Vector3 ambientColor{ 0 };
 	MinMax eMinmax;
 	indexMap_t          *im;
 
@@ -708,8 +742,6 @@ struct brush_t
 	int compileFlags;                       /* ydnar */
 	bool detail;
 	bool opaque;
-
-	int portalareas[ 2 ];
 
 	MinMax minmax;
 
@@ -730,13 +762,20 @@ struct mesh_t
 {
 	int width, height;
 	bspDrawVert_t       *verts;
+
+	mesh_t() = default;
+	mesh_t( int width, int height, bspDrawVert_t *verts ) : width( width ), height( height ), verts( verts ){}
+	size_t numVerts() const {
+		return width * height;
+	}
+	void freeVerts(){
+		free( verts );
+	}
 };
 
 
 struct parseMesh_t
 {
-	parseMesh_t  *next;
-
 	int entityNum, brushNum;                    /* ydnar: editor numbering */
 
 	/* ydnar: for shadowcasting entities */
@@ -750,12 +789,25 @@ struct parseMesh_t
 	/* ydnar: gs mods */
 	int lightmapSampleSize;                     /* jal : entity based _lightmapsamplesize */
 	float lightmapScale;
+	Vector3 ambientColor{ 0 };
 	MinMax eMinmax;
 	indexMap_t          *im;
 
 	/* grouping */
 	float longestCurve;
 	int maxIterations;
+};
+
+
+struct EntityCompileParams
+{
+	int castShadows;
+	int recvShadows;
+	shaderInfo_t        *celShader;
+	int lightmapSampleSize;
+	float lightmapScale;
+	float shadeAngle;
+	Vector3 ambientColor;
 };
 
 
@@ -809,7 +861,7 @@ struct mapDrawSurface_t
 {
 	ESurfaceType type;
 	bool planar;
-	int outputNum;                          /* ydnar: to match this sort of thing up */
+	int outputNum = -1;                     /* ydnar: to match this sort of thing up */
 
 	bool fur;                               /* ydnar: this is kind of a hack, but hey... */
 	bool skybox;                            /* ydnar: yet another fun hack */
@@ -822,19 +874,21 @@ struct mapDrawSurface_t
 	shaderInfo_t        *shaderInfo;
 	shaderInfo_t        *celShader;
 	const brush_t       *mapBrush;
-	parseMesh_t         *mapMesh;
 	sideRef_t           *sideRef;
 
 	int fogNum;
 
-	int numVerts;                           /* vertexes and triangles */
-	bspDrawVert_t       *verts;
-	int numIndexes;
-	int                 *indexes;
+	/* vertexes and triangles */
+	DrawVerts verts;
+	DrawIndexes indexes;
 
-	int planeNum;
-	Vector3 lightmapOrigin;                 /* also used for flares */
-	Vector3 lightmapVecs[ 3 ];              /* also used for flares */
+	int numVerts() const {
+		return verts.size();
+	};
+
+	int planeNum = -1;
+	Vector3 lightmapOrigin{ 0 };            /* also used for flares */
+	Vector3 lightmapVecs[ 3 ]{ Vector3( 0 ), Vector3( 0 ), Vector3( 0 ) };              /* also used for flares */
 	int lightStyle;                         /* used for flares */
 
 	/* ydnar: per-surface (per-entity, actually) lightmap sample size scaling */
@@ -843,9 +897,12 @@ struct mapDrawSurface_t
 	/* jal: per-surface (per-entity, actually) shadeangle */
 	float shadeAngleDegrees;
 
+	/* per-surface (per-entity, actually) ambientColor */
+	Vector3 ambientColor{ 0 };
+
 	/* ydnar: surface classification */
 	MinMax minmax;
-	Vector3 lightmapAxis;
+	Vector3 lightmapAxis{ 0 };
 	int sampleSize;
 
 	/* ydnar: shadow group support */
@@ -863,6 +920,12 @@ struct mapDrawSurface_t
 	/* ydnar: editor/useful numbering */
 	int entityNum;
 	int surfaceNum;
+
+	void addSideRef( const side_t *side ){
+		if ( side != nullptr ) {
+			sideRef = new sideRef_t( sideRef, *side );
+		}
+	}
 };
 
 
@@ -884,7 +947,7 @@ struct entity_t
 	Vector3 origin{ 0 };
 	brushlist_t brushes;
 	std::vector<brush_t*>  colorModBrushes;
-	parseMesh_t         *patches;
+	std::forward_list<parseMesh_t> patches;
 	int mapEntityNum;                               /* .map file entities numbering */
 	int firstDrawSurf;
 	int firstBrush, numBrushes;                     /* only valid during BSP compile */
@@ -892,6 +955,9 @@ struct entity_t
 	Vector3 originbrush_origin{ 0 };
 
 	void setKeyValue( const char *key, const char *value );
+	void setKeyValue( const char *key, int value, const char *format = "%i" );
+	void setKeyValue( const char *key, float value );
+	void setKeyValue( const char *key, const Vector3& value );
 	const char *valueForKey( const char *key ) const;
 
 	template<typename ... Keys>
@@ -959,7 +1025,6 @@ struct node_t
 
 	/* leafs only */
 	bool opaque;                        /* view can never be inside */
-	bool areaportal;
 	bool skybox;                        /* ydnar: a skybox leaf */
 	bool sky;                           /* ydnar: a sky leaf */
 	int cluster;                        /* for portalfile writing */
@@ -986,6 +1051,16 @@ struct portal_t
 
 	bool sidefound;                     /* false if ->side hasn't been checked */
 	int compileFlags;                   /* from original face that caused the split */
+
+	ESide thisSide( const node_t *node ) const {
+		return nodes[ eBack ] == node;
+	}
+	portal_t* nextPortal( const node_t *node ) const {
+		return next[ thisSide( node ) ];
+	}
+	node_t* otherNode( const node_t *node ) const {
+		return nodes[ !thisSide( node ) ];
+	}
 };
 
 
@@ -1062,6 +1137,8 @@ struct light_t
 
 	float falloffTolerance;             /* ydnar: minimum attenuation threshold */
 	float filterRadius;                 /* ydnar: lightmap filter radius in world units, 0 == default */
+
+	int skyIndex = -1;                  /* For sun/skylights. Check if particular sky triangle emits a given light. -1 = always emits */
 };
 
 
@@ -1085,8 +1162,11 @@ struct trace_t
 	float inhibitRadius;                /* sphere in which occluding geometry is ignored */
 
 	/* per-light input */
-	const light_t             *light;
+	const light_t             *light = nullptr;
 	Vector3 end;
+
+	/* multisky support */
+	byte skyIndices[ ( MAX_SKIES + 7 ) / 8 ];
 
 	/* calculated input */
 	Vector3 displacement, direction;
@@ -1106,32 +1186,6 @@ struct trace_t
 	/* working data */
 	int numTestNodes;
 	int testNodes[ MAX_TRACE_TEST_NODES ];
-};
-
-
-/* must be identical to bspDrawVert_t except for float color! */
-struct radVert_t
-{
-	Vector3 xyz;
-	Vector2 st;
-	Vector2 lightmap[ MAX_LIGHTMAPS ];
-	Vector3 normal;
-	Color4f color[ MAX_LIGHTMAPS ];
-};
-
-
-struct radWinding_t
-{
-	int numVerts;
-	radVert_t verts[ MAX_POINTS_ON_WINDING ];
-};
-
-
-/* crutch for poor local allocations in win32 smp */
-struct clipWork_t
-{
-	float dists[ MAX_POINTS_ON_WINDING + 4 ];
-	EPlaneSide sides[ MAX_POINTS_ON_WINDING + 4 ];
 };
 
 
@@ -1170,6 +1224,8 @@ struct rawLightmap_t
 	int numLightClusters, *lightClusters;
 
 	int sampleSize, actualSampleSize, axisNum;
+
+	Vector3 ambientColor;
 
 	/* vortex: per-surface floodlight */
 	float floodlightDirectionScale;
@@ -1291,6 +1347,7 @@ struct surfaceInfo_t
 	rawLightmap_t       *lm;
 	int parentSurfaceNum, childSurfaceNum;
 	int entityNum, castShadows, recvShadows, sampleSize, patchIterations;
+	Vector3 ambientColor;
 	float longestCurve;
 	Plane3f               *plane;
 	Vector3 axis;
@@ -1412,6 +1469,7 @@ int                         ConvertBSPMain( Args& args );
 /* convert_map.c */
 int                         ConvertBSPToMap( char *bspName );
 int                         ConvertBSPToMap_BP( char *bspName );
+int                         ConvertBSPToMap_220( char *bspName );
 
 
 /* convert_ase.c */
@@ -1425,7 +1483,6 @@ int                         ConvertJsonMain( Args& args );
 
 
 /* brush.c */
-sideRef_t                   *AllocSideRef( const side_t *side, sideRef_t *next );
 Vector3                     SnapWeldVector( const Vector3& a, const Vector3& b );
 bool                        CreateBrushWindings( brush_t& brush );
 void                        WriteBSPBrushMap( const char *name, const brushlist_t& list );
@@ -1439,27 +1496,85 @@ bool                        WindingIsTiny( const winding_t& w );
 /* mesh.c */
 bspDrawVert_t               LerpDrawVert( const bspDrawVert_t& a, const bspDrawVert_t& b );
 void                        LerpDrawVertAmount( bspDrawVert_t *a, bspDrawVert_t *b, float amount, bspDrawVert_t *out );
-void                        FreeMesh( mesh_t *m );
-mesh_t                      *CopyMesh( mesh_t *mesh );
-void                        PrintMesh( mesh_t *m );
-mesh_t                      *TransposeMesh( mesh_t *in );
-void                        InvertMesh( mesh_t *m );
-mesh_t                      *SubdivideMesh( mesh_t in, float maxError, float minLength );
+mesh_t                      CopyMesh( const mesh_t m );
+void                        PrintMesh( const mesh_t m );
+void                        TransposeMesh( mesh_t& m );
+void                        InvertMesh( mesh_t& m );
+mesh_t                      SubdivideMesh( const mesh_t in, float maxError, float minLength );
 int                         IterationsForCurve( float len, int subdivisions );
-mesh_t                      *SubdivideMesh2( mesh_t in, int iterations );
-mesh_t                      *RemoveLinearMeshColumnsRows( mesh_t *in );
-void                        MakeMeshNormals( mesh_t in );
-void                        PutMeshOnCurve( mesh_t in );
+mesh_t                      SubdivideMesh2( const mesh_t in, int iterations );
+mesh_t                      RemoveLinearMeshColumnsRows( const mesh_t in );
+mesh_t                      TessellatedMesh( const mesh_t in, int iterations );
+void                        MakeMeshNormals( mesh_t& in );
+void                        PutMeshOnCurve( mesh_t& in );
+
+class MeshQuadIterator
+{
+	const mesh_t m;
+	int y, x;
+	std::array<int, 4> _idx;
+	void update_idx(){
+		/* set indexes */
+		const int pw[ 5 ] = {
+			x + ( y * m.width ),
+			x + ( ( y + 1 ) * m.width ),
+			x + 1 + ( ( y + 1 ) * m.width ),
+			x + 1 + ( y * m.width ),
+			x + ( y * m.width )    /* same as pw[ 0 ] */
+		};
+		/* set radix */
+		const int r = ( x + y ) & 1;
+
+		_idx = { pw[ r + 0 ],
+		         pw[ r + 1 ],
+		         pw[ r + 2 ],
+		         pw[ r + 3 ] };
+	}
+public:
+	MeshQuadIterator( const mesh_t m ) : m( m ), y( 0 ), x( 0 ) {
+		update_idx();
+	}
+	void operator++(){
+		/* iterate through the mesh quads */
+		// for ( int y = 0; y < ( m.height - 1 ); ++y )
+			// for ( int x = 0; x < ( m.width - 1 ); ++x )
+		if( ++x >= ( m.width - 1 ) ){
+			x = 0;
+			++y;
+		}
+		update_idx();
+	}
+	operator bool() const {
+		return y < ( m.height - 1 );
+	}
+	const std::array<int, 4>& idx() const {
+		return _idx;
+	}
+	QuadRef quad() const {
+		return { m.verts + _idx[0],
+		         m.verts + _idx[1],
+		         m.verts + _idx[2],
+		         m.verts + _idx[3] };
+	}
+	std::array<TriRef, 2> tris() const {
+		return { TriRef{ m.verts + _idx[0],
+		                 m.verts + _idx[1],
+		                 m.verts + _idx[2] },
+		         TriRef{ m.verts + _idx[0],
+		                 m.verts + _idx[2],
+		                 m.verts + _idx[3] } };
+	}
+};
 
 
 /* map.c */
 void                        LoadMapFile( const char *filename, bool onlyLights, bool noCollapseGroups );
-int                         FindFloatPlane( const Plane3f& plane, int numPoints, const Vector3 *points );
-inline int                  FindFloatPlane( const Vector3& normal, float dist, int numPoints, const Vector3 *points ){
-	return FindFloatPlane( Plane3f( normal, dist ), numPoints, points );
-}
+template<class T> bool      SnapPlaneImproved( Plane3f& plane, const Span<const BasicVector3<T>>& points );
+int                         FindFloatPlane( const Plane3f& plane, const Span<const Vector3>& points = {} );
+int                         FindFloatPlane( const Plane3f& plane, const Span<const DoubleVector3>& points );
 bool                        PlaneEqual( const plane_t& p, const Plane3f& plane );
 void                        AddBrushBevels();
+EntityCompileParams         ParseEntityCompileParams( const entity_t& e, const entity_t *eparent, bool worldShadowGroup );
 
 
 /* portals.c */
@@ -1475,7 +1590,7 @@ enum class EFloodEntities
 EFloodEntities              FloodEntities( tree_t& tree );
 void                        FillOutside( node_t *headnode );
 void                        FloodAreas( tree_t& tree );
-inline portal_t             *AllocPortal(){ return new portal_t(); }
+inline portal_t             *AllocPortal(){ return new portal_t(); } // zero initializes
 inline void                 FreePortal( portal_t *p ){ delete p; }
 
 void                        MakeTreePortals( tree_t& tree );
@@ -1499,7 +1614,7 @@ int                         EmitShader( const char *shader, const int *contentFl
 
 void                        BeginBSPFile();
 void                        EndBSPFile( bool do_write );
-void                        EmitBrushes( brushlist_t& brushes, int *firstBrush, int *numBrushes );
+void                        EmitBrushes( entity_t& e );
 void                        EmitFogs();
 
 void                        BeginModel( const entity_t& e );
@@ -1508,7 +1623,7 @@ void                        EndModel( const entity_t& e, node_t *headnode );
 
 /* tree.c */
 void                        FreeTree( tree_t& tree );
-inline node_t               *AllocNode(){ return new node_t(); }
+inline node_t               *AllocNode(){ return new node_t(); } // zero initializes
 
 
 /* patch.c */
@@ -1521,7 +1636,7 @@ void                        FixTJunctions( const entity_t& e );
 
 
 /* fog.c */
-winding_t                   WindingFromDrawSurf( const mapDrawSurface_t *ds );
+winding_t                   WindingFromDrawSurf( const mapDrawSurface_t& ds );
 void                        FogDrawSurfaces( const entity_t& e );
 int                         FogForPoint( const Vector3& point, float epsilon );
 int                         FogForBounds( const MinMax& minmax, float epsilon );
@@ -1536,22 +1651,23 @@ tree_t                      FaceBSP( facelist_t& list );
 
 /* model.c */
 void                        assimp_init();
-void                        InsertModel( const char *name, const char *skin, int frame, const Matrix4& transform, const std::list<remap_t> *remaps, shaderInfo_t *celShader, entity_t& entity, int castShadows, int recvShadows, int spawnFlags, float lightmapScale, int lightmapSampleSize, float shadeAngle, float clipDepth );
+void                        InsertModel( const char *name, const char *skin, int frame, const Matrix4& transform, const std::list<remap_t> *remaps,
+                                         entity_t& entity, int spawnFlags, float clipDepth, const EntityCompileParams& params );
 void                        AddTriangleModels( entity_t& eparent );
 
 
 /* surface.c */
-mapDrawSurface_t            *AllocDrawSurface( ESurfaceType type );
-void                        StripFaceSurface( mapDrawSurface_t *ds );
-void                        MaxAreaFaceSurface( mapDrawSurface_t *ds );
+mapDrawSurface_t&           AllocDrawSurface( ESurfaceType type );
+void                        StripFaceSurface( mapDrawSurface_t& ds );
+void                        MaxAreaFaceSurface( mapDrawSurface_t& ds );
 Vector3                     CalcLightmapAxis( const Vector3& normal );
-void                        ClassifySurfaces( int numSurfs, mapDrawSurface_t *ds );
+void                        ClassifySurface( mapDrawSurface_t& ds );
 void                        ClassifyEntitySurfaces( const entity_t& e );
 void                        TidyEntitySurfaces( const entity_t& e );
-mapDrawSurface_t            *CloneSurface( mapDrawSurface_t *src, shaderInfo_t *si );
-void                        ClearSurface( mapDrawSurface_t *ds );
+mapDrawSurface_t            *CloneSurface( const mapDrawSurface_t& src, shaderInfo_t *si );
+void                        ClearSurface( mapDrawSurface_t& ds );
 mapDrawSurface_t            *DrawSurfaceForSide( const entity_t& e, const brush_t& b, const side_t& s, const winding_t& w );
-mapDrawSurface_t            *DrawSurfaceForMesh( const entity_t& e, parseMesh_t *p, mesh_t *mesh );
+mapDrawSurface_t            *DrawSurfaceForMesh( const entity_t& e, parseMesh_t& p, mesh_t *mesh );
 mapDrawSurface_t            *DrawSurfaceForFlare( int entNum, const Vector3& origin, const Vector3& normal, const Vector3& color, const char *flareShader, int lightStyle );
 void                        ClipSidesIntoTree( entity_t& e, const tree_t& tree );
 void                        MakeDebugPortalSurfs( const tree_t& tree );
@@ -1562,11 +1678,11 @@ void                        FilterDrawsurfsIntoTree( entity_t& e, tree_t& tree )
 
 
 /* surface_fur.c */
-void                        Fur( mapDrawSurface_t *src );
+void                        Fur( mapDrawSurface_t& src );
 
 
 /* surface_foliage.c */
-void                        Foliage( mapDrawSurface_t *src, entity_t& entity );
+void                        Foliage( mapDrawSurface_t& src, entity_t& entity );
 
 
 /* ydnar: surface_meta.c */
@@ -1580,6 +1696,7 @@ void                        EmitMetaStats(); // vortex: print meta statistics ev
 
 /* surface_extra.c */
 void                        SetDefaultSampleSize( int sampleSize );
+void                        SetDefaultAmbientColor( const Vector3& color );
 void                        SetSurfaceExtra( const mapDrawSurface_t& ds );
 void                        WriteSurfaceExtraFile( const char *path );
 void                        LoadSurfaceExtraFile( const char *path );
@@ -1599,7 +1716,7 @@ int                         VisMain( Args& args );
 /* light.c  */
 float                       PointToPolygonFormFactor( const Vector3& point, const Vector3& normal, const winding_t& w );
 int                         LightContributionToSample( trace_t *trace );
-void                        LightingAtSample( trace_t * trace, byte styles[ MAX_LIGHTMAPS ], Vector3 (&colors)[ MAX_LIGHTMAPS ] );
+void                        LightingAtSample( trace_t * trace, byte (&styles)[ MAX_LIGHTMAPS ], Vector3 (&colors)[ MAX_LIGHTMAPS ], const Vector3& ambientColor );
 int                         LightMain( Args& args );
 
 
@@ -1611,8 +1728,8 @@ float                       SetupTrace( trace_t *trace );
 
 /* light_bounce.c */
 bool                        RadSampleImage( const byte * pixels, int width, int height, const Vector2& st, Color4f& color );
-void                        RadLightForTriangles( int num, int lightmapNum, rawLightmap_t *lm, const shaderInfo_t *si, float scale, float subdivide, clipWork_t *cw );
-void                        RadLightForPatch( int num, int lightmapNum, rawLightmap_t *lm, const shaderInfo_t *si, float scale, float subdivide, clipWork_t *cw );
+void                        RadLightForTriangles( int num, int lightmapNum, const rawLightmap_t *lm, const shaderInfo_t& si, float scale, float subdivide );
+void                        RadLightForPatch( int num, int lightmapNum, const rawLightmap_t *lm, const shaderInfo_t& si, float scale, float subdivide );
 void                        RadCreateDiffuseLights();
 
 
@@ -1659,7 +1776,7 @@ const image_t               *ImageLoad( const char *name );
 
 
 /* shaders.c */
-void                        ColorMod( const colorMod_t *colormod, int numVerts, bspDrawVert_t *drawVerts );
+void                        ColorMod( const std::forward_list<colorMod_t>& colormod, const Span<bspDrawVert_t> drawVerts );
 
 void                        TCMod( const tcMod_t& mod, Vector2& st );
 
@@ -1687,11 +1804,11 @@ const surfaceParm_t         &GetRequiredSurfaceParm(){
 
 void                        BeginMapShaderFile( const char *mapFile );
 void                        WriteMapShaderFile();
-const shaderInfo_t          *CustomShader( const shaderInfo_t *si, const char *find, char *replace );
+const shaderInfo_t          &CustomShader( const shaderInfo_t *si, const char *find, char *replace );
 void                        EmitVertexRemapShader( char *from, char *to );
 
 void                        LoadShaderInfo();
-shaderInfo_t                *ShaderInfoForShader( const char *shader );
+shaderInfo_t                &ShaderInfoForShader( const char *shader );
 shaderInfo_t                *ShaderInfoForShaderNull( const char *shader );
 
 
@@ -1720,10 +1837,21 @@ void                        InjectCommandLine( const char *stage, const std::vec
 
    ------------------------------------------------------------------------------- */
 
+struct shaderInfo_t_compare
+{
+	bool operator()( const shaderInfo_t& si, const shaderInfo_t& si2 ) const {
+		return RawStringLessNoCase()( si.shader, si2.shader );
+	}
+	bool operator()( const shaderInfo_t& si, const char *si2 ) const {
+		return RawStringLessNoCase()( si.shader, si2 );
+	}
+	bool operator()( const char *si, const shaderInfo_t& si2 ) const {
+		return RawStringLessNoCase()( si, si2.shader );
+	}
+};
+
 /* general */
-inline shaderInfo_t       *shaderInfo;
-inline int numShaderInfo;
-inline int max_shader_info = 8192;
+inline UnsortedSet<shaderInfo_t, false, shaderInfo_t_compare>       shaderInfo;
 
 inline String64 mapName;                 /* ydnar: per-map custom shaders for larger lightmaps */
 inline CopiedString mapShaderFile;
@@ -1734,6 +1862,9 @@ inline bool doingBSP;
 // for .ase conversion
 inline bool shadersAsBitmap;
 inline bool lightmapsAsTexcoord;
+// bsp to map conversion
+inline bool g_decompile_modelClip;
+inline bool g_decompile_wtf;
 
 /* general commandline arguments */
 inline bool force;
@@ -1823,7 +1954,8 @@ inline MinMax g_mapMinmax;
 
 inline const MinMax c_worldMinmax( Vector3( MIN_WORLD_COORD ), Vector3( MAX_WORLD_COORD ) );
 
-inline int defaultFogNum = -1;                  /* ydnar: cleaner fog handling */
+constexpr int FOG_INVALID = -1;
+inline int defaultFogNum = FOG_INVALID;                  /* ydnar: cleaner fog handling */
 inline std::vector<fog_t> mapFogs;
 
 inline brush_t            buildBrush;
@@ -1862,7 +1994,7 @@ inline const Vector3b debugColors[ 12 ] =
 		{ 128, 192, 128 }
 	};
 
-inline int skyboxArea = -1;
+inline int skyboxArea = AREA_INVALID;
 inline Matrix4 skyboxTransform;
 
 
@@ -1916,6 +2048,7 @@ inline int lightSamplesSearchBoxSize = 1;
 inline bool filter;
 inline bool dark;
 inline bool sunOnly;
+inline bool g_oneSky; /* fallback to old behavior: any sky emits total of all suns/skylights in the map */
 inline int approximateTolerance;
 inline bool noCollapse;
 inline int lightmapSearchBlockSize;
@@ -1935,8 +2068,8 @@ inline bool dirty;
 inline bool dirtDebug;
 inline int dirtMode;
 inline float dirtDepth = 128.0f;
-inline float dirtScale = 1.0f;
-inline float dirtGain = 1.0f;
+inline float dirtScale = 1;
+inline float dirtGain = 1;
 
 /* 27: floodlighting */
 inline bool debugnormals;
@@ -1945,7 +2078,7 @@ inline bool floodlight_lowquality;
 inline Vector3 floodlightRGB;
 inline float floodlightIntensity = 128.0f;
 inline float floodlightDistance = 1024.0f;
-inline float floodlightDirectionScale = 1.0f;
+inline float floodlightDirectionScale = 1;
 
 inline bool dump;
 inline bool debug;
@@ -1959,36 +2092,36 @@ inline int debugSampleSize; // 1=warn; 0=warn if lmsize>128
 inline float pointScale = 7500.0f;
 inline float spotScale = 7500.0f;
 inline float areaScale = 0.25f;
-inline float skyScale = 1.0f;
+inline float skyScale = 1;
 inline float bounceScale = 0.25f;
-inline float bounceColorRatio = 1.0f;
-inline float vertexglobalscale = 1.0f;
-inline float g_backsplashFractionScale = 1.0f;
+inline float bounceColorRatio = 1;
+inline float vertexglobalscale = 1;
+inline float g_backsplashFractionScale = 1;
 inline float g_backsplashDistance = -999.0f;
 
 /* jal: alternative angle attenuation curve */
 inline bool lightAngleHL;
 
 /* vortex: gridscale and gridambientscale */
-inline float gridScale = 1.0f;
-inline float gridAmbientScale = 1.0f;
-inline float gridDirectionality = 1.0f;
+inline float gridScale = 1;
+inline float gridAmbientScale = 1;
+inline float gridDirectionality = 1;
 inline float gridAmbientDirectionality;
 inline bool inGrid;
 
 /* ydnar: lightmap gamma/compensation */
-inline float lightmapGamma = 1.0f;
+inline float lightmapGamma = 1;
 inline float lightmapsRGB;
 inline float texturesRGB;
 inline float colorsRGB;
 inline float lightmapExposure;
-inline float lightmapCompensate = 1.0f;
-inline float lightmapBrightness = 1.0f;
-inline float lightmapContrast = 1.0f;
+inline float lightmapCompensate = 1;
+inline float lightmapBrightness = 1;
+inline float lightmapContrast = 1;
 inline float g_lightmapSaturation = 1;
 
 /* ydnar: for runtime tweaking of falloff tolerance */
-inline float falloffTolerance = 1.0f;
+inline float falloffTolerance = 1;
 inline const bool exactPointToPolygon = true;
 inline const float formFactorValueScale = 3.0f;
 inline const float linearScale = 1.0f / 8000.0f;
@@ -2012,11 +2145,10 @@ inline const float minDiffuseSubdivide = 64.0f;
 inline int numDiffuseSurfaces;
 
 /* ydnar: general purpose extra copy of drawvert list */
-inline std::vector<bspDrawVert_t> yDrawVerts;
+inline DrawVerts yDrawVerts;
 
 inline const int defaultLightSubdivide = 999;
 
-inline Vector3 ambientColor;
 inline Vector3 minLight, minVertexLight, minGridLight;
 inline float maxLight = 255.f;
 
@@ -2116,9 +2248,9 @@ inline std::vector<bspGridPoint_t> bspGridPoints;
 
 inline std::vector<byte> bspVisBytes; // MAX_MAP_VISIBILITY
 
-inline std::vector<bspDrawVert_t> bspDrawVerts;
+inline DrawVerts bspDrawVerts;
 
-inline std::vector<int> bspDrawIndexes;
+inline DrawIndexes bspDrawIndexes;
 
 inline std::vector<bspDrawSurface_t> bspDrawSurfaces; // MAX_MAP_DRAW_SURFS
 
@@ -2141,3 +2273,11 @@ inline std::vector<bspAdvertisement_t> bspAds;
 
 #define Image_LinearFloatFromsRGBFloat( c ) ( ( ( c ) <= 0.04045f ) ? ( c ) * ( 1.0f / 12.92f ) : (float)pow( ( ( c ) + 0.055f ) * ( 1.0f / 1.055f ), 2.4f ) )
 #define Image_sRGBFloatFromLinearFloat( c ) ( ( ( c ) < 0.0031308f ) ? ( c ) * 12.92f : 1.055f * (float)pow( ( c ), 1.0f / 2.4f ) - 0.055f )
+
+inline void ColorFromSRGB( Vector3& color ){
+	if ( colorsRGB ) {
+		color[0] = Image_LinearFloatFromsRGBFloat( color[0] );
+		color[1] = Image_LinearFloatFromsRGBFloat( color[1] );
+		color[2] = Image_LinearFloatFromsRGBFloat( color[2] );
+	}
+}

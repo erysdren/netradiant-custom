@@ -38,7 +38,7 @@ void LoadSpriteModel( entity_interfaces_t *interfaces, const char *name ){
 		return; // NULL;
 	}
 
-	CSpriteModel *model = new CSpriteModel();
+	auto *model = new CSpriteModel();
 	model->Construct( pShader );
 	interfaces->pRender = (IRender*)model;
 	interfaces->pRender->IncRef();
@@ -47,7 +47,6 @@ void LoadSpriteModel( entity_interfaces_t *interfaces, const char *name ){
 	interfaces->pSelect = NULL;
 	interfaces->pEdit = NULL;
 	model->DecRef();
-
 }
 
 void CSpriteModel::Construct( IShader *pShader ){
@@ -57,7 +56,7 @@ void CSpriteModel::Construct( IShader *pShader ){
 	   md3Surface_t *pSurface = (md3Surface_t *)(((unsigned char *)pHeader) + pHeader->ofsSurfaces);
 	   m_nSurfaces = pHeader->numSurfaces;
 	   CMD3Surface* surfaces = new CMD3Surface[m_nSurfaces];
-	   for (int i = 0; i < m_nSurfaces; i++ )
+	   for (int i = 0; i < m_nSurfaces; ++i )
 	   {
 	   surfaces[i].Construct(pSurface);
 	      pSurface = (md3Surface_t *) ((( char * ) pSurface) + pSurface->ofsEnd);
@@ -159,7 +158,7 @@ bool CSpriteModel::TestRay( const ray_t *ray, vec_t *dist ) const
 	if ( aabb_test_ray( &m_BBox, ray ) == 0 )
 		return false;
 
-	for( int i = 0; i < m_nSurfaces; i++ )
+	for( int i = 0; i < m_nSurfaces; ++i )
 	{
 		if( m_children[i].TestRay( ray, &depth_local ) )
 		{

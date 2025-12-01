@@ -63,9 +63,9 @@ public:
 	void lightsChanged() const override {
 	}
 	void forEachLight( const RendererLightCallback& callback ) const override {
-		for ( Lights::const_iterator i = m_lights.begin(); i != m_lights.end(); ++i )
+		for ( const auto *light : m_lights )
 		{
-			callback( *( *i ) );
+			callback( *light );
 		}
 	}
 };
@@ -101,7 +101,7 @@ public:
 		ReleaseShader();
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		if ( ( state & RENDER_BUMP ) != 0 ) {
 			gl().glNormalPointer( GL_FLOAT, sizeof( ArbitraryMeshVertex ), &m_vertices.data()->normal );
 			gl().glVertexAttribPointer( c_attr_TexCoord0, 2, GL_FLOAT, 0, sizeof( ArbitraryMeshVertex ), &m_vertices.data()->texcoord );
@@ -129,12 +129,12 @@ public:
 
 		gl().glBegin( GL_LINES );
 
-		for ( Array<ArbitraryMeshVertex>::const_iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+		for ( const auto& v : m_vertices )
 		{
-			Vector3 normal = normal3f_to_vector3( ( *i ).normal );
+			Vector3 normal = normal3f_to_vector3( v.normal );
 			normal = matrix4_transformed_direction( modelview_inv, vector3_normalised( matrix4_transformed_direction( modelview_inv_transposed, normal ) ) ); // do some magic
-			Vector3 normalTransformed = vector3_added( vertex3f_to_vector3( ( *i ).vertex ), vector3_scaled( normal, 8 ) );
-			gl().glVertex3fv( vertex3f_to_array( ( *i ).vertex ) );
+			Vector3 normalTransformed = vector3_added( vertex3f_to_vector3( v.vertex ), vector3_scaled( normal, 8 ) );
+			gl().glVertex3fv( vertex3f_to_array( v.vertex ) );
 			gl().glVertex3fv( vector3_to_array( normalTransformed ) );
 		}
 		gl().glEnd();
@@ -199,10 +199,10 @@ private:
 			ArbitraryMeshTriangle_sumTangents( a, b, c );
 		}
 
-		for ( Array<ArbitraryMeshVertex>::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+		for ( auto& v : m_vertices )
 		{
-			vector3_normalise( reinterpret_cast<Vector3&>( ( *i ).tangent ) );
-			vector3_normalise( reinterpret_cast<Vector3&>( ( *i ).bitangent ) );
+			vector3_normalise( reinterpret_cast<Vector3&>( v.tangent ) );
+			vector3_normalise( reinterpret_cast<Vector3&>( v.bitangent ) );
 		}
 	}
 
@@ -236,7 +236,6 @@ private:
 							globalOutputStream() << "texname: " << texname.C_Str() << '\n';
 #endif
 				m_shader = StringStream<64>( PathCleaned( PathExtensionless( texname.C_Str() ) ) );
-
 			}
 			else{
 				m_shader = StringStream<64>( PathCleaned( PathExtensionless( matname.C_Str() ) ) );
@@ -292,7 +291,7 @@ private:
 		for ( size_t t = 0; t < mesh->mNumFaces; ++t ){
 			const aiFace& face = mesh->mFaces[t];
 			// if( face.mNumIndices == 3 )
-			for ( size_t i = 0; i < 3; i++ ){
+			for ( size_t i = 0; i < 3; ++i ){
 				m_indices[idCopied++] = face.mIndices[i];
 			}
 		}
@@ -350,12 +349,12 @@ private:
 
 
 		Array<RenderIndex>::iterator j = m_indices.begin();
-		for ( RenderIndex* i = indices; i != indices + ( sizeof( indices ) / sizeof( RenderIndex ) ); ++i )
+		for ( auto i : indices )
 		{
-			*j++ = *i;
+			*j++ = i;
 		}
 
-		m_shader = "";
+		m_shader = "nomodel";
 
 		UpdateAABB();
 	}
@@ -382,8 +381,8 @@ public:
 		CopyPicoModel( scene, scene.m_scene->mRootNode );
 	}
 	~PicoModel(){
-		for ( surfaces_t::iterator i = m_surfaces.begin(); i != m_surfaces.end(); ++i )
-			delete *i;
+		for ( auto *surf : m_surfaces )
+			delete surf;
 	}
 
 	typedef surfaces_t::const_iterator const_iterator;
@@ -398,11 +397,11 @@ public:
 		return m_surfaces.size();
 	}
 
-	VolumeIntersectionValue intersectVolume( const VolumeTest& test, const Matrix4& localToWorld ) const {
+	VolumeIntersectionValue intersectVolume( const VolumeTest& test, const Matrix4& localToWorld ) const override {
 		return test.TestAABB( m_aabb_local, localToWorld );
 	}
 
-	virtual const AABB& localAABB() const {
+	const AABB& localAABB() const override {
 		return m_aabb_local;
 	}
 
@@ -416,10 +415,10 @@ public:
 	}
 
 	void testSelect( Selector& selector, SelectionTest& test, const Matrix4& localToWorld ){
-		for ( surfaces_t::iterator i = m_surfaces.begin(); i != m_surfaces.end(); ++i )
+		for ( auto *surf : m_surfaces )
 		{
-			if ( ( *i )->intersectVolume( test.getVolume(), localToWorld ) != c_volumeOutside ) {
-				( *i )->testSelect( selector, test, localToWorld );
+			if ( surf->intersectVolume( test.getVolume(), localToWorld ) != c_volumeOutside ) {
+				surf->testSelect( selector, test, localToWorld );
 			}
 		}
 	}
@@ -429,7 +428,7 @@ private:
 		for( size_t n = 0; n < node->mNumMeshes; ++n ){
 			const aiMesh *mesh = scene.m_scene->mMeshes[node->mMeshes[n]];
 			if( mesh->mPrimitiveTypes & aiPrimitiveType_TRIANGLE ){
-				PicoSurface* picosurface = new PicoSurface( scene, mesh );
+				auto *picosurface = new PicoSurface( scene, mesh );
 				aabb_extend_by_aabb_safe( m_aabb_local, picosurface->localAABB() );
 				m_surfaces.push_back( picosurface );
 			}
@@ -441,7 +440,7 @@ private:
 		}
 	}
 	void constructNull(){
-		PicoSurface* picosurface = new PicoSurface();
+		auto *picosurface = new PicoSurface();
 		m_aabb_local = picosurface->localAABB();
 		m_surfaces.push_back( picosurface );
 	}
@@ -497,10 +496,10 @@ public:
 
 	void* m_test;
 
-	Bounded& get( NullType<Bounded>){
+	Bounded& get( NullType<Bounded> ){
 		return m_picomodel;
 	}
-	Cullable& get( NullType<Cullable>){
+	Cullable& get( NullType<Cullable> ){
 		return m_picomodel;
 	}
 
@@ -531,15 +530,15 @@ public:
 	}
 	void destroyRemaps(){
 		ASSERT_MESSAGE( m_skins.size() == m_picomodel.size(), "ERROR" );
-		for ( SurfaceRemaps::iterator i = m_skins.begin(); i != m_skins.end(); ++i )
+		for ( auto& [ name, shader ] : m_skins )
 		{
-			if ( ( *i ).second != 0 ) {
-				GlobalShaderCache().release( ( *i ).first.c_str() );
-				( *i ).second = 0;
+			if ( shader != 0 ) {
+				GlobalShaderCache().release( name.c_str() );
+				shader = 0;
 			}
 		}
 	}
-	void skinChanged(){
+	void skinChanged() override {
 		destroyRemaps();
 		constructRemaps();
 	}
@@ -580,23 +579,23 @@ public:
 		}
 	}
 
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_lightList->evaluateLights();
 
 		render( renderer, volume, Instance::localToWorld() );
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		renderSolid( renderer, volume );
 	}
 
-	void testSelect( Selector& selector, SelectionTest& test ){
+	void testSelect( Selector& selector, SelectionTest& test ) override {
 		m_picomodel.testSelect( selector, test, Instance::localToWorld() );
 	}
 
-	bool testLight( const RendererLight& light ) const {
+	bool testLight( const RendererLight& light ) const override {
 		return light.testAABB( worldAABB() );
 	}
-	void insertLight( const RendererLight& light ){
+	void insertLight( const RendererLight& light ) override {
 		const Matrix4& localToWorld = Instance::localToWorld();
 		SurfaceLightLists::iterator j = m_surfaceLightLists.begin();
 		for ( PicoModel::const_iterator i = m_picomodel.begin(); i != m_picomodel.end(); ++i )
@@ -604,15 +603,15 @@ public:
 			Surface_addLight( *( *i ), *j++, localToWorld, light );
 		}
 	}
-	void clearLights(){
-		for ( SurfaceLightLists::iterator i = m_surfaceLightLists.begin(); i != m_surfaceLightLists.end(); ++i )
+	void clearLights() override {
+		for ( auto& light : m_surfaceLightLists )
 		{
-			( *i ).clear();
+			light.clear();
 		}
 	}
 };
 
-class PicoModelNode : public scene::Node::Symbiot, public scene::Instantiable
+class PicoModelNode final : public scene::Node::Symbiot, public scene::Instantiable
 {
 	class TypeCasts
 	{
@@ -634,28 +633,28 @@ class PicoModelNode : public scene::Node::Symbiot, public scene::Instantiable
 public:
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	PicoModelNode() : m_node( this, this, StaticTypeCasts::instance().get() ){
+	PicoModelNode() : m_node( this, this, StaticTypeCasts::instance().get(), nullptr ){
 	}
-	PicoModelNode( const AssScene scene ) : m_node( this, this, StaticTypeCasts::instance().get() ), m_picomodel( scene ){
+	PicoModelNode( const AssScene scene ) : m_node( this, this, StaticTypeCasts::instance().get(), nullptr ), m_picomodel( scene ){
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new PicoModelInstance( path, parent, m_picomodel );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };

@@ -27,14 +27,14 @@
 /**
  * @brief
  */
-std::size_t ToolbarButtonCount( void ){
+std::size_t ToolbarButtonCount(){
 	return NUM_TOOLBARBUTTONS;
 }
 
 /**
  * @brief Used if the ufo plugin should not be visible (at least the toolbar stuff)
  */
-std::size_t ToolbarNoButtons( void ){
+std::size_t ToolbarNoButtons(){
 	return 0;
 }
 
@@ -44,7 +44,7 @@ std::size_t ToolbarNoButtons( void ){
 class CUFOAIToolbarButton : public IToolbarButton
 {
 public:
-	virtual const char* getImage() const {
+	virtual const char* getImage() const override {
 		switch ( mIndex )
 		{
 		case 0: return "ufoai_level1.png";
@@ -60,9 +60,9 @@ public:
 		case 10: return "ufoai_weaponclip.png";
 		case 11: return "ufoai_nodraw.png";
 		}
-		return NULL;
+		return nullptr;
 	}
-	virtual EType getType() const {
+	virtual EType getType() const override {
 		switch ( mIndex )
 		{
 /*		case 3: return eButton;*/
@@ -73,7 +73,7 @@ public:
 		default: return eButton;
 		}
 	}
-	virtual const char* getText() const {
+	virtual const char* getText() const override {
 		switch ( mIndex )
 		{
 		case 0: return "Level 1";
@@ -84,14 +84,14 @@ public:
 		case 5: return "Level 6";
 		case 6: return "Level 7";
 		case 7: return "Level 8";
-		case 8: return "Stepon";
-		case 9: return "Actorclip";
-		case 10: return "Weaponclip";
-		case 11: return "Nodraw";
+		case 8: return "StepOn";
+		case 9: return "ActorClip";
+		case 10: return "WeaponClip";
+		case 11: return "NoDraw";
 		}
-		return NULL;
+		return nullptr;
 	}
-	virtual const char* getTooltip() const {
+	virtual const char* getTooltip() const override {
 		switch ( mIndex )
 		{
 		case 0: return "Show only level 1";
@@ -102,15 +102,15 @@ public:
 		case 5: return "Show only level 6";
 		case 6: return "Show only level 7";
 		case 7: return "Show only level 8";
-		case 8: return "Hide stepon brushes";
-		case 9: return "Hide actorclip brushes";
-		case 10: return "Hide weaponclip brushes";
-		case 11: return "Hide nodraw brushes";
+		case 8: return "Hide stepOn brushes";
+		case 9: return "Hide actorClip brushes";
+		case 10: return "Hide weaponClip brushes";
+		case 11: return "Hide noDraw brushes";
 		}
-		return NULL;
+		return nullptr;
 	}
 
-	virtual void activate() const {
+	virtual void activate() const override {
 		switch ( mIndex )
 		{
 		case 0: filter_level( CONTENTS_LEVEL1 ); break;
@@ -149,5 +149,5 @@ const IToolbarButton* GetToolbarButton( std::size_t index ){
  * @brief
  */
 const IToolbarButton* GetToolbarNoButton( std::size_t index ){
-	return NULL;
+	return nullptr;
 }

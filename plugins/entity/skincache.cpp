@@ -87,9 +87,9 @@ public:
 		return "";
 	}
 	void forEachRemap( const SkinRemapCallback& callback ) const {
-		for ( Remaps::const_iterator i = m_remaps.begin(); i != m_remaps.end(); ++i )
+		for ( const auto& [ from, to ] : m_remaps )
 		{
-			callback( SkinRemap( ( *i ).first.c_str(), ( *i ).second.c_str() ) );
+			callback( SkinRemap( from.c_str(), to.c_str() ) );
 		}
 	}
 };
@@ -138,7 +138,7 @@ public:
 	void parseFile( const char* name ){
 		ArchiveTextFile* file = GlobalFileSystem().openTextFile( StringStream<64>( "skins/", name ) );
 		if ( file != 0 ) {
-			globalOutputStream() << "parsing skins from " << makeQuoted( name ) << '\n';
+			globalOutputStream() << "parsing skins from " << Quoted( name ) << '\n';
 			{
 				Tokeniser& tokeniser = GlobalScriptLibrary().m_pfnNewSimpleTokeniser( file->getInputStream() );
 				parseTokens( tokeniser );
@@ -148,7 +148,7 @@ public:
 		}
 		else
 		{
-			globalErrorStream() << "failed to open " << makeQuoted( name ) << '\n';
+			globalErrorStream() << "failed to open " << Quoted( name ) << '\n';
 		}
 	}
 
@@ -180,19 +180,19 @@ class Doom3ModelSkinCacheElement final : public ModelSkin
 public:
 	Doom3ModelSkinCacheElement() : m_skin( 0 ){
 	}
-	void attach( ModuleObserver& observer ){
+	void attach( ModuleObserver& observer ) override {
 		m_observers.attach( observer );
 		if ( realised() ) {
 			observer.realise();
 		}
 	}
-	void detach( ModuleObserver& observer ){
+	void detach( ModuleObserver& observer ) override {
 		if ( realised() ) {
 			observer.unrealise();
 		}
 		m_observers.detach( observer );
 	}
-	bool realised() const {
+	bool realised() const override {
 		return m_skin != 0;
 	}
 	void realise( const char* name ){
@@ -205,11 +205,11 @@ public:
 		m_observers.unrealise();
 		m_skin = 0;
 	}
-	const char* getRemap( const char* name ) const {
+	const char* getRemap( const char* name ) const override {
 		ASSERT_MESSAGE( realised(), "Doom3ModelSkinCacheElement::getRemap: not realised" );
 		return m_skin->getRemap( name );
 	}
-	void forEachRemap( const SkinRemapCallback& callback ) const {
+	void forEachRemap( const SkinRemapCallback& callback ) const override {
 		ASSERT_MESSAGE( realised(), "Doom3ModelSkinCacheElement::forEachRemap: not realised" );
 		m_skin->forEachRemap( callback );
 	}
@@ -225,7 +225,7 @@ class Doom3ModelSkinCache final : public ModelSkinCache, public ModuleObserver
 			: m_cache( cache ){
 		}
 		Doom3ModelSkinCacheElement* construct( const CopiedString& name ){
-			Doom3ModelSkinCacheElement* skin = new Doom3ModelSkinCacheElement;
+			auto *skin = new Doom3ModelSkinCacheElement;
 			if ( m_cache.realised() ) {
 				skin->realise( name.c_str() );
 			}
@@ -257,29 +257,29 @@ public:
 		GlobalFileSystem().detach( *this );
 	}
 
-	ModelSkin& capture( const char* name ){
+	ModelSkin& capture( const char* name ) override {
 		return *m_cache.capture( name );
 	}
-	void release( const char* name ){
+	void release( const char* name ) override {
 		m_cache.release( name );
 	}
 
 	bool realised() const {
 		return m_realised;
 	}
-	void realise(){
+	void realise() override {
 		g_skins.realise();
 		m_realised = true;
-		for ( Cache::iterator i = m_cache.begin(); i != m_cache.end(); ++i )
+		for ( auto& skin : m_cache )
 		{
-			( *i ).value->realise( ( *i ).key.c_str() );
+			skin.value->realise( skin.key.c_str() );
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		m_realised = false;
-		for ( Cache::iterator i = m_cache.begin(); i != m_cache.end(); ++i )
+		for ( auto& skin : m_cache )
 		{
-			( *i ).value->unrealise();
+			skin.value->unrealise();
 		}
 		g_skins.unrealise();
 	}

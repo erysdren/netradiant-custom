@@ -31,7 +31,7 @@
 #include "math/aabb.h"
 #include "generic/callback.h"
 
-#include "gtkutil/menu.h"
+#include "texturelib.h"
 #include "gtkutil/image.h"
 #include "map.h"
 #include "mainframe.h"
@@ -48,11 +48,24 @@
 PatchCreator* g_patchCreator = 0;
 
 void Scene_PatchConstructPrefab( scene::Graph& graph, const AABB aabb, const char* shader, EPatchPrefab eType, int axis, std::size_t width = 3, std::size_t height = 3, bool redisperse = false ){
-	Select_Delete();
-	GlobalSelectionSystem().setSelectedAll( false );
+	scene::Path path;
+	if( GlobalSelectionSystem().countSelected() != 0 ){ // find container from selection
+		scene::Instance& instance = GlobalSelectionSystem().ultimateSelected();
+		if( Node_isPrimitive( instance.path().top().get() ) ){
+			scene::Instance *parent = instance.parent();
+			if( Selectable *selectable = Instance_getSelectable( *parent ) ){
+				selectable->setSelected( false ); // avoid container deletion
+			}
+			path = parent->path();
+		}
+	}
+	if( path.empty() ){ // fallback to worldspawn
+		path.push( makeReference( GlobalSceneGraph().root() ) );
+		path.push( makeReference( Map_FindOrInsertWorldspawn( g_map ) ) );
+	}
 
 	NodeSmartReference node( g_patchCreator->createPatch() );
-	Node_getTraversable( Map_FindOrInsertWorldspawn( g_map ) )->insert( node );
+	Node_getTraversable( path.top() )->insert( node );
 
 	Patch* patch = Node_getPatch( node );
 	patch->SetShader( shader );
@@ -64,12 +77,11 @@ void Scene_PatchConstructPrefab( scene::Graph& graph, const AABB aabb, const cha
 	}
 	patch->controlPointsChanged();
 
-	{
-		scene::Path patchpath( makeReference( GlobalSceneGraph().root() ) );
-		patchpath.push( makeReference( *Map_GetWorldspawn( g_map ) ) );
-		patchpath.push( makeReference( node.get() ) );
-		Instance_getSelectable( *graph.find( patchpath ) )->setSelected( true );
-	}
+	path.push( makeReference( node.get() ) );
+	// delete last to avoid empty container deletion
+	Select_Delete();
+	GlobalSelectionSystem().setSelectedAll( false );
+	Instance_getSelectable( *graph.find( path ) )->setSelected( true );
 }
 
 
@@ -134,7 +146,7 @@ public:
 void Scene_PatchDoCap_Selected( scene::Graph& graph, const char* shader, EPatchCap type ){
 	InstanceVector instances;
 	Scene_forEachVisibleSelectedPatchInstance( PatchStoreInstance( instances ) );
-	for ( auto i : instances )
+	for ( auto *i : instances )
 	{
 		Patch_makeCaps( *Node_getPatch( i->path().top() ), *i, type, shader );
 	}
@@ -143,8 +155,7 @@ void Scene_PatchDoCap_Selected( scene::Graph& graph, const char* shader, EPatchC
 void Patch_deform( Patch& patch, scene::Instance& instance, const int deform, const int axis ){
 	patch.undoSave();
 
-	for ( PatchControlIter i = patch.begin(); i != patch.end(); ++i ){
-		PatchControl& control = *i;
+	for ( PatchControl& control : patch ){
 		int randomNumber = int( deform * ( float( std::rand() ) / float( RAND_MAX ) ) );
 		control.m_vertex[ axis ] += randomNumber;
 	}
@@ -156,11 +167,10 @@ void Scene_PatchDeform( scene::Graph& graph, const int deform, const int axis )
 {
 	InstanceVector instances;
 	Scene_forEachVisibleSelectedPatchInstance( PatchStoreInstance( instances ) );
-	for ( auto i : instances )
+	for ( auto *i : instances )
 	{
 		Patch_deform( *Node_getPatch( i->path().top() ), *i, deform, axis );
 	}
-
 }
 
 void Patch_thicken( Patch& patch, scene::Instance& instance, const float thickness, bool seams, const int axis ){
@@ -190,7 +200,7 @@ void Patch_thicken( Patch& patch, scene::Instance& instance, const float thickne
 		selectPath( path, true );
 	}
 
-	if( seams && thickness != 0.0f ){
+	if( seams && thickness != 0 ){
 		int i = no12? 2 : 0;
 		int iend = no34? 2 : 4;
 		// Now create the four walls
@@ -231,11 +241,10 @@ void Scene_PatchThicken( scene::Graph& graph, const int thickness, bool seams, c
 {
 	InstanceVector instances;
 	Scene_forEachVisibleSelectedPatchInstance( PatchStoreInstance( instances ) );
-	for ( auto i : instances )
+	for ( auto *i : instances )
 	{
 		Patch_thicken( *Node_getPatch( i->path().top() ), *i, thickness, seams, axis );
 	}
-
 }
 
 Patch* Scene_GetUltimateSelectedVisiblePatch(){
@@ -313,7 +322,7 @@ class PatchSelectByShader
 {
 	const char* m_name;
 public:
-	inline PatchSelectByShader( const char* name )
+	PatchSelectByShader( const char* name )
 		: m_name( name ){
 	}
 	void operator()( PatchInstance& patch ) const {
@@ -615,7 +624,7 @@ void Patch_Thicken(){
 class filter_patch_all : public PatchFilter
 {
 public:
-	bool filter( const Patch& patch ) const {
+	bool filter( const Patch& patch ) const override {
 		return true;
 	}
 };
@@ -626,7 +635,7 @@ class filter_patch_shader : public PatchFilter
 public:
 	filter_patch_shader( const char* shader ) : m_shader( shader ){
 	}
-	bool filter( const Patch& patch ) const {
+	bool filter( const Patch& patch ) const override {
 		return shader_equal( patch.GetShader(), m_shader );
 	}
 };
@@ -637,7 +646,7 @@ class filter_patch_flags : public PatchFilter
 public:
 	filter_patch_flags( int flags ) : m_flags( flags ){
 	}
-	bool filter( const Patch& patch ) const {
+	bool filter( const Patch& patch ) const override {
 		return ( patch.getShaderFlags() & m_flags ) != 0;
 	}
 };
@@ -701,12 +710,12 @@ void Patch_registerCommands(){
 	GlobalCommands_insert( "SimplePatchMesh", makeCallbackF( Patch_Plane ), QKeySequence( "Shift+P" ) );
 	GlobalCommands_insert( "PatchInsertFirstColumn", makeCallbackF( Patch_InsertFirstColumn ), QKeySequence( Qt::CTRL + Qt::SHIFT + Qt::Key_Plus + Qt::KeypadModifier ) );
 	GlobalCommands_insert( "PatchInsertLastColumn", makeCallbackF( Patch_InsertLastColumn ) );
-	GlobalCommands_insert( "PatchInsertFirstRow", makeCallbackF( Patch_InsertFirstRow ), QKeySequence( Qt::CTRL + Qt::Key_Plus + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "PatchInsertFirstRow", makeCallbackF( Patch_InsertFirstRow ), QKeySequence( +Qt::CTRL + Qt::Key_Plus + Qt::KeypadModifier ) );
 	GlobalCommands_insert( "PatchInsertLastRow", makeCallbackF( Patch_InsertLastRow ) );
 	GlobalCommands_insert( "PatchDeleteFirstColumn", makeCallbackF( Patch_DeleteFirstColumn ) );
 	GlobalCommands_insert( "PatchDeleteLastColumn", makeCallbackF( Patch_DeleteLastColumn ), QKeySequence( Qt::CTRL + Qt::SHIFT + Qt::Key_Minus + Qt::KeypadModifier ) );
 	GlobalCommands_insert( "PatchDeleteFirstRow", makeCallbackF( Patch_DeleteFirstRow ) );
-	GlobalCommands_insert( "PatchDeleteLastRow", makeCallbackF( Patch_DeleteLastRow ), QKeySequence( Qt::CTRL + Qt::Key_Minus + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "PatchDeleteLastRow", makeCallbackF( Patch_DeleteLastRow ), QKeySequence( +Qt::CTRL + Qt::Key_Minus + Qt::KeypadModifier ) );
 	GlobalCommands_insert( "InvertCurve", makeCallbackF( Patch_Invert ), QKeySequence( "Ctrl+I" ) );
 	//GlobalCommands_insert( "RedisperseRows", makeCallbackF( Patch_RedisperseRows ), QKeySequence( "Ctrl+E" ) );
 	GlobalCommands_insert( "RedisperseRows", makeCallbackF( Patch_RedisperseRows ) );
@@ -798,7 +807,6 @@ void Patch_constructMenu( QMenu* menu ){
 		create_menu_item_with_mnemonic( submenu, "Naturalize", "NaturalizePatch" );
 		create_menu_item_with_mnemonic( submenu, "Invert X", "InvertCurveTextureX" );
 		create_menu_item_with_mnemonic( submenu, "Invert Y", "InvertCurveTextureY" );
-
 	}
 //	menu->addSeparator();
 //	{ //unfinished
@@ -816,7 +824,6 @@ void Patch_constructMenu( QMenu* menu ){
 
 
 #include "gtkutil/dialog.h"
-#include "gtkutil/widget.h"
 #include "gtkutil/spinbox.h"
 
 #include <QDialog>
@@ -831,12 +838,12 @@ void DoNewPatchDlg( EPatchPrefab prefab, int minrows, int mincols, int defrows, 
 	QDialog dialog( MainFrame_getWindow(), Qt::Dialog | Qt::WindowCloseButtonHint );
 	dialog.setWindowTitle( "Patch density" );
 
-	auto width = new ComboBox;
-	auto height = new ComboBox;
-	auto redisperseCheckBox = new QCheckBox( "Square" );
+	auto *width = new ComboBox;
+	auto *height = new ComboBox;
+	auto *redisperseCheckBox = new QCheckBox( "Square" );
 
 	{
-		auto form = new QFormLayout( &dialog );
+		auto *form = new QFormLayout( &dialog );
 		form->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 		{
 			{
@@ -886,7 +893,7 @@ void DoNewPatchDlg( EPatchPrefab prefab, int minrows, int mincols, int defrows, 
 			}
 		}
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
 			form->addWidget( buttons );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
 			QObject::connect( buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject );
@@ -910,18 +917,18 @@ void DoPatchDeformDlg(){
 	QDialog dialog( MainFrame_getWindow(), Qt::Dialog | Qt::WindowCloseButtonHint );
 	dialog.setWindowTitle( "Patch deform" );
 
-	auto spin = new SpinBox( -9999, 9999, 64 );
+	auto *spin = new SpinBox( -9999, 9999, 64 );
 
 	RadioHBox radioBox = RadioHBox_new( (const char*[]){ "X", "Y", "Z" } );
 	radioBox.m_radio->button( 2 )->setChecked( true );
 
 	{
-		auto form = new QFormLayout( &dialog );
+		auto *form = new QFormLayout( &dialog );
 		form->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 		form->addRow( new SpinBoxLabel( "Max deform:", spin ), spin );
 		form->addRow( "", radioBox.m_hbox );
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
 			form->addWidget( buttons );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
 			QObject::connect( buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject );
@@ -941,9 +948,9 @@ void DoCapDlg(){
 	QDialog dialog( MainFrame_getWindow(), Qt::Dialog | Qt::WindowCloseButtonHint );
 	dialog.setWindowTitle( "Cap" );
 
-	auto group = new QButtonGroup( &dialog );
+	auto *group = new QButtonGroup( &dialog );
 	{
-		auto form = new QFormLayout( &dialog );
+		auto *form = new QFormLayout( &dialog );
 		form->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 		{
 			const char* iconlabel[][2] = { { "cap_bevel.png", "Bevel" },
@@ -953,9 +960,12 @@ void DoCapDlg(){
 			                               { "cap_cylinder.png", "Cylinder" } };
 			for( size_t i = 0; i < std::size( iconlabel ); ++i ){
 				const auto [ stricon, strlabel ] = iconlabel[i];
-				auto label = new QLabel;
-				label->setPixmap( new_local_image( stricon ) );
-				auto button = new QRadioButton( strlabel );
+				auto *label = new QLabel;
+				const int iconSize = label->style()->pixelMetric( QStyle::PixelMetric::PM_LargeIconSize );
+				auto pixmap = new_local_image( stricon );
+				pixmap.setDevicePixelRatio( label->devicePixelRatio() );
+				label->setPixmap( pixmap.scaledToHeight( iconSize * label->devicePixelRatio(), Qt::TransformationMode::SmoothTransformation ) );
+				auto *button = new QRadioButton( strlabel );
 				group->addButton( button, i ); // set ids 0+, default ones are negative
 				form->addRow( label, button );
 			}
@@ -963,7 +973,7 @@ void DoCapDlg(){
 				form->itemAt( i )->setAlignment( Qt::AlignmentFlag::AlignVCenter );
 		}
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
 			form->addWidget( buttons );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
 			QObject::connect( buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject );
@@ -984,22 +994,22 @@ void DoPatchThickenDlg(){
 	dialog.setWindowTitle( "Patch thicken" );
 
 	const int grid = std::max( GetGridSize(), 1.f );
-	auto spin = new SpinBox( -9999, 9999, grid, 2, grid );
+	auto *spin = new SpinBox( -9999, 9999, grid, 2, grid );
 
 	RadioHBox radioBox = RadioHBox_new( (const char*[]){ "X", "Y", "Z", "Normal" } );
 	radioBox.m_radio->button( 3 )->setChecked( true );
 
-	auto check = new QCheckBox( "Side walls" );
+	auto *check = new QCheckBox( "Side walls" );
 	check->setChecked( true );
 
 	{
-		auto form = new QFormLayout( &dialog );
+		auto *form = new QFormLayout( &dialog );
 		form->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 		form->addRow( new SpinBoxLabel( "Thickness:", spin ), spin );
 		form->addRow( "", radioBox.m_hbox );
 		form->addWidget( check );
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok | QDialogButtonBox::StandardButton::Cancel );
 			form->addWidget( buttons );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
 			QObject::connect( buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject );
@@ -1106,7 +1116,7 @@ public:
 					std::swap( v0, v1 );
 				}
 			}
-			const DoubleVector3 vertices[3]{ v0, v1, v2 };
+			const PlanePoints vertices{ v0, v1, v2 };
 			const DoubleVector3 sts[3]{ DoubleVector3( p0->m_texcoord ),
 										DoubleVector3( p1->m_texcoord ),
 										DoubleVector3( p2->m_texcoord ) };
@@ -1119,7 +1129,7 @@ public:
 	bool valid() const {
 		return !( !std::isfinite( m_local2tex[0] ) //nan
 		       || !std::isfinite( m_tex2local[0] ) //nan
-		       || fabs( vector3_dot( m_plane.normal(), m_tex2local.z().vec3() ) ) < 1e-6 //projected along face
+		       || std::fabs( vector3_dot( m_plane.normal(), m_tex2local.z().vec3() ) ) < 1e-6 //projected along face
 		       || vector3_length_squared( m_tex2local.x().vec3() ) < .01 //srsly scaled down, limit at max 10 textures per world unit
 		       || vector3_length_squared( m_tex2local.y().vec3() ) < .01
 		       || vector3_length_squared( m_tex2local.x().vec3() ) > 1e9 //very upscaled or product of nearly nan
@@ -1174,7 +1184,6 @@ void Patch_SetTexdef( const float* hShift, const float* vShift, const float* hSc
 				Scene_PatchScaleTexture_Selected( GlobalSceneGraph(), 0, *vScale > 0? .5 : -.5 );
 			if( rotation )
 				Scene_PatchRotateTexture_Selected( GlobalSceneGraph(), *rotation > 0? 15 : -15 );
-
 		}
 		Patch_textureChanged();
 	} );

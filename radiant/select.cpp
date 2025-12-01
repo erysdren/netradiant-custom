@@ -31,7 +31,6 @@
 
 #include "stream/stringstream.h"
 #include "signal/isignal.h"
-#include "signal/isignal.h"
 #include "shaderlib.h"
 #include "scenelib.h"
 
@@ -51,7 +50,6 @@
 #include "tools.h"
 #include "grid.h"
 #include "map.h"
-#include "entityinspector.h"
 #include "csg.h"
 
 
@@ -77,7 +75,7 @@ public:
 		m_count = 0;
 	}
 
-	void visit( scene::Instance& instance ) const {
+	void visit( scene::Instance& instance ) const override {
 		ASSERT_MESSAGE( m_count <= m_max, "Invalid m_count in CollectSelectedBrushesBounds" );
 
 		// stop if the array is already full
@@ -112,7 +110,7 @@ public:
 		m_count( count ){
 	}
 
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if( path.top().get().visible() ){
 			Selectable* selectable = Instance_getSelectable( instance );
 
@@ -188,7 +186,7 @@ public:
 		const AABB& other( instance.worldAABB() );
 		for ( Unsigned i = 0; i < 3; ++i )
 		{
-			if ( fabsf( box.origin[i] - other.origin[i] ) > ( box.extents[i] + other.extents[i] ) ) {
+			if ( std::fabs( box.origin[i] - other.origin[i] ) > ( box.extents[i] + other.extents[i] ) ) {
 				return false;
 			}
 		}
@@ -207,7 +205,7 @@ public:
 		const AABB& other( instance.worldAABB() );
 		for ( Unsigned i = 0; i < 3; ++i )
 		{
-			if ( fabsf( box.origin[i] - other.origin[i] ) > ( box.extents[i] - other.extents[i] ) ) {
+			if ( std::fabs( box.origin[i] - other.origin[i] ) > ( box.extents[i] - other.extents[i] ) ) {
 				return false;
 			}
 		}
@@ -223,7 +221,7 @@ public:
 	DeleteSelected()
 		: m_remove( false ), m_removedChild( false ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		m_removedChild = false;
 
 		if ( Instance_isSelected( instance )
@@ -235,7 +233,7 @@ public:
 		}
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 
 		if ( m_removedChild ) {
 			m_removedChild = false;
@@ -278,7 +276,7 @@ public:
 	InvertSelectionWalker( SelectionSystem::EMode mode, SelectionSystem::EComponentMode compmode )
 		: m_mode( mode ), m_compmode( compmode ), m_selectable( 0 ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if( !path.top().get().visible() ){
 			m_selectable = 0;
 			return false;
@@ -313,7 +311,7 @@ public:
 		}
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( m_selectable != 0 ) {
 			m_selectable->setSelected( !m_selectable->isSelected() );
 			m_selectable = 0;
@@ -385,7 +383,7 @@ class ExpandSelectionToPrimitivesWalker : public scene::Graph::Walker
 	mutable std::size_t m_depth = 0;
 	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		++m_depth;
 
 		if( !path.top().get().visible() )
@@ -410,7 +408,7 @@ public:
 		}
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		--m_depth;
 	}
 };
@@ -424,7 +422,7 @@ class ExpandSelectionToEntitiesWalker : public scene::Graph::Walker
 	mutable std::size_t m_depth = 0;
 	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		++m_depth;
 
 		if( !path.top().get().visible() )
@@ -450,7 +448,7 @@ public:
 		}
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		--m_depth;
 	}
 };
@@ -630,7 +628,7 @@ inline Quaternion quaternion_for_axis90( axis_t axis, sign_t sign ){
 }
 
 void Select_RotateAxis( int axis, float deg ){
-	if ( fabs( deg ) == 90.f ) {
+	if ( std::fabs( deg ) == 90.f ) {
 		GlobalSelectionSystem().rotateSelected( quaternion_for_axis90( (axis_t)axis, ( deg > 0 ) ? eSignPositive : eSignNegative ), true );
 	}
 	else
@@ -680,11 +678,11 @@ void Select_RotateTexture( float amt ){
 // expects shader names at input, comparison relies on shader names .. texture names no longer relevant
 void FindReplaceTextures( const char* pFind, const char* pReplace, bool bSelected ){
 	if ( !texdef_name_valid( pFind ) ) {
-		globalErrorStream() << "FindReplaceTextures: invalid texture name: '" << pFind << "', aborted\n";
+		globalErrorStream() << "FindReplaceTextures: invalid texture name: " << SingleQuoted( pFind ) << ", aborted\n";
 		return;
 	}
 	if ( !texdef_name_valid( pReplace ) ) {
-		globalErrorStream() << "FindReplaceTextures: invalid texture name: '" << pReplace << "', aborted\n";
+		globalErrorStream() << "FindReplaceTextures: invalid texture name: " << SingleQuoted( pReplace ) << ", aborted\n";
 		return;
 	}
 
@@ -711,13 +709,7 @@ void FindReplaceTextures( const char* pFind, const char* pReplace, bool bSelecte
 typedef std::vector<const char*> PropertyValues;
 
 bool propertyvalues_contain( const PropertyValues& propertyvalues, const char *str ){
-	for ( PropertyValues::const_iterator i = propertyvalues.begin(); i != propertyvalues.end(); ++i )
-	{
-		if ( string_equal( str, *i ) ) {
-			return true;
-		}
-	}
-	return false;
+	return std::ranges::any_of( propertyvalues, [str]( const char *prop ){ return string_equal( str, prop ); } );
 }
 
 template<typename EntityMatcher>
@@ -728,7 +720,7 @@ class EntityFindByPropertyValueWalker : public scene::Graph::Walker
 public:
 	EntityFindByPropertyValueWalker( const EntityMatcher& entityMatcher ) : m_entityMatcher( entityMatcher ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if( !path.top().get().visible() ){
 			return false;
 		}
@@ -774,7 +766,7 @@ public:
 	EntityGetSelectedPropertyValuesWalker( const char *prop, PropertyValues& propertyvalues )
 		: m_propertyvalues( propertyvalues ), m_prop( prop ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( Entity* entity = Node_getEntity( path.top() ) ){
 			if( path.top().get_pointer() != m_world ){
 				if ( Instance_isSelected( instance ) || instance.childSelected() ) {
@@ -831,6 +823,11 @@ void Scene_EntityGetPropertyValues( scene::Graph& graph, const char *prop, Prope
 	graph.traverse( EntityGetSelectedPropertyValuesWalker( prop, propertyvalues ) );
 }
 
+void Scene_BrushPatchSelectByShader( const char *shader ){
+	Scene_BrushSelectByShader( GlobalSceneGraph(), shader );
+	Scene_PatchSelectByShader( GlobalSceneGraph(), shader );
+}
+
 void Select_AllOfType(){
 	if ( GlobalSelectionSystem().Mode() == SelectionSystem::eComponent ) {
 		if ( GlobalSelectionSystem().ComponentMode() == SelectionSystem::eFace ) {
@@ -838,20 +835,15 @@ void Select_AllOfType(){
 			Scene_BrushSelectByShader_Component( GlobalSceneGraph(), TextureBrowser_GetSelectedShader() );
 		}
 	}
-	else
-	{
+	else{
 		PropertyValues propertyvalues;
 		const char *prop = "classname";
 		Scene_EntityGetPropertyValues( GlobalSceneGraph(), prop, propertyvalues );
 		GlobalSelectionSystem().setSelectedAll( false );
-		if ( !propertyvalues.empty() ) {
+		if ( !propertyvalues.empty() )
 			Scene_EntitySelectByPropertyValues( GlobalSceneGraph(), prop, propertyvalues );
-		}
 		else
-		{
-			Scene_BrushSelectByShader( GlobalSceneGraph(), TextureBrowser_GetSelectedShader() );
-			Scene_PatchSelectByShader( GlobalSceneGraph(), TextureBrowser_GetSelectedShader() );
-		}
+			Scene_BrushPatchSelectByShader( TextureBrowser_GetSelectedShader() );
 	}
 }
 
@@ -881,7 +873,7 @@ void Select_EntitiesByKeyValue( const char* key, const char* value ){
 					bool m_found = false;
 					Visitor( const char* value ) : m_value( value ){
 					}
-					void visit( const char* key, const char* value ){
+					void visit( const char* key, const char* value ) override {
 						if ( string_equal_nocase( m_value, value ) ) {
 							m_found = true;
 						}
@@ -894,9 +886,12 @@ void Select_EntitiesByKeyValue( const char* key, const char* value ){
 	}
 }
 
-void Select_FacesAndPatchesByShader(){
-	Scene_BrushFacesSelectByShader( GlobalSceneGraph(), TextureBrowser_GetSelectedShader() );
-	Scene_PatchSelectByShader( GlobalSceneGraph(), TextureBrowser_GetSelectedShader() );
+void Select_FacesAndPatchesByShader( const char *shader ){
+	Scene_BrushFacesSelectByShader( GlobalSceneGraph(), shader );
+	Scene_PatchSelectByShader( GlobalSceneGraph(), shader );
+}
+void Select_FacesAndPatchesByShader_(){
+	Select_FacesAndPatchesByShader( TextureBrowser_GetSelectedShader() );
 }
 
 void Select_Inside(){
@@ -940,26 +935,6 @@ void Select_FitTexture( float horizontal, float vertical, bool only_dimension ){
 
 #include "commands.h"
 #include "dialog.h"
-
-template<class Check>
-bool Traversable_all_of_children( scene::Traversable* traversable, const Check&& check ){
-	class Check_all : public scene::Traversable::Walker
-	{
-		const Check m_check;
-	public:
-		mutable bool m_all = true; // true for empty container
-		Check_all( Check check ) : m_check( check ){
-		}
-		bool pre( scene::Node& node ) const override {
-			if( !m_check( node ) )
-				m_all = false;
-			return m_all;
-		}
-	} check_all( check );
-
-	traversable->traverse( check_all );
-	return check_all.m_all;
-}
 
 inline void hide_node( scene::Node& node, bool hide ){
 	hide
@@ -1021,7 +996,7 @@ public:
 	HideAllWalker( bool hide )
 		: m_hide( hide ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		hide_node( path.top(), m_hide );
 		return true;
 	}
@@ -1129,7 +1104,6 @@ void Selection_RotateAnticlockwise(){
 		Select_RotateAxis( 0, 90 );
 		break;
 	}
-
 }
 
 
@@ -1260,7 +1234,7 @@ public:
 	mutable std::vector<scene::Node*> m_cloned;
 	CloneSelected( bool makeUnique ) : m_makeUnique( makeUnique ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.size() == 1 ) {
 			return true;
 		}
@@ -1280,7 +1254,7 @@ public:
 
 		return true;
 	}
-	void post( const scene::Path& path, scene::Instance& instance ) const {
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.size() == 1 ) {
 			return;
 		}
@@ -1483,11 +1457,11 @@ void Texdef_Rotate( float angle ){
 // these are actually {Anti,}Clockwise in BP mode only (AP/220 - 50/50)
 // TODO is possible to make really {Anti,}Clockwise
 void Texdef_RotateClockwise(){
-	Texdef_Rotate( static_cast<float>( -fabs( g_si_globals.rotate ) ) );
+	Texdef_Rotate( -std::fabs( g_si_globals.rotate ) );
 }
 
 void Texdef_RotateAntiClockwise(){
-	Texdef_Rotate( static_cast<float>( fabs( g_si_globals.rotate ) ) );
+	Texdef_Rotate( std::fabs( g_si_globals.rotate ) );
 }
 
 void Texdef_Scale( float x, float y ){
@@ -1543,7 +1517,7 @@ public:
 	SnappableSnapToGridSelected( float snap )
 		: m_snap( snap ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			Snappable* snappable = Node_getSnappable( path.top() );
 			if ( snappable != 0
@@ -1566,7 +1540,7 @@ public:
 	ComponentSnappableSnapToGridSelected( float snap )
 		: m_snap( snap ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			ComponentSnappable* componentSnappable = Instance_getComponentSnappable( instance );
 			if ( componentSnappable != 0
@@ -1615,7 +1589,7 @@ class RotateDialog : public QObject
 		m_window->setWindowTitle( "Arbitrary rotation" );
 		m_window->installEventFilter( this );
 
-		auto grid = new QGridLayout( m_window );
+		auto *grid = new QGridLayout( m_window );
 		grid->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 
 		{
@@ -1629,7 +1603,7 @@ class RotateDialog : public QObject
 			grid->addWidget( new SpinBoxLabel( "  Z  ", m_z ), 2, 0 );
 		}
 		{
-			auto buttons = new QDialogButtonBox( Qt::Orientation::Vertical );
+			auto *buttons = new QDialogButtonBox( Qt::Orientation::Vertical );
 			grid->addWidget( buttons, 0, 2, 3, 1 );
 			QObject::connect( buttons->addButton( QDialogButtonBox::StandardButton::Ok ), &QPushButton::clicked, [this](){ ok(); } );
 			QObject::connect( buttons->addButton( QDialogButtonBox::StandardButton::Cancel ), &QPushButton::clicked, [this](){ cancel(); } );
@@ -1659,7 +1633,7 @@ class RotateDialog : public QObject
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ) {
-			QKeyEvent *keyEvent = static_cast<QKeyEvent*>( event );
+			auto *keyEvent = static_cast<QKeyEvent*>( event );
 			if( keyEvent->key() == Qt::Key_Escape ){
 				cancel();
 				event->accept();
@@ -1707,7 +1681,7 @@ class ScaleDialog : public QObject
 		m_window->setWindowTitle( "Arbitrary scale" );
 		m_window->installEventFilter( this );
 
-		auto grid = new QGridLayout( m_window );
+		auto *grid = new QGridLayout( m_window );
 		grid->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 
 		{
@@ -1721,7 +1695,7 @@ class ScaleDialog : public QObject
 			grid->addWidget( new SpinBoxLabel( "  Z  ", m_z ), 2, 0 );
 		}
 		{
-			auto buttons = new QDialogButtonBox( Qt::Orientation::Vertical );
+			auto *buttons = new QDialogButtonBox( Qt::Orientation::Vertical );
 			grid->addWidget( buttons, 0, 2, 3, 1 );
 			QObject::connect( buttons->addButton( QDialogButtonBox::StandardButton::Ok ), &QPushButton::clicked, [this](){ ok(); } );
 			QObject::connect( buttons->addButton( QDialogButtonBox::StandardButton::Cancel ), &QPushButton::clicked, [this](){ cancel(); } );
@@ -1751,7 +1725,7 @@ class ScaleDialog : public QObject
 protected:
 	bool eventFilter( QObject *obj, QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ) {
-			QKeyEvent *keyEvent = static_cast<QKeyEvent*>( event );
+			auto *keyEvent = static_cast<QKeyEvent*>( event );
 			if( keyEvent->key() == Qt::Key_Escape ){
 				cancel();
 				event->accept();
@@ -1796,7 +1770,7 @@ public:
 	EntityGetSelectedPropertyValuesWalker_nonEmpty( const char *prop, PropertyValues& propertyvalues )
 		: m_propertyvalues( propertyvalues ), m_prop( prop ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		Entity* entity = Node_getEntity( path.top() );
 		if ( entity != 0 ){
 			if( path.top().get_pointer() != m_world ){
@@ -1880,7 +1854,7 @@ void Select_registerCommands(){
 	GlobalCommands_insert( "RotateSelectionClockwise", makeCallbackF( Selection_RotateClockwise ) );
 	GlobalCommands_insert( "RotateSelectionAnticlockwise", makeCallbackF( Selection_RotateAnticlockwise ) );
 
-	GlobalCommands_insert( "SelectTextured", makeCallbackF( Select_FacesAndPatchesByShader ), QKeySequence( "Ctrl+Shift+A" ) );
+	GlobalCommands_insert( "SelectTextured", makeCallbackF( Select_FacesAndPatchesByShader_ ), QKeySequence( "Ctrl+Shift+A" ) );
 
 	GlobalCommands_insert( "Undo", makeCallbackF( Undo ), QKeySequence( "Ctrl+Z" ) );
 	GlobalCommands_insert( "Redo", makeCallbackF( Redo ), QKeySequence( "Ctrl+Shift+Z" ) );
@@ -1891,6 +1865,7 @@ void Select_registerCommands(){
 	GlobalCommands_insert( "MoveToCamera", makeCallbackF( MoveToCamera ), QKeySequence( "Ctrl+Shift+V" ) );
 	GlobalCommands_insert( "CloneSelection", makeCallbackF( Selection_Clone ), QKeySequence( "Space" ) );
 	GlobalCommands_insert( "CloneSelectionAndMakeUnique", makeCallbackF( Selection_Clone_MakeUnique ), QKeySequence( "Shift+Space" ) );
+	GlobalCommands_insert( "DeleteSelection3", makeCallbackF( deleteSelection ), QKeySequence( "Delete" ) );
 	GlobalCommands_insert( "DeleteSelection2", makeCallbackF( deleteSelection ), QKeySequence( "Backspace" ) );
 	GlobalCommands_insert( "DeleteSelection", makeCallbackF( deleteSelection ), QKeySequence( "Z" ) );
 	GlobalCommands_insert( "RepeatTransforms", makeCallbackF( +[](){ GlobalSelectionSystem().repeatTransforms(); } ), QKeySequence( "Ctrl+R" ) );
@@ -1923,8 +1898,8 @@ void Select_registerCommands(){
 	GlobalCommands_insert( "TexShiftLeft", makeCallbackF( Texdef_ShiftLeft ), QKeySequence( "Shift+Left" ) );
 	GlobalCommands_insert( "TexShiftRight", makeCallbackF( Texdef_ShiftRight ), QKeySequence( "Shift+Right" ) );
 
-	GlobalCommands_insert( "MoveSelectionDOWN", makeCallbackF( Selection_MoveDown ), QKeySequence( Qt::Key_Minus + Qt::KeypadModifier ) );
-	GlobalCommands_insert( "MoveSelectionUP", makeCallbackF( Selection_MoveUp ), QKeySequence( Qt::Key_Plus + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "MoveSelectionDOWN", makeCallbackF( Selection_MoveDown ), QKeySequence( +Qt::Key_Minus + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "MoveSelectionUP", makeCallbackF( Selection_MoveUp ), QKeySequence( +Qt::Key_Plus + Qt::KeypadModifier ) );
 
 	GlobalCommands_insert( "SelectNudgeLeft", makeCallbackF( Selection_NudgeLeft ), QKeySequence( "Alt+Left" ) );
 	GlobalCommands_insert( "SelectNudgeRight", makeCallbackF( Selection_NudgeRight ), QKeySequence( "Alt+Right" ) );

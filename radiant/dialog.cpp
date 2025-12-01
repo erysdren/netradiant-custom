@@ -37,7 +37,6 @@
 
 #include "stream/stringstream.h"
 #include "gtkutil/dialog.h"
-#include "gtkutil/entry.h"
 #include "gtkutil/image.h"
 #include "gtkutil/spinbox.h"
 
@@ -64,7 +63,7 @@ struct DialogSliderRow
 		m_slider->setSingleStep( step_increment );
 		m_slider->setPageStep( page_increment );
 
-		auto label = new QLabel;
+		auto *label = new QLabel;
 		label->setMinimumWidth( label->fontMetrics().horizontalAdvance( QString::number( upper ) ) );
 		QObject::connect( m_slider, &QSlider::valueChanged,
 			[label]( int value ){
@@ -82,7 +81,7 @@ struct DialogSliderRow
 		m_slider->setSingleStep( step_increment * 10 );
 		m_slider->setPageStep( page_increment * 10 );
 
-		auto label = new QLabel;
+		auto *label = new QLabel;
 		label->setMinimumWidth( label->fontMetrics().horizontalAdvance( QString::number( upper, 'f', 1 ) ) );
 		QObject::connect( m_slider, &QSlider::valueChanged,
 			[label]( int value ){
@@ -209,13 +208,13 @@ public:
 	CallbackDialogData( const ImportCallback& importWidget, const ExportCallback& exportWidget, const ImportCallback& importViewer, const ExportCallback& exportViewer )
 		: m_importWidget( importWidget ), m_exportWidget( exportWidget ), m_importViewer( importViewer ), m_exportViewer( exportViewer ){
 	}
-	void release(){
+	void release() override{
 		delete this;
 	}
-	void importData() const {
+	void importData() const override {
 		m_exportViewer( m_importWidget );
 	}
-	void exportData() const {
+	void exportData() const override {
 		m_exportWidget( m_importViewer );
 	}
 };
@@ -266,9 +265,9 @@ public:
 // Dialog class
 
 Dialog::~Dialog(){
-	for ( DialogDataList::iterator i = m_data.begin(); i != m_data.end(); ++i )
+	for ( auto *data : m_data )
 	{
-		( *i )->release();
+		data->release();
 	}
 
 	ASSERT_MESSAGE( m_window == 0, "dialog window not destroyed" );
@@ -303,36 +302,36 @@ void Dialog::Destroy(){
 }
 
 
-void Dialog::AddBoolToggleData( QCheckBox& widget, const BoolImportCallback& importViewer, const BoolExportCallback& exportViewer ){
-	AddCustomData<BoolToggleImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddBoolToggleData( QCheckBox& widget, const BoolImportCallback& importCallback, const BoolExportCallback& exportCallback ){
+	AddCustomData<BoolToggleImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
-void Dialog::AddIntRadioData( QButtonGroup& widget, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
-	AddCustomData<IntRadioImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddIntRadioData( QButtonGroup& widget, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
+	AddCustomData<IntRadioImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
-void Dialog::AddTextEntryData( QLineEdit& widget, const StringImportCallback& importViewer, const StringExportCallback& exportViewer ){
-	AddCustomData<TextEntryImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddTextEntryData( QLineEdit& widget, const StringImportCallback& importCallback, const StringExportCallback& exportCallback ){
+	AddCustomData<TextEntryImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
-void Dialog::AddFloatSpinnerData( QDoubleSpinBox& widget, const FloatImportCallback& importViewer, const FloatExportCallback& exportViewer ){
-	AddCustomData<FloatSpinnerImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddFloatSpinnerData( QDoubleSpinBox& widget, const FloatImportCallback& importCallback, const FloatExportCallback& exportCallback ){
+	AddCustomData<FloatSpinnerImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
-void Dialog::AddIntSpinnerData( QSpinBox& widget, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
-	AddCustomData<IntSpinnerImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddIntSpinnerData( QSpinBox& widget, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
+	AddCustomData<IntSpinnerImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
-void Dialog::AddIntSliderData( QSlider& widget, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
-	AddCustomData<IntSliderImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddIntSliderData( QSlider& widget, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
+	AddCustomData<IntSliderImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
-void Dialog::AddFloatSliderData( QSlider& widget, const FloatImportCallback& importViewer, const FloatExportCallback& exportViewer ){
-	AddCustomData<FloatSliderImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddFloatSliderData( QSlider& widget, const FloatImportCallback& importCallback, const FloatExportCallback& exportCallback ){
+	AddCustomData<FloatSliderImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
-void Dialog::AddIntComboData( QComboBox& widget, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
-	AddCustomData<IntComboImportExport>( m_data ).apply( widget, importViewer, exportViewer );
+void Dialog::AddIntComboData( QComboBox& widget, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
+	AddCustomData<IntComboImportExport>( m_data ).apply( widget, importCallback, exportCallback );
 }
 
 
@@ -362,16 +361,16 @@ void Dialog::AddDialogData( QComboBox& widget, int& data ){
 }
 
 void Dialog::exportData(){
-	for ( DialogDataList::iterator i = m_data.begin(); i != m_data.end(); ++i )
+	for ( const auto *data : m_data )
 	{
-		( *i )->exportData();
+		data->exportData();
 	}
 }
 
 void Dialog::importData(){
-	for ( DialogDataList::iterator i = m_data.begin(); i != m_data.end(); ++i )
+	for ( const auto *data : m_data )
 	{
-		( *i )->importData();
+		data->importData();
 	}
 }
 
@@ -398,9 +397,9 @@ QDialog::DialogCode Dialog::DoModal(){
 }
 
 
-QCheckBox* Dialog::addCheckBox( QGridLayout* grid, const char* name, const char* flag, const BoolImportCallback& importViewer, const BoolExportCallback& exportViewer ){
-	auto check = new QCheckBox( flag );
-	AddBoolToggleData( *check, importViewer, exportViewer );
+QCheckBox* Dialog::addCheckBox( QGridLayout* grid, const char* name, const char* flag, const BoolImportCallback& importCallback, const BoolExportCallback& exportCallback ){
+	auto *check = new QCheckBox( flag );
+	AddBoolToggleData( *check, importCallback, exportCallback );
 	DialogGrid_packRow( grid, check, name );
 	return check;
 }
@@ -409,13 +408,13 @@ QCheckBox* Dialog::addCheckBox( QGridLayout* grid, const char* name, const char*
 	return addCheckBox( grid, name, flag, BoolImportCaller( data ), BoolExportCaller( data ) );
 }
 
-QComboBox* Dialog::addCombo( QGridLayout* grid, const char* name, StringArrayRange values, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
-	auto combo = new ComboBox;
+QComboBox* Dialog::addCombo( QGridLayout* grid, const char* name, StringArrayRange values, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
+	auto *combo = new ComboBox;
 
 	for ( const char *value : values )
 		combo->addItem( value );
 
-	AddIntComboData( *combo, importViewer, exportViewer );
+	AddIntComboData( *combo, importCallback, exportCallback );
 
 	DialogGrid_packRow( grid, combo, name );
 
@@ -442,9 +441,9 @@ void Dialog::addSlider( QGridLayout* grid, const char* name, float& data, double
 	DialogGrid_packRow( grid, row.m_layout, name );
 }
 
-void Dialog::addRadio( QGridLayout* grid, const char* name, StringArrayRange names, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
+void Dialog::addRadio( QGridLayout* grid, const char* name, StringArrayRange names, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
 	RadioHBox radioBox = RadioHBox_new( names );
-	AddIntRadioData( *radioBox.m_radio, importViewer, exportViewer );
+	AddIntRadioData( *radioBox.m_radio, importCallback, exportCallback );
 
 	DialogGrid_packRow( grid, radioBox.m_hbox, name );
 }
@@ -453,22 +452,25 @@ void Dialog::addRadio( QGridLayout* grid, const char* name, int& data, StringArr
 	addRadio( grid, name, names, IntImportCaller( data ), IntExportCaller( data ) );
 }
 
-void Dialog::addRadioIcons( QGridLayout* grid, const char* name, StringArrayRange icons, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
-	auto subgrid = new QGridLayout;
-	auto buttons = new QButtonGroup( subgrid );
+void Dialog::addRadioIcons( QGridLayout* grid, const char* name, StringArrayRange icons, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
+	auto *subgrid = new QGridLayout;
+	auto *buttons = new QButtonGroup( subgrid );
 
 	for ( size_t i = 0; i < icons.size(); ++i )
 	{
-		auto label = new QLabel;
-		label->setPixmap( new_local_image( icons[i] ) );
+		auto *label = new QLabel;
+		auto pixmap = new_local_image( icons[i] );
+		pixmap.setDevicePixelRatio( label->devicePixelRatio() );
+		// target 0.5 of the image size; has only usecase atm
+		label->setPixmap( pixmap.scaledToHeight( pixmap.height() * label->devicePixelRatio() * pixmap.logicalDpiX() / ( 96 * 2 ), Qt::TransformationMode::SmoothTransformation ) );
 		subgrid->addWidget( label, 0, i, Qt::AlignmentFlag::AlignHCenter );
 
-		auto button = new QRadioButton;
+		auto *button = new QRadioButton;
 		buttons->addButton( button, i ); // set ids 0+, default ones are negative
 		subgrid->addWidget( button, 1, i, Qt::AlignmentFlag::AlignHCenter );
 	}
 
-	AddIntRadioData( *buttons, importViewer, exportViewer );
+	AddIntRadioData( *buttons, importCallback, exportCallback );
 
 	DialogGrid_packRow( grid, subgrid, name );
 }
@@ -477,15 +479,15 @@ void Dialog::addRadioIcons( QGridLayout* grid, const char* name, int& data, Stri
 	addRadioIcons( grid, name, icons, IntImportCaller( data ), IntExportCaller( data ) );
 }
 
-QWidget* Dialog::addTextEntry( QGridLayout* grid, const char* name, const StringImportCallback& importViewer, const StringExportCallback& exportViewer ){
-	auto entry = new QLineEdit;
-	AddTextEntryData( *entry, importViewer, exportViewer );
+QWidget* Dialog::addTextEntry( QGridLayout* grid, const char* name, const StringImportCallback& importCallback, const StringExportCallback& exportCallback ){
+	auto *entry = new QLineEdit;
+	AddTextEntryData( *entry, importCallback, exportCallback );
 
 	DialogGrid_packRow( grid, entry, name );
 	return entry;
 }
 
-void Dialog::addPathEntry( QGridLayout* grid, const char* name, bool browse_directory, const StringImportCallback& importViewer, const StringExportCallback& exportViewer ){
+void Dialog::addPathEntry( QGridLayout* grid, const char* name, bool browse_directory, const StringImportCallback& importCallback, const StringExportCallback& exportCallback ){
 	PathEntry pathEntry = PathEntry_new();
 
 	if( browse_directory )
@@ -493,7 +495,7 @@ void Dialog::addPathEntry( QGridLayout* grid, const char* name, bool browse_dire
 	else
 		QObject::connect( pathEntry.m_button, &QAction::triggered, [entry = pathEntry.m_entry](){ button_clicked_entry_browse_file( entry ); } );
 
-	AddTextEntryData( *pathEntry.m_entry, importViewer, exportViewer );
+	AddTextEntryData( *pathEntry.m_entry, importCallback, exportCallback );
 
 	DialogGrid_packRow( grid, pathEntry.m_entry, name );
 }
@@ -502,10 +504,10 @@ void Dialog::addPathEntry( QGridLayout* grid, const char* name, CopiedString& da
 	addPathEntry( grid, name, browse_directory, StringImportCallback( StringImportCaller( data ) ), StringExportCallback( StringExportCaller( data ) ) );
 }
 
-QWidget* Dialog::addSpinner( QGridLayout* grid, const char* name, int lower, int upper, const IntImportCallback& importViewer, const IntExportCallback& exportViewer ){
-	auto spin = new SpinBox( lower, upper );
+QWidget* Dialog::addSpinner( QGridLayout* grid, const char* name, int lower, int upper, const IntImportCallback& importCallback, const IntExportCallback& exportCallback ){
+	auto *spin = new SpinBox( lower, upper );
 	spin->setStepType( QAbstractSpinBox::StepType::AdaptiveDecimalStepType );
-	AddIntSpinnerData( *spin, importViewer, exportViewer );
+	AddIntSpinnerData( *spin, importCallback, exportCallback );
 	DialogGrid_packRow( grid, spin, new SpinBoxLabel( name, spin ) );
 	return spin;
 }
@@ -514,10 +516,10 @@ QWidget* Dialog::addSpinner( QGridLayout* grid, const char* name, int& data, int
 	return addSpinner( grid, name, lower, upper, IntImportCallback( IntImportCaller( data ) ), IntExportCallback( IntExportCaller( data ) ) );
 }
 
-QWidget* Dialog::addSpinner( QGridLayout* grid, const char* name, double lower, double upper, const FloatImportCallback& importViewer, const FloatExportCallback& exportViewer, int decimals ){
-	auto spin = new DoubleSpinBox( lower, upper, 0, decimals );
+QWidget* Dialog::addSpinner( QGridLayout* grid, const char* name, double lower, double upper, const FloatImportCallback& importCallback, const FloatExportCallback& exportCallback, int decimals ){
+	auto *spin = new DoubleSpinBox( lower, upper, 0, decimals );
 	spin->setStepType( QAbstractSpinBox::StepType::AdaptiveDecimalStepType );
-	AddFloatSpinnerData( *spin, importViewer, exportViewer );
+	AddFloatSpinnerData( *spin, importCallback, exportCallback );
 	DialogGrid_packRow( grid, spin, new SpinBoxLabel( name, spin ) );
 	return spin;
 }

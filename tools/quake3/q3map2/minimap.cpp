@@ -146,8 +146,8 @@ static void MiniMapRandomlySupersampled( int y ){
 	int x, i;
 	float *p = &minimap.data1f[y * minimap.width];
 	float ymin = minimap.mins[1] + minimap.size[1] * ( y / (float) minimap.height );
-	float dx   =                   minimap.size[0]      / (float) minimap.width;
-	float dy   =                   minimap.size[1]      / (float) minimap.height;
+	float dx   =                   minimap.size[0]       / (float) minimap.width;
+	float dy   =                   minimap.size[1]       / (float) minimap.height;
 	float uv[2];
 	float thisval;
 
@@ -174,8 +174,8 @@ static void MiniMapSupersampled( int y ){
 	int x, i;
 	float *p = &minimap.data1f[y * minimap.width];
 	float ymin = minimap.mins[1] + minimap.size[1] * ( y / (float) minimap.height );
-	float dx   =                   minimap.size[0]      / (float) minimap.width;
-	float dy   =                   minimap.size[1]      / (float) minimap.height;
+	float dx   =                   minimap.size[0]       / (float) minimap.width;
+	float dy   =                   minimap.size[1]       / (float) minimap.height;
 
 	for ( x = 0; x < minimap.width; ++x )
 	{
@@ -198,11 +198,11 @@ static void MiniMapSupersampled( int y ){
 static void MiniMapNoSupersampling( int y ){
 	int x;
 	float *p = &minimap.data1f[y * minimap.width];
-	float ymin = minimap.mins[1] + minimap.size[1] * ( ( y + 0.5 ) / (float) minimap.height );
+	float ymin = minimap.mins[1] + minimap.size[1] * ( ( y + 0.5 ) / minimap.height );
 
 	for ( x = 0; x < minimap.width; ++x )
 	{
-		float xmin = minimap.mins[0] + minimap.size[0] * ( ( x + 0.5 ) / (float) minimap.width );
+		float xmin = minimap.mins[0] + minimap.size[0] * ( ( x + 0.5 ) / minimap.width );
 		*p++ = MiniMapSample( xmin, ymin ) / minimap.size[2];
 	}
 }
@@ -331,16 +331,16 @@ static bool MiniMapEvaluateSampleOffsets( int *bestj, int *bestk, float *bestval
 		{
 			dx = minimap.sample_offsets[2 * j + 0] - minimap.sample_offsets[2 * k + 0];
 			dy = minimap.sample_offsets[2 * j + 1] - minimap.sample_offsets[2 * k + 1];
-			if ( dx > +0.5 ) {
+			if ( dx > +0.5f ) {
 				dx -= 1;
 			}
-			if ( dx < -0.5 ) {
+			if ( dx < -0.5f ) {
 				dx += 1;
 			}
-			if ( dy > +0.5 ) {
+			if ( dy > +0.5f ) {
 				dy -= 1;
 			}
-			if ( dy < -0.5 ) {
+			if ( dy < -0.5f ) {
 				dy += 1;
 			}
 			val = dx * dx + dy * dy;
@@ -475,17 +475,18 @@ int MiniMapBSPMain( Args& args ){
 
 	strClear( minimapFilename );
 	minimapSharpen = g_game->miniMapSharpen;
-	minimap.width = minimap.height = g_game->miniMapSize;
-	border = g_game->miniMapBorder;
-	keepaspect = g_game->miniMapKeepAspect;
-	mode = g_game->miniMapMode;
+	minimap.width  =
+	minimap.height = g_game->miniMapSize;
+	border         = g_game->miniMapBorder;
+	keepaspect     = g_game->miniMapKeepAspect;
+	mode           = g_game->miniMapMode;
 
 	autolevel = false;
 	minimap.samples = 1;
-	minimap.sample_offsets = NULL;
-	minimap.boost = 1.0;
-	minimap.brightness = 0.0;
-	minimap.contrast = 1.0;
+	minimap.sample_offsets = nullptr;
+	minimap.boost = 1;
+	minimap.brightness = 0;
+	minimap.contrast = 1;
 
 	/* process arguments */
 	{
@@ -508,7 +509,7 @@ int MiniMapBSPMain( Args& args ){
 			minimap.samples = atoi( args.takeNext() );
 			Sys_Printf( "Random samples set to %i\n", minimap.samples );
 			free( minimap.sample_offsets );
-			minimap.sample_offsets = NULL;
+			minimap.sample_offsets = nullptr;
 		}
 		while( args.takeArg( "-border" ) ) {
 			border = atof( args.takeNext() );
@@ -611,7 +612,7 @@ int MiniMapBSPMain( Args& args ){
 		}
 	}
 
-	if ( minimap.boost != 1.0 ) {
+	if ( minimap.boost != 1 ) {
 		Sys_Printf( "\n--- MiniMapContrastBoost (%d) ---\n", minimap.height );
 		RunThreadsOnIndividual( minimap.height, true, MiniMapContrastBoost );
 	}

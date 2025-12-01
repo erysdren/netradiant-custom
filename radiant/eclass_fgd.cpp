@@ -24,68 +24,64 @@
 #include "debugging/debugging.h"
 
 #include <map>
+#include <set>
 
-#include "ifilesystem.h"
 #include "iscriplib.h"
-#include "qerplugin.h"
 
 #include "string/string.h"
 #include "eclasslib.h"
 #include "os/path.h"
-#include "os/dir.h"
 #include "stream/stringstream.h"
-#include "moduleobservers.h"
 #include "stringio.h"
 #include "stream/textfilestream.h"
+#include "math/vector.h"
 
 namespace
 {
 typedef std::map<const char*, EntityClass*, RawStringLessNoCase> EntityClasses;
 EntityClasses g_EntityClassFGD_classes;
-typedef std::map<const char*, EntityClass*, RawStringLess> BaseClasses;
+typedef std::map<const char*, EntityClass*, RawStringLessNoCase> BaseClasses;
 BaseClasses g_EntityClassFGD_bases;
-EntityClass   *g_EntityClassFGD_bad = 0;
 typedef std::map<CopiedString, ListAttributeType> ListAttributeTypes;
 ListAttributeTypes g_listTypesFGD;
+
+const auto pathLess = []( const CopiedString& one, const CopiedString& other ){
+	return path_less( one.c_str(), other.c_str() );
+};
+std::set<CopiedString, decltype( pathLess )> g_loadedFgds( pathLess );
 }
 
 
 void EntityClassFGD_clear(){
-	g_EntityClassFGD_classes.clear();
-	for ( BaseClasses::iterator i = g_EntityClassFGD_bases.begin(); i != g_EntityClassFGD_bases.end(); ++i )
+	for ( auto [ name, eclass ] : g_EntityClassFGD_bases )
 	{
-		( *i ).second->free( ( *i ).second );
+		eclass_capture_state( eclass );
+		eclass->free( eclass );
 	}
+	g_EntityClassFGD_classes.clear();
 	g_EntityClassFGD_bases.clear();
 	g_listTypesFGD.clear();
+	g_loadedFgds.clear();
 }
 
 EntityClass* EntityClassFGD_insertUniqueBase( EntityClass* entityClass ){
-	std::pair<BaseClasses::iterator, bool> result = g_EntityClassFGD_bases.insert( BaseClasses::value_type( entityClass->name(), entityClass ) );
-	if ( !result.second ) {
-		globalErrorStream() << "duplicate base class: " << makeQuoted( entityClass->name() ) << '\n';
-		//eclass_capture_state( entityClass );
-		//entityClass->free( entityClass );
-	}
-	return ( *result.first ).second;
-}
-
-EntityClass* EntityClassFGD_insertUnique( EntityClass* entityClass ){
-	EntityClassFGD_insertUniqueBase( entityClass );
-	std::pair<EntityClasses::iterator, bool> result = g_EntityClassFGD_classes.insert( EntityClasses::value_type( entityClass->name(), entityClass ) );
-	if ( !result.second ) {
-		globalErrorStream() << "duplicate entity class: " << makeQuoted( entityClass->name() ) << '\n';
+	auto [ it, inserted ] = g_EntityClassFGD_bases.insert( BaseClasses::value_type( entityClass->name(), entityClass ) );
+	if ( !inserted ) {
+		globalErrorStream() << "duplicate base class: " << Quoted( entityClass->name() ) << '\n';
 		eclass_capture_state( entityClass );
 		entityClass->free( entityClass );
 	}
-	return ( *result.first ).second;
+	return it->second;
 }
 
-void EntityClassFGD_forEach( EntityClassVisitor& visitor ){
-	for ( EntityClasses::iterator i = g_EntityClassFGD_classes.begin(); i != g_EntityClassFGD_classes.end(); ++i )
-	{
-		visitor.visit( ( *i ).second );
+EntityClass* EntityClassFGD_insertUnique( EntityClass* entityClass ){
+	auto [ it, inserted ] = g_EntityClassFGD_classes.insert( EntityClasses::value_type( entityClass->name(), entityClass ) );
+	if ( !inserted ) {
+		globalErrorStream() << "duplicate entity class: " << Quoted( entityClass->name() ) << '\n';
+		eclass_capture_state( entityClass );
+		entityClass->free( entityClass );
 	}
+	return it->second;
 }
 
 #define PARSE_ERROR "error parsing fgd entity class definition at line " << tokeniser.getLine() << ':' << tokeniser.getColumn()
@@ -96,7 +92,7 @@ inline bool EntityClassFGD_parseToken( Tokeniser& tokeniser, const char* token )
 	const bool w = s_fgd_warned;
 	const bool ok = string_equal( tokeniser.getToken(), token );
 	if( !ok ){
-		globalErrorStream() << PARSE_ERROR << "\nExpected " << makeQuoted( token ) << '\n';
+		globalErrorStream() << PARSE_ERROR << "\nExpected " << Quoted( token ) << '\n';
 		s_fgd_warned = true;
 	}
 	return w || ok;
@@ -110,7 +106,7 @@ do{\
 		ERROR_MESSAGE( message );\
 		s_fgd_warned = true;\
 	}\
-}while( 0 )
+}while( false )
 
 
 void EntityClassFGD_parseSplitString( Tokeniser& tokeniser, CopiedString& string ){
@@ -177,11 +173,11 @@ void EntityClassFGD_parseClass( Tokeniser& tokeniser, bool fixedsize, bool isBas
 			entityClass->colorSpecified = true;
 			ASSERT_MESSAGE( EntityClassFGD_parseToken( tokeniser, "(" ), PARSE_ERROR );
 			Tokeniser_getFloat( tokeniser, entityClass->color.x() );
-			entityClass->color.x() /= 256.0;
+			entityClass->color.x() /= 255.0;
 			Tokeniser_getFloat( tokeniser, entityClass->color.y() );
-			entityClass->color.y() /= 256.0;
+			entityClass->color.y() /= 255.0;
 			Tokeniser_getFloat( tokeniser, entityClass->color.z() );
-			entityClass->color.z() /= 256.0;
+			entityClass->color.z() /= 255.0;
 			ASSERT_MESSAGE( EntityClassFGD_parseToken( tokeniser, ")" ), PARSE_ERROR );
 		}
 		else if ( string_equal( property, "iconsprite" ) ) {
@@ -446,10 +442,10 @@ void EntityClassFGD_parseClass( Tokeniser& tokeniser, bool fixedsize, bool isBas
 				tokeniser.nextLine();
 			}
 
-			for ( ListAttributeType::const_iterator i = listType.begin(); i != listType.end(); ++i )
+			for ( const auto& [ name, value ] : listType )
 			{
-				if ( string_equal( attribute.m_value.c_str(), ( *i ).first.c_str() ) ) {
-					attribute.m_value = ( *i ).second;
+				if ( string_equal( attribute.m_value.c_str(), name.c_str() ) ) {
+					attribute.m_value = value;
 				}
 			}
 
@@ -528,7 +524,7 @@ void EntityClassFGD_parseClass( Tokeniser& tokeniser, bool fixedsize, bool isBas
 		}
 		else
 		{
-			ERROR_FGD( "unknown key type: " << makeQuoted( type ) );
+			ERROR_FGD( "unknown key type: " << Quoted( type ) );
 		}
 		tokeniser.nextLine();
 	}
@@ -542,7 +538,7 @@ void EntityClassFGD_parseClass( Tokeniser& tokeniser, bool fixedsize, bool isBas
 	}
 }
 
-void EntityClassFGD_loadFile( const char* filename );
+void EntityClassFGD_loadUniqueFile( const char* filename );
 
 void EntityClassFGD_parse( TextInputStream& inputStream, const char* path ){
 	Tokeniser& tokeniser = GlobalScriptLibrary().m_pfnNewScriptTokeniser( inputStream );
@@ -571,7 +567,7 @@ void EntityClassFGD_parse( TextInputStream& inputStream, const char* path ){
 		}
 		// hl2 below
 		else if ( string_equal( blockType, "@include" ) ) {
-			EntityClassFGD_loadFile( StringStream( PathFilenameless( path ), tokeniser.getToken() ) );
+			EntityClassFGD_loadUniqueFile( StringStream( PathFilenameless( path ), tokeniser.getToken() ) );
 		}
 		else if ( string_equal( blockType, "@mapsize" ) ) {
 			ASSERT_MESSAGE( EntityClassFGD_parseToken( tokeniser, "(" ), PARSE_ERROR );
@@ -584,7 +580,7 @@ void EntityClassFGD_parse( TextInputStream& inputStream, const char* path ){
 		}
 		else
 		{
-			ERROR_FGD( "unknown block type: " << makeQuoted( blockType ) );
+			ERROR_FGD( "unknown block type: " << Quoted( blockType ) );
 		}
 	}
 
@@ -595,50 +591,32 @@ void EntityClassFGD_parse( TextInputStream& inputStream, const char* path ){
 void EntityClassFGD_loadFile( const char* filename ){
 	TextFileInputStream file( filename );
 	if ( !file.failed() ) {
-		globalOutputStream() << "parsing entity classes from " << makeQuoted( filename ) << '\n';
+		globalOutputStream() << "parsing entity classes from " << Quoted( filename ) << '\n';
 
 		EntityClassFGD_parse( file, filename );
 	}
 }
 
-EntityClass* EntityClassFGD_findOrInsert( const char *name, bool has_brushes ){
-	ASSERT_NOTNULL( name );
-
-	if ( string_empty( name ) ) {
-		return g_EntityClassFGD_bad;
-	}
-
-	EntityClasses::iterator i = g_EntityClassFGD_classes.find( name );
-	if ( i != g_EntityClassFGD_classes.end()
-	     //&& string_equal( ( *i ).first, name )
-	   ) {
-		return ( *i ).second;
-	}
-
-	EntityClass* e = EntityClass_Create_Default( name, has_brushes );
-	return EntityClassFGD_insertUnique( e );
-}
-
-const ListAttributeType* EntityClassFGD_findListType( const char *name ){
-	ListAttributeTypes::iterator i = g_listTypesFGD.find( name );
-	if ( i != g_listTypesFGD.end() ) {
-		return &( *i ).second;
-	}
-	return 0;
-
+void EntityClassFGD_loadUniqueFile( const char* filename ){
+	if( g_loadedFgds.insert( filename ).second )
+		EntityClassFGD_loadFile( filename );
 }
 
 
 void EntityClassFGD_resolveInheritance( EntityClass* derivedClass ){
 	if ( derivedClass->inheritanceResolved == false ) {
 		derivedClass->inheritanceResolved = true;
-		for ( StringList::iterator j = derivedClass->m_parent.begin(); j != derivedClass->m_parent.end(); ++j )
+		for ( const auto& parentName : derivedClass->m_parent )
 		{
-			BaseClasses::iterator i = g_EntityClassFGD_bases.find( ( *j ).c_str() );
+			BaseClasses::iterator i = g_EntityClassFGD_bases.find( parentName.c_str() );
 			if ( i == g_EntityClassFGD_bases.end() ) {
-				globalErrorStream() << "failed to find entityDef " << makeQuoted( ( *j ).c_str() ) << " inherited by "  << makeQuoted( derivedClass->name() ) << '\n';
+				i = g_EntityClassFGD_classes.find( parentName.c_str() );
+				if ( i == g_EntityClassFGD_classes.end() ) {
+					globalErrorStream() << "failed to find entityDef " << Quoted( parentName.c_str() ) << " inherited by " << Quoted( derivedClass->name() ) << '\n';
+					continue;
+				}
 			}
-			else
+
 			{
 				EntityClass* parentClass = ( *i ).second;
 				EntityClassFGD_resolveInheritance( parentClass );
@@ -652,15 +630,20 @@ void EntityClassFGD_resolveInheritance( EntityClass* derivedClass ){
 					derivedClass->maxs = parentClass->maxs;
 				}
 
-				for ( EntityClassAttributes::iterator k = parentClass->m_attributes.begin(); k != parentClass->m_attributes.end(); ++k )
+				for ( const auto& [ key, attr ] : parentClass->m_attributes )
 				{
-					EntityClass_insertAttribute( *derivedClass, ( *k ).first.c_str(), ( *k ).second );
+					EntityClass_insertAttribute( *derivedClass, key.c_str(), attr );
 				}
 
 				for( size_t flag = 0; flag < MAX_FLAGS; ++flag ){
 					if( !string_empty( parentClass->flagnames[flag] ) && string_empty( derivedClass->flagnames[flag] ) ){
 						strncpy( derivedClass->flagnames[flag], parentClass->flagnames[flag], std::size( derivedClass->flagnames[flag] ) - 1 );
-						derivedClass->flagAttributes[flag] = parentClass->flagAttributes[flag];
+						// this ptr ref is cool, but requires parents to stay alive (e.g. bases)
+						// non base parent also may be deleted during insertion to global entity stack, if entity is already present there
+						// derivedClass->flagAttributes[flag] = parentClass->flagAttributes[flag];
+						derivedClass->flagAttributes[flag] = &EntityClass_insertAttribute( *derivedClass,
+							parentClass->flagAttributes[flag]->m_name.c_str(),
+							*parentClass->flagAttributes[flag] ).second;
 					}
 				}
 			}
@@ -668,148 +651,62 @@ void EntityClassFGD_resolveInheritance( EntityClass* derivedClass ){
 	}
 }
 
-class EntityClassFGD : public ModuleObserver
-{
-	std::size_t m_unrealised;
-	ModuleObservers m_observers;
-public:
-	EntityClassFGD() : m_unrealised( 3 ){
-	}
-	void realise(){
-		if ( --m_unrealised == 0 ) {
 
-			{
-				const auto baseDirectory = StringStream( GlobalRadiant().getGameToolsPath(), GlobalRadiant().getRequiredGameDescriptionKeyValue( "basegame" ), '/' );
-				const auto gameDirectory = StringStream( GlobalRadiant().getGameToolsPath(), GlobalRadiant().getGameName(), '/' );
+void Eclass_ScanFile_fgd( EntityClassCollector& collector, const char *filename ){
+	EntityClassFGD_loadUniqueFile( filename );
+}
 
-				const auto pathLess = []( const CopiedString& one, const CopiedString& other ){
-					return path_less( one.c_str(), other.c_str() );
-				};
-				std::map<CopiedString, const char*, decltype( pathLess )> name_path( pathLess );
-
-				const auto constructDirectory = [&name_path]( const char* directory, const char* extension ){
-					globalOutputStream() << "EntityClass: searching " << makeQuoted( directory ) << " for *." << extension << '\n';
-					Directory_forEach( directory, matchFileExtension( extension, [directory, &name_path]( const char *name ){
-						name_path.emplace( name, directory );
-					} ) );
-				};
-
-				constructDirectory( baseDirectory, "fgd" );
-				if ( !string_equal( baseDirectory, gameDirectory ) ) {
-					constructDirectory( gameDirectory, "fgd" );
-				}
-
-				for( const auto& [ name, path ] : name_path ){
-					EntityClassFGD_loadFile( StringStream( path, name ) );
-				}
+void EClass_finalize_fgd( EntityClassCollector& collector ){
+	for ( auto [ name, eclass ] : g_EntityClassFGD_classes )
+	{
+		EntityClassFGD_resolveInheritance( eclass );
+		if ( eclass->fixedsize && eclass->m_modelpath.empty() ) {
+			if ( !eclass->sizeSpecified ) {
+				globalErrorStream() << "size not specified for entity class: " << Quoted( eclass->name() ) << '\n';
 			}
-
-			{
-				for ( EntityClasses::iterator i = g_EntityClassFGD_classes.begin(); i != g_EntityClassFGD_classes.end(); ++i )
-				{
-					EntityClassFGD_resolveInheritance( ( *i ).second );
-					if ( ( *i ).second->fixedsize && ( *i ).second->m_modelpath.empty() ) {
-						if ( !( *i ).second->sizeSpecified ) {
-							globalErrorStream() << "size not specified for entity class: " << makeQuoted( ( *i ).second->name() ) << '\n';
-						}
-						if ( !( *i ).second->colorSpecified ) {
-							globalErrorStream() << "color not specified for entity class: " << makeQuoted( ( *i ).second->name() ) << '\n';
-						}
-					}
-				}
+			if ( !eclass->colorSpecified ) {
+				globalErrorStream() << "color not specified for entity class: " << Quoted( eclass->name() ) << '\n';
 			}
-			{
-				for ( BaseClasses::iterator i = g_EntityClassFGD_bases.begin(); i != g_EntityClassFGD_bases.end(); ++i )
-				{
-					eclass_capture_state( ( *i ).second );
-				}
-			}
-
-			m_observers.realise();
 		}
 	}
-	void unrealise(){
-		if ( ++m_unrealised == 1 ) {
-			m_observers.unrealise();
-			EntityClassFGD_clear();
-		}
-	}
-	void attach( ModuleObserver& observer ){
-		m_observers.attach( observer );
-	}
-	void detach( ModuleObserver& observer ){
-		m_observers.detach( observer );
-	}
-};
 
-EntityClassFGD g_EntityClassFGD;
-
-void EntityClassFGD_attach( ModuleObserver& observer ){
-	g_EntityClassFGD.attach( observer );
-}
-void EntityClassFGD_detach( ModuleObserver& observer ){
-	g_EntityClassFGD.detach( observer );
+	for ( auto [ name, eclass ] : g_EntityClassFGD_classes )
+	{
+		eclass_capture_state( eclass );
+		collector.insert( eclass );
+	}
+	for( const auto& [ name, list ] : g_listTypesFGD )
+	{
+		collector.insert( name.c_str(), list );
+	}
+	EntityClassFGD_clear();
 }
 
-void EntityClassFGD_realise(){
-	g_EntityClassFGD.realise();
-}
-void EntityClassFGD_unrealise(){
-	g_EntityClassFGD.unrealise();
-}
-
-void EntityClassFGD_construct(){
-	// start by creating the default unknown eclass
-	g_EntityClassFGD_bad = EClass_Create( "UNKNOWN_CLASS", Vector3( 0.0f, 0.5f, 0.0f ), "" );
-
-	EntityClassFGD_realise();
-}
-
-void EntityClassFGD_destroy(){
-	EntityClassFGD_unrealise();
-
-	g_EntityClassFGD_bad->free( g_EntityClassFGD_bad );
-}
-
-class EntityClassFGDDependencies : public GlobalFileSystemModuleRef, public GlobalShaderCacheModuleRef, public GlobalRadiantModuleRef
-{
-};
-
-class EntityClassFGDAPI
-{
-	EntityClassManager m_eclassmanager;
-public:
-	typedef EntityClassManager Type;
-	STRING_CONSTANT( Name, "halflife" );
-
-	EntityClassFGDAPI(){
-		EntityClassFGD_construct();
-
-		m_eclassmanager.findOrInsert = &EntityClassFGD_findOrInsert;
-		m_eclassmanager.findListType = &EntityClassFGD_findListType;
-		m_eclassmanager.forEach = &EntityClassFGD_forEach;
-		m_eclassmanager.attach = &EntityClassFGD_attach;
-		m_eclassmanager.detach = &EntityClassFGD_detach;
-		m_eclassmanager.realise = &EntityClassFGD_realise;
-		m_eclassmanager.unrealise = &EntityClassFGD_unrealise;
-
-		GlobalRadiant().attachGameToolsPathObserver( g_EntityClassFGD );
-		GlobalRadiant().attachGameNameObserver( g_EntityClassFGD );
-	}
-	~EntityClassFGDAPI(){
-		GlobalRadiant().detachGameNameObserver( g_EntityClassFGD );
-		GlobalRadiant().detachGameToolsPathObserver( g_EntityClassFGD );
-
-		EntityClassFGD_destroy();
-	}
-	EntityClassManager* getTable(){
-		return &m_eclassmanager;
-	}
-};
 
 #include "modulesystem/singletonmodule.h"
 #include "modulesystem/moduleregistry.h"
 
-typedef SingletonModule<EntityClassFGDAPI, EntityClassFGDDependencies> EntityClassFGDModule;
-typedef Static<EntityClassFGDModule> StaticEntityClassFGDModule;
-StaticRegisterModule staticRegisterEntityClassFGD( StaticEntityClassFGDModule::instance() );
+class EntityClassFgdDependencies : public GlobalShaderCacheModuleRef, public GlobalScripLibModuleRef
+{
+};
+
+class EclassFgdAPI
+{
+	EntityClassScanner m_eclassfgd;
+public:
+	typedef EntityClassScanner Type;
+	STRING_CONSTANT( Name, "fgd" );
+
+	EclassFgdAPI(){
+		m_eclassfgd.scanFile = &Eclass_ScanFile_fgd;
+		m_eclassfgd.getExtension = [](){ return "fgd"; };
+		m_eclassfgd.finalize = &EClass_finalize_fgd;
+	}
+	EntityClassScanner* getTable(){
+		return &m_eclassfgd;
+	}
+};
+
+typedef SingletonModule<EclassFgdAPI, EntityClassFgdDependencies> EclassFgdModule;
+typedef Static<EclassFgdModule> StaticEclassFgdModule;
+StaticRegisterModule staticRegisterEclassFgd( StaticEclassFgdModule::instance() );

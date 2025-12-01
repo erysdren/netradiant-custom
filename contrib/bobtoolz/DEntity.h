@@ -49,7 +49,7 @@ public:
 
 //	Constrcution/Destruction
 	DEntity( const char* classname = "worldspawn", int ID = -1 );   // sets classname
-	virtual ~DEntity();
+	~DEntity();
 //	---------------------------------------------
 
 //	epair functions........
@@ -60,7 +60,7 @@ public:
 //	---------------------------------------------
 
 //	random functions........
-	bool ResetTextures( const char* textureName, float fScale[2], float fShift[2], int rotation, const char* newTextureName, bool bResetTextureName, bool bResetScale[2], bool bResetShift[2], bool bResetRotation, bool rebuild );
+	bool ResetTextures( const char* textureName, const float fScale[2], float const fShift[2], int rotation, const char* newTextureName, bool bResetTextureName, bool const bResetScale[2], bool const bResetShift[2], bool bResetRotation, bool rebuild );
 	void SaveToFile( FILE* pFile );
 	void SetClassname( const char* classname );
 
@@ -68,7 +68,7 @@ public:
 	void ResetChecks( const std::vector<CopiedString>& exclusionList );
 	void RemoveNonCheckBrushes( const std::vector<CopiedString>& exclusionList );
 
-	int GetBrushCount( void );
+	int GetBrushCount();
 	DBrush* FindBrushByPointer( scene::Node& brush );
 //	---------------------------------------------
 

@@ -30,6 +30,7 @@
 
 /* dependencies */
 #include "q3map2.h"
+#include <ranges>
 
 
 
@@ -51,7 +52,7 @@ int num_solidfaces;
 }
 
 inline void WriteFloat( FILE *f, float v ){
-	if ( fabs( v - std::rint( v ) ) < 0.001 ) {
+	if ( std::fabs( v - std::rint( v ) ) < 0.001f ) {
 		fprintf( f, "%li ", std::lrint( v ) );
 	}
 	else{
@@ -60,8 +61,6 @@ inline void WriteFloat( FILE *f, float v ){
 }
 
 static void CountVisportals_r( const node_t *node ){
-	int s;
-
 	// decision node
 	if ( node->planenum != PLANENUM_LEAF ) {
 		CountVisportals_r( node->children[0] );
@@ -73,14 +72,13 @@ static void CountVisportals_r( const node_t *node ){
 		return;
 	}
 
-	for ( const portal_t *p = node->portals; p; p = p->next[s] )
+	for ( const portal_t *p = node->portals; p; p = p->nextPortal( node ) )
 	{
-		s = ( p->nodes[1] == node );
-		if ( !p->winding.empty() && p->nodes[0] == node ) {
+		if ( !p->winding.empty() && p->nodes[eFront] == node ) {
 			if ( !PortalPassable( p ) ) {
 				continue;
 			}
-			if ( p->nodes[0]->cluster == p->nodes[1]->cluster ) {
+			if ( p->nodes[eFront]->cluster == p->nodes[eBack]->cluster ) {
 				continue;
 			}
 			++num_visportals;
@@ -94,8 +92,6 @@ static void CountVisportals_r( const node_t *node ){
    =================
  */
 static void WritePortalFile_r( const node_t *node ){
-	int s, flags;
-
 	// decision node
 	if ( node->planenum != PLANENUM_LEAF ) {
 		WritePortalFile_r( node->children[0] );
@@ -107,15 +103,14 @@ static void WritePortalFile_r( const node_t *node ){
 		return;
 	}
 
-	for ( const portal_t *p = node->portals; p; p = p->next[s] )
+	for ( const portal_t *p = node->portals; p; p = p->nextPortal( node ) )
 	{
 		const winding_t& w = p->winding;
-		s = ( p->nodes[1] == node );
-		if ( !w.empty() && p->nodes[0] == node ) {
+		if ( !w.empty() && p->nodes[eFront] == node ) {
 			if ( !PortalPassable( p ) ) {
 				continue;
 			}
-			if ( p->nodes[0]->cluster == p->nodes[1]->cluster ) {
+			if ( p->nodes[eFront]->cluster == p->nodes[eBack]->cluster ) {
 				continue;
 			}
 			--num_visportals;
@@ -126,13 +121,13 @@ static void WritePortalFile_r( const node_t *node ){
 			// plane the same way vis will, and flip the side orders if needed
 			// FIXME: is this still relevant?
 			if ( vector3_dot( p->plane.normal(), WindingPlane( w ).normal() ) < 0.99 ) { // backwards...
-				fprintf( pf, "%zu %i %i ", w.size(), p->nodes[1]->cluster, p->nodes[0]->cluster );
+				fprintf( pf, "%zu %i %i ", w.size(), p->nodes[eBack]->cluster, p->nodes[eFront]->cluster );
 			}
 			else{
-				fprintf( pf, "%zu %i %i ", w.size(), p->nodes[0]->cluster, p->nodes[1]->cluster );
+				fprintf( pf, "%zu %i %i ", w.size(), p->nodes[eFront]->cluster, p->nodes[eBack]->cluster );
 			}
 
-			flags = 0;
+			int flags = 0;
 
 			/* ydnar: added this change to make antiportals work */
 			if( p->compileFlags & C_HINT ) {
@@ -158,12 +153,9 @@ static void WritePortalFile_r( const node_t *node ){
 			fprintf( pf, "\n" );
 		}
 	}
-
 }
 
 static void CountSolidFaces_r( const node_t *node ){
-	int s;
-
 	// decision node
 	if ( node->planenum != PLANENUM_LEAF ) {
 		CountSolidFaces_r( node->children[0] );
@@ -175,14 +167,13 @@ static void CountSolidFaces_r( const node_t *node ){
 		return;
 	}
 
-	for ( const portal_t *p = node->portals; p; p = p->next[s] )
+	for ( const portal_t *p = node->portals; p; p = p->nextPortal( node ) )
 	{
-		s = ( p->nodes[1] == node );
 		if ( !p->winding.empty() ) {
 			if ( PortalPassable( p ) ) {
 				continue;
 			}
-			if ( p->nodes[0]->cluster == p->nodes[1]->cluster ) {
+			if ( p->nodes[eFront]->cluster == p->nodes[eBack]->cluster ) {
 				continue;
 			}
 			// write out to the file
@@ -198,8 +189,6 @@ static void CountSolidFaces_r( const node_t *node ){
    =================
  */
 static void WriteFaceFile_r( const node_t *node ){
-	int s;
-
 	// decision node
 	if ( node->planenum != PLANENUM_LEAF ) {
 		WriteFaceFile_r( node->children[0] );
@@ -211,21 +200,20 @@ static void WriteFaceFile_r( const node_t *node ){
 		return;
 	}
 
-	for ( const portal_t *p = node->portals; p; p = p->next[s] )
+	for ( const portal_t *p = node->portals; p; p = p->nextPortal( node ) )
 	{
 		const winding_t& w = p->winding;
-		s = ( p->nodes[1] == node );
 		if ( !w.empty() ) {
 			if ( PortalPassable( p ) ) {
 				continue;
 			}
-			if ( p->nodes[0]->cluster == p->nodes[1]->cluster ) {
+			if ( p->nodes[eFront]->cluster == p->nodes[eBack]->cluster ) {
 				continue;
 			}
 			// write out to the file
 
-			if ( p->nodes[0] == node ) {
-				fprintf( pf, "%zu %i ", w.size(), p->nodes[0]->cluster );
+			if ( p->nodes[eFront] == node ) {
+				fprintf( pf, "%zu %i ", w.size(), p->nodes[eFront]->cluster );
 				for ( const Vector3& point : w )
 				{
 					fprintf( pf, "(" );
@@ -238,13 +226,13 @@ static void WriteFaceFile_r( const node_t *node ){
 			}
 			else
 			{
-				fprintf( pf, "%zu %i ", w.size(), p->nodes[1]->cluster );
-				for ( winding_t::const_reverse_iterator point = w.crbegin(); point != w.crend(); ++point )
+				fprintf( pf, "%zu %i ", w.size(), p->nodes[eBack]->cluster );
+				for ( const Vector3& point : std::ranges::reverse_view( w ) )
 				{
 					fprintf( pf, "(" );
-					WriteFloat( pf, point->x() );
-					WriteFloat( pf, point->y() );
-					WriteFloat( pf, point->z() );
+					WriteFloat( pf, point.x() );
+					WriteFloat( pf, point.y() );
+					WriteFloat( pf, point.z() );
 					fprintf( pf, ") " );
 				}
 				fprintf( pf, "\n" );
@@ -286,11 +274,11 @@ static void NumberLeafs_r( node_t *node, int c ){
 		return;
 	}
 
-	node->area = -1;
+	node->area = AREA_INVALID;
 
 	if ( node->opaque ) {
 		// solid block, viewpoint never inside
-		node->cluster = -1;
+		node->cluster = CLUSTER_OPAQUE;
 		return;
 	}
 

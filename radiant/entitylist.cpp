@@ -35,14 +35,12 @@
 
 #include "string/string.h"
 #include "scenelib.h"
-#include "nameable.h"
 #include "signal/isignal.h"
-#include "generic/object.h"
 
-#include "gtkutil/widget.h"
 #include "gtkutil/idledraw.h"
 #include "gtkutil/accelerator.h"
 #include "gtkutil/guisettings.h"
+#include "gtkutil/image.h"
 
 #include "treemodel.h"
 
@@ -200,7 +198,7 @@ protected:
 	}
 	bool event( QEvent *event ) override {
 		if( event->type() == QEvent::ShortcutOverride ){
-			QKeyEvent *keyEvent = static_cast<QKeyEvent*>( event );
+			auto *keyEvent = static_cast<QKeyEvent*>( event );
 			if( keyEvent->key() == Qt::Key_Escape ){
 				clear();
 				event->accept();
@@ -215,10 +213,10 @@ protected:
 };
 
 void searchEntrySetModeIcon( QAction *action, bool search_from_start ){
-	action->setIcon( QApplication::style()->standardIcon(
+	action->setIcon( new_local_icon(
 		search_from_start
-		? QStyle::StandardPixmap::SP_CommandLink
-		: QStyle::StandardPixmap::SP_FileDialogContentsView ) );
+		? "search_from_start.png"
+		: "search.png" ) );
 }
 
 /* search */
@@ -277,7 +275,7 @@ void DetachEntityTreeModel(){
 void EntityList_constructWindow( QWidget* main_window ){
 	ASSERT_MESSAGE( getEntityList().m_window == 0, "error" );
 
-	auto window = getEntityList().m_window = new QWidget( main_window, Qt::Dialog | Qt::WindowCloseButtonHint );
+	auto *window = getEntityList().m_window = new QWidget( main_window, Qt::Dialog | Qt::WindowCloseButtonHint );
 	window->setWindowTitle( "Entity List" );
 
 	g_guiSettings.addWindow( window, "EntityList/geometry", 350, 500 );
@@ -309,7 +307,7 @@ void EntityList_constructWindow( QWidget* main_window ){
 				entry->setClearButtonEnabled( true );
 				entry->setFocusPolicy( Qt::FocusPolicy::ClickFocus );
 
-				QAction *action = entry->addAction( QApplication::style()->standardIcon( QStyle::StandardPixmap::SP_CommandLink ), QLineEdit::LeadingPosition );
+				QAction *action = entry->addAction( QIcon(), QLineEdit::LeadingPosition );
 				searchEntrySetModeIcon( action, getEntityList().m_search_from_start );
 				action->setToolTip( "toggle match mode ( start / any position )" );
 

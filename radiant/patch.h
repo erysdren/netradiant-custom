@@ -41,7 +41,6 @@
 
 #include "debugging/debugging.h"
 
-#include <set>
 #include <limits>
 
 #include "math/frustum.h"
@@ -59,7 +58,6 @@
 #include "shaderlib.h"
 #include "generic/callback.h"
 #include "signal/signalfwd.h"
-#include "texturelib.h"
 #include "xml/ixml.h"
 #include "dragplanes.h"
 
@@ -165,9 +163,9 @@ void Patch_addTextureChangedCallback( const SignalHandler& handler );
 void Patch_textureChanged();
 
 inline void BezierCurveTreeArray_deleteAll( Array<BezierCurveTree*>& curveTrees ){
-	for ( Array<BezierCurveTree*>::iterator i = curveTrees.begin(); i != curveTrees.end(); ++i )
+	for ( auto *curve : curveTrees )
 	{
-		BezierCurveTree_Delete( *i );
+		BezierCurveTree_Delete( curve );
 	}
 }
 
@@ -210,7 +208,7 @@ class RenderablePatchWireframe : public OpenGLRenderable
 public:
 	RenderablePatchWireframe( PatchTesselation& tess ) : m_tess( tess ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		{
 #if NV_DRIVER_BUG
 			gl().glVertexPointer( 3, GL_FLOAT, 0, 0 );
@@ -232,7 +230,6 @@ public:
 				}
 
 				n += ( m_tess.m_arrayHeight[i] * m_tess.m_nArrayWidth );
-
 			}
 		}
 
@@ -265,10 +262,10 @@ class RenderablePatchFixedWireframe : public OpenGLRenderable
 public:
 	RenderablePatchFixedWireframe( PatchTesselation& tess ) : m_tess( tess ){
 	}
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 		gl().glVertexPointer( 3, GL_FLOAT, sizeof( ArbitraryMeshVertex ), &m_tess.m_vertices.data()->vertex );
 		const RenderIndex* strip_indices = m_tess.m_indices.data();
-		for ( std::size_t i = 0; i < m_tess.m_numStrips; i++, strip_indices += m_tess.m_lenStrips )
+		for ( std::size_t i = 0; i < m_tess.m_numStrips; ++i, strip_indices += m_tess.m_lenStrips )
 		{
 			gl().glDrawElements( GL_QUAD_STRIP, GLsizei( m_tess.m_lenStrips ), RenderIndexTypeID, strip_indices );
 		}
@@ -282,7 +279,7 @@ public:
 	RenderablePatchSolid( PatchTesselation& tess ) : m_tess( tess ){
 	}
 	void RenderNormals() const;
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 #if 0
 		if ( ( state & RENDER_FILL ) == 0 ) {
 			RenderablePatchWireframe( m_tess ).render( state );
@@ -303,7 +300,7 @@ public:
 			}
 			gl().glVertexPointer( 3, GL_FLOAT, sizeof( ArbitraryMeshVertex ), &m_tess.m_vertices.data()->vertex );
 			const RenderIndex* strip_indices = m_tess.m_indices.data();
-			for ( std::size_t i = 0; i < m_tess.m_numStrips; i++, strip_indices += m_tess.m_lenStrips )
+			for ( std::size_t i = 0; i < m_tess.m_numStrips; ++i, strip_indices += m_tess.m_lenStrips )
 			{
 				gl().glDrawElements( GL_QUAD_STRIP, GLsizei( m_tess.m_lenStrips ), RenderIndexTypeID, strip_indices );
 			}
@@ -316,7 +313,7 @@ public:
 };
 
 // parametric surface defined by quadratic bezier control curves
-class Patch :
+class Patch final :
 	public XMLImporter,
 	public XMLExporter,
 	public TransformNode,
@@ -358,7 +355,7 @@ class Patch :
 
 	typedef Array<PatchControl> PatchControlArray;
 
-	class SavedState : public UndoMemento
+	class SavedState final : public UndoMemento
 	{
 	public:
 		SavedState(
@@ -379,7 +376,7 @@ class Patch :
 			m_subdivisions_y( subdivisions_y ){
 		}
 
-		void release(){
+		void release() override {
 			delete this;
 		}
 
@@ -568,12 +565,12 @@ public:
 		}
 	}
 
-	const char* name() const {
+	const char* name() const override {
 		return "patch";
 	}
-	void attach( const NameCallback& callback ){
+	void attach( const NameCallback& callback ) override {
 	}
-	void detach( const NameCallback& callback ){
+	void detach( const NameCallback& callback ) override {
 	}
 
 	void attach( Observer* observer ){
@@ -585,7 +582,7 @@ public:
 		m_observers.erase( observer );
 	}
 
-	void updateFiltered(){
+	void updateFiltered() override {
 		if ( m_node != 0 ) {
 			if ( patch_filtered( *this ) ) {
 				m_node->enable( scene::Node::eFiltered );
@@ -598,20 +595,20 @@ public:
 	}
 
 	void onAllocate( std::size_t size ){
-		for ( Observers::iterator i = m_observers.begin(); i != m_observers.end(); ++i )
+		for ( auto *observer : m_observers )
 		{
-			( *i )->allocate( size );
+			observer->allocate( size );
 		}
 	}
 
-	const Matrix4& localToParent() const {
+	const Matrix4& localToParent() const override {
 		return g_matrix4_identity;
 	}
-	const AABB& localAABB() const {
+	const AABB& localAABB() const override {
 		const_cast<Patch*>( this )->evaluateTransform(); //experimental! fixing extra sceneChangeNotify call during scene rendering
 		return m_aabb_local;
 	}
-	VolumeIntersectionValue intersectVolume( const VolumeTest& test, const Matrix4& localToWorld ) const {
+	VolumeIntersectionValue intersectVolume( const VolumeTest& test, const Matrix4& localToWorld ) const override {
 		return test.TestAABB( m_aabb_local, localToWorld );
 	}
 	void render_solid( Renderer& renderer, const VolumeTest& volume, const Matrix4& localToWorld ) const {
@@ -641,7 +638,7 @@ public:
 	void testSelect( Selector& selector, SelectionTest& test ){
 		SelectionIntersection best;
 		IndexPointer::index_type* pIndex = m_tess.m_indices.data();
-		for ( std::size_t s = 0; s < m_tess.m_numStrips; s++ )
+		for ( std::size_t s = 0; s < m_tess.m_numStrips; ++s )
 		{
 			test.TestQuadStrip( vertexpointer_arbitrarymeshvertex( m_tess.m_vertices.data() ), IndexPointer( pIndex, m_tess.m_lenStrips ), best );
 			pIndex += m_tess.m_lenStrips;
@@ -695,7 +692,7 @@ public:
 	}
 	bool isValid() const;
 
-	void snapto( float snap ){
+	void snapto( float snap ) override {
 		undoSave();
 
 		for ( PatchControlIter i = m_ctrl.data(); i != m_ctrl.data() + m_ctrl.size(); ++i )
@@ -712,7 +709,7 @@ public:
 	void RenderDebug( RenderStateFlags state ) const;
 	void RenderNormals( RenderStateFlags state ) const;
 
-	void pushElement( const XMLElement& element ){
+	void pushElement( const XMLElement& element ) override {
 		switch ( m_xml_state.back().state() )
 		{
 		case xml_state_t::eDefault:
@@ -731,9 +728,8 @@ public:
 		default:
 			ERROR_MESSAGE( "parse error" );
 		}
-
 	}
-	void popElement( const char* name ){
+	void popElement( const char* name ) override {
 		switch ( m_xml_state.back().state() )
 		{
 		case xml_state_t::eDefault:
@@ -768,7 +764,7 @@ public:
 		ASSERT_MESSAGE( !m_xml_state.empty(), "popping empty stack" );
 		m_xml_state.pop_back();
 	}
-	std::size_t write( const char* buffer, std::size_t length ){
+	std::size_t write( const char* buffer, std::size_t length ) override {
 		switch ( m_xml_state.back().state() )
 		{
 		case xml_state_t::eDefault:
@@ -785,7 +781,7 @@ public:
 		return length;
 	}
 
-	void exportXML( XMLImporter& importer ){
+	void exportXML( XMLImporter& importer ) override {
 		StaticElement patchElement( "patch" );
 		importer.pushElement( patchElement );
 
@@ -935,10 +931,10 @@ public:
 		}
 	}
 
-	UndoMemento* exportState() const {
+	UndoMemento* exportState() const override {
 		return new SavedState( m_width, m_height, m_ctrl, m_shader.c_str(), m_patchDef3, m_subdivisions_x, m_subdivisions_y );
 	}
-	void importState( const UndoMemento* state ){
+	void importState( const UndoMemento* state ) override {
 		undoSave();
 
 		const SavedState& other = *( static_cast<const SavedState*>( state ) );
@@ -985,7 +981,7 @@ private:
 
 	void check_shader(){
 		if ( !texdef_name_valid( GetShader() ) ) {
-			globalErrorStream() << "patch has invalid texture name: '" << GetShader() << "'\n";
+			globalErrorStream() << "patch has invalid texture name: " << SingleQuoted( GetShader() ) << '\n';
 		}
 	}
 
@@ -1083,11 +1079,11 @@ inline bool Patch_importMatrix( Patch& patch, Tokeniser& tokeniser ){
 	tokeniser.nextLine();
 	RETURN_FALSE_IF_FAIL( Tokeniser_parseToken( tokeniser, "(" ) );
 	{
-		for ( std::size_t c = 0; c < patch.getWidth(); c++ )
+		for ( std::size_t c = 0; c < patch.getWidth(); ++c )
 		{
 			tokeniser.nextLine();
 			RETURN_FALSE_IF_FAIL( Tokeniser_parseToken( tokeniser, "(" ) );
-			for ( std::size_t r = 0; r < patch.getHeight(); r++ )
+			for ( std::size_t r = 0; r < patch.getHeight(); ++r )
 			{
 				RETURN_FALSE_IF_FAIL( Tokeniser_parseToken( tokeniser, "(" ) );
 
@@ -1124,7 +1120,7 @@ class PatchTokenImporter : public MapImporter
 public:
 	PatchTokenImporter( Patch& patch ) : m_patch( patch ){
 	}
-	bool importTokens( Tokeniser& tokeniser ){
+	bool importTokens( Tokeniser& tokeniser ) override {
 		RETURN_FALSE_IF_FAIL( Patch_importHeader( m_patch, tokeniser ) );
 		RETURN_FALSE_IF_FAIL( Patch_importShader( m_patch, tokeniser ) );
 		RETURN_FALSE_IF_FAIL( Patch_importParams( m_patch, tokeniser ) );
@@ -1141,7 +1137,7 @@ class PatchDoom3TokenImporter : public MapImporter
 public:
 	PatchDoom3TokenImporter( Patch& patch ) : m_patch( patch ){
 	}
-	bool importTokens( Tokeniser& tokeniser ){
+	bool importTokens( Tokeniser& tokeniser ) override {
 		RETURN_FALSE_IF_FAIL( Patch_importHeader( m_patch, tokeniser ) );
 		RETURN_FALSE_IF_FAIL( PatchDoom3_importShader( m_patch, tokeniser ) );
 		RETURN_FALSE_IF_FAIL( Patch_importParams( m_patch, tokeniser ) );
@@ -1205,10 +1201,10 @@ inline void Patch_exportMatrix( const Patch& patch, TokenWriter& writer ){
 	// write matrix
 	writer.writeToken( "(" );
 	writer.nextLine();
-	for ( std::size_t c = 0; c < patch.getWidth(); c++ )
+	for ( std::size_t c = 0; c < patch.getWidth(); ++c )
 	{
 		writer.writeToken( "(" );
-		for ( std::size_t r = 0; r < patch.getHeight(); r++ )
+		for ( std::size_t r = 0; r < patch.getHeight(); ++r )
 		{
 			writer.writeToken( "(" );
 
@@ -1240,7 +1236,7 @@ class PatchTokenExporter : public MapExporter
 public:
 	PatchTokenExporter( Patch& patch ) : m_patch( patch ){
 	}
-	void exportTokens( TokenWriter& writer ) const {
+	void exportTokens( TokenWriter& writer ) const override {
 		Patch_exportHeader( m_patch, writer );
 		Patch_exportShader( m_patch, writer );
 		Patch_exportParams( m_patch, writer );
@@ -1255,7 +1251,7 @@ class PatchDoom3TokenExporter : public MapExporter
 public:
 	PatchDoom3TokenExporter( Patch& patch ) : m_patch( patch ){
 	}
-	void exportTokens( TokenWriter& writer ) const {
+	void exportTokens( TokenWriter& writer ) const override {
 		Patch_exportHeader( m_patch, writer );
 		PatchDoom3_exportShader( m_patch, writer );
 		Patch_exportParams( m_patch, writer );
@@ -1394,13 +1390,13 @@ public:
 	Patch& getPatch(){
 		return m_patch;
 	}
-	Bounded& get( NullType<Bounded>){
+	Bounded& get( NullType<Bounded> ){
 		return m_patch;
 	}
-	Cullable& get( NullType<Cullable>){
+	Cullable& get( NullType<Cullable> ){
 		return m_patch;
 	}
-	Transformable& get( NullType<Transformable>){
+	Transformable& get( NullType<Transformable> ){
 		return m_transform;
 	}
 
@@ -1413,16 +1409,16 @@ public:
 	}
 
 
-	void allocate( std::size_t size ){
+	void allocate( std::size_t size ) override {
 		m_ctrl_instances.clear();
 		m_ctrl_instances.reserve( size );
-		for ( Patch::iterator i = m_patch.begin(); i != m_patch.end(); ++i )
+		for ( auto& control : m_patch )
 		{
-			m_ctrl_instances.push_back( PatchControlInstance( &( *i ), SelectedChangedComponentCaller( *this ) ) );
+			m_ctrl_instances.push_back( PatchControlInstance( &control, SelectedChangedComponentCaller( *this ) ) );
 		}
 	}
 
-	void setSelected( bool select ){
+	void setSelected( bool select ) override {
 		m_selectable.setSelected( select );
 		if ( !select && parent() ){
 			Selectable* sel_parent = Instance_getSelectable( *parent() );
@@ -1430,7 +1426,7 @@ public:
 				sel_parent->setSelected( false );
 		}
 	}
-	bool isSelected() const {
+	bool isSelected() const override {
 		return m_selectable.isSelected();
 	}
 
@@ -1438,12 +1434,13 @@ public:
 	void update_selected() const {
 		m_render_selected.clear();
 		Patch::iterator ctrl = m_patch.getControlPointsTransformed().begin();
-		for ( PatchControlInstances::const_iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i, ++ctrl )
+		for ( const auto& instance : m_ctrl_instances )
 		{
-			if ( ( *i ).m_selectable.isSelected() ) {
+			if ( instance.m_selectable.isSelected() ) {
 				const Colour4b colour_selected( 0, 0, 255, 255 );
-				m_render_selected.push_back( PointVertex( reinterpret_cast<Vertex3f&>( ( *ctrl ).m_vertex ), colour_selected ) );
+				m_render_selected.push_back( PointVertex( reinterpret_cast<Vertex3f&>( ctrl->m_vertex ), colour_selected ) );
 			}
+			++ctrl;
 		}
 	}
 
@@ -1469,7 +1466,7 @@ public:
 	}
 #endif
 
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_patch.evaluateTransform();
 		renderer.setLights( *m_lightList );
 		renderer.Highlight( Renderer::ePrimitiveWire );
@@ -1478,7 +1475,7 @@ public:
 		renderComponentsSelected( renderer, volume );
 	}
 
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_patch.evaluateTransform();
 		m_patch.render_wireframe( renderer, volume, localToWorld() );
 
@@ -1495,34 +1492,28 @@ public:
 			renderer.addRenderable( m_render_selected, localToWorld() );
 		}
 	}
-	void renderComponents( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderComponents( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_patch.evaluateTransform();
 		if ( GlobalSelectionSystem().ComponentMode() == SelectionSystem::eVertex ) {
 			m_patch.render_component( renderer, volume, localToWorld() );
 		}
 	}
 
-	void testSelect( Selector& selector, SelectionTest& test ){
+	void testSelect( Selector& selector, SelectionTest& test ) override {
 		test.BeginMesh( localToWorld(), true );
 		m_patch.testSelect( selector, test );
 	}
 
 	void selectCtrl( bool select ){
-		for ( PatchControlInstances::iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
+		for ( auto& instance : m_ctrl_instances )
 		{
-			( *i ).m_selectable.setSelected( select );
+			instance.m_selectable.setSelected( select );
 		}
 	}
-	bool isSelectedComponents() const {
-		for ( PatchControlInstances::const_iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
-		{
-			if ( ( *i ).m_selectable.isSelected() ) {
-				return true;
-			}
-		}
-		return false;
+	bool isSelectedComponents() const override {
+		return std::ranges::any_of( m_ctrl_instances, []( const PatchControlInstance& instance ){ return instance.m_selectable.isSelected(); } );
 	}
-	void setSelectedComponents( bool select, SelectionSystem::EComponentMode mode ){
+	void setSelectedComponents( bool select, SelectionSystem::EComponentMode mode ) override {
 		if ( mode == SelectionSystem::eVertex ) {
 			selectCtrl( select );
 		}
@@ -1530,16 +1521,16 @@ public:
 			m_dragPlanes.setSelected( select );
 		}
 	}
-	void testSelectComponents( Selector& selector, SelectionTest& test, SelectionSystem::EComponentMode mode ){
+	void testSelectComponents( Selector& selector, SelectionTest& test, SelectionSystem::EComponentMode mode ) override {
 		test.BeginMesh( localToWorld() );
 
 		switch ( mode )
 		{
 		case SelectionSystem::eVertex:
 			{
-				for ( PatchControlInstances::iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
+				for ( auto& instance : m_ctrl_instances )
 				{
-					( *i ).testSelect( selector, test );
+					instance.testSelect( selector, test );
 				}
 			}
 			break;
@@ -1547,7 +1538,7 @@ public:
 			break;
 		}
 	}
-	void gatherComponentsHighlight( std::vector<std::vector<Vector3>>& polygons, SelectionIntersection& intersection, SelectionTest& test, SelectionSystem::EComponentMode mode ) const {
+	void gatherComponentsHighlight( std::vector<std::vector<Vector3>>& polygons, SelectionIntersection& intersection, SelectionTest& test, SelectionSystem::EComponentMode mode ) const override {
 		test.BeginMesh( localToWorld() );
 
 		switch ( mode )
@@ -1571,45 +1562,40 @@ public:
 		}
 	}
 
-	const AABB& getSelectedComponentsBounds() const {
+	const AABB& getSelectedComponentsBounds() const override {
 		m_aabb_component = AABB();
 
-		for ( PatchControlInstances::const_iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
+		for ( const auto& instance : m_ctrl_instances )
 		{
-			if ( ( *i ).m_selectable.isSelected() ) {
-				aabb_extend_by_point_safe( m_aabb_component, ( *i ).m_ctrl->m_vertex );
+			if ( instance.m_selectable.isSelected() ) {
+				aabb_extend_by_point_safe( m_aabb_component, instance.m_ctrl->m_vertex );
 			}
 		}
 
 		return m_aabb_component;
 	}
-	void gatherSelectedComponents( const Vector3Callback& callback ) const {
-		for ( PatchControlInstances::const_iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
+	void gatherSelectedComponents( const Vector3Callback& callback ) const override {
+		for ( const auto& instance : m_ctrl_instances )
 		{
-			if ( ( *i ).m_selectable.isSelected() ) {
-				callback( ( *i ).m_ctrl->m_vertex );
+			if ( instance.m_selectable.isSelected() ) {
+				callback( instance.m_ctrl->m_vertex );
 			}
 		}
 	}
 
 	bool selectedVertices() const {
-		for ( PatchControlInstances::const_iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
-		{
-			if ( ( *i ).m_selectable.isSelected() ) {
-				return true;
-			}
-		}
-		return false;
+		return std::ranges::any_of( m_ctrl_instances, []( const PatchControlInstance& instance ){ return instance.m_selectable.isSelected(); } );
 	}
 
 	void transformComponents( const Matrix4& matrix ){
 		if ( selectedVertices() ) {
 			PatchControlIter ctrl = m_patch.getControlPointsTransformed().begin();
-			for ( PatchControlInstances::iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i, ++ctrl )
+			for ( const auto& instance : m_ctrl_instances )
 			{
-				if ( ( *i ).m_selectable.isSelected() ) {
-					matrix4_transform_point( matrix, ( *ctrl ).m_vertex );
+				if ( instance.m_selectable.isSelected() ) {
+					matrix4_transform_point( matrix, ctrl->m_vertex );
 				}
+				++ctrl;
 			}
 			m_patch.UpdateCachedData();
 		}
@@ -1620,9 +1606,9 @@ public:
 	}
 
 	void invertComponentSelection(){
-		for ( PatchControlInstances::iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
+		for ( auto& instance : m_ctrl_instances )
 		{
-			( *i ).m_selectable.setSelected( !( *i ).m_selectable.isSelected() );
+			instance.m_selectable.setSelected( !instance.m_selectable.isSelected() );
 		}
 	}
 
@@ -1652,13 +1638,13 @@ public:
 	}
 
 
-	void snapComponents( float snap ){
+	void snapComponents( float snap ) override {
 		if ( selectedVertices() ) {
 			m_patch.undoSave();
-			for ( PatchControlInstances::iterator i = m_ctrl_instances.begin(); i != m_ctrl_instances.end(); ++i )
+			for ( auto& instance : m_ctrl_instances )
 			{
-				if ( ( *i ).m_selectable.isSelected() ) {
-					( *i ).snapto( snap );
+				if ( instance.m_selectable.isSelected() ) {
+					instance.snapto( snap );
 				}
 			}
 			m_patch.controlPointsChanged();
@@ -1684,14 +1670,14 @@ public:
 	typedef MemberCaller<PatchInstance, void(), &PatchInstance::applyTransform> ApplyTransformCaller;
 
 
-	bool testLight( const RendererLight& light ) const {
+	bool testLight( const RendererLight& light ) const override {
 		return light.testAABB( worldAABB() );
 	}
 };
 
 
 template<typename TokenImporter, typename TokenExporter>
-class PatchNode :
+class PatchNode final :
 	public scene::Node::Symbiot,
 	public scene::Instantiable,
 	public scene::Cloneable
@@ -1730,33 +1716,33 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	Snappable& get( NullType<Snappable>){
+	Snappable& get( NullType<Snappable> ){
 		return m_patch;
 	}
-	TransformNode& get( NullType<TransformNode>){
+	TransformNode& get( NullType<TransformNode> ){
 		return m_patch;
 	}
-	Patch& get( NullType<Patch>){
+	Patch& get( NullType<Patch> ){
 		return m_patch;
 	}
-	XMLImporter& get( NullType<XMLImporter>){
+	XMLImporter& get( NullType<XMLImporter> ){
 		return m_patch;
 	}
-	XMLExporter& get( NullType<XMLExporter>){
+	XMLExporter& get( NullType<XMLExporter> ){
 		return m_patch;
 	}
-	MapImporter& get( NullType<MapImporter>){
+	MapImporter& get( NullType<MapImporter> ){
 		return m_importMap;
 	}
-	MapExporter& get( NullType<MapExporter>){
+	MapExporter& get( NullType<MapExporter> ){
 		return m_exportMap;
 	}
-	Nameable& get( NullType<Nameable>){
+	Nameable& get( NullType<Nameable> ){
 		return m_patch;
 	}
 
 	PatchNode( bool patchDef3 = false ) :
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), GlobalSceneGraph().currentLayer() ),
 		m_patch( m_node, InstanceSetEvaluateTransform<PatchInstance>::Caller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ) ),
 		m_importMap( m_patch ),
 		m_exportMap( m_patch ){
@@ -1766,12 +1752,12 @@ public:
 		scene::Node::Symbiot( other ),
 		scene::Instantiable( other ),
 		scene::Cloneable( other ),
-		m_node( this, this, StaticTypeCasts::instance().get() ),
+		m_node( this, this, StaticTypeCasts::instance().get(), other.m_node.m_layer ),
 		m_patch( other.m_patch, m_node, InstanceSetEvaluateTransform<PatchInstance>::Caller( m_instances ), InstanceSet::BoundsChangedCaller( m_instances ) ),
 		m_importMap( m_patch ),
 		m_exportMap( m_patch ){
 	}
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
@@ -1784,20 +1770,20 @@ public:
 		return m_patch;
 	}
 
-	scene::Node& clone() const {
+	scene::Node& clone() const override {
 		return ( new PatchNode( *this ) )->node();
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new PatchInstance( path, parent, m_patch );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };
@@ -1822,7 +1808,7 @@ class PatchSelectedVisitor : public SelectionSystem::Visitor
 public:
 	PatchSelectedVisitor( const Functor& functor ) : m_functor( functor ){
 	}
-	void visit( scene::Instance& instance ) const {
+	void visit( scene::Instance& instance ) const override {
 		PatchInstance* patch = Instance_getPatch( instance );
 		if ( patch != 0 ) {
 			m_functor( *patch );
@@ -1843,7 +1829,7 @@ class PatchVisibleSelectedVisitor : public SelectionSystem::Visitor
 public:
 	PatchVisibleSelectedVisitor( const Functor& functor ) : m_functor( functor ){
 	}
-	void visit( scene::Instance& instance ) const {
+	void visit( scene::Instance& instance ) const override {
 		PatchInstance* patch = Instance_getPatch( instance );
 		if ( patch != 0
 		  && instance.path().top().get().visible() ) {
@@ -1864,7 +1850,7 @@ class PatchForEachWalker : public scene::Graph::Walker
 public:
 	PatchForEachWalker( const Functor& functor ) : m_functor( functor ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			Patch* patch = Node_getPatch( path.top() );
 			if ( patch != 0 ) {
@@ -1890,7 +1876,7 @@ class PatchForEachSelectedWalker : public scene::Graph::Walker
 public:
 	PatchForEachSelectedWalker( const Functor& functor ) : m_functor( functor ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			Patch* patch = Node_getPatch( path.top() );
 			if ( patch != 0
@@ -1917,7 +1903,7 @@ class PatchForEachInstanceWalker : public scene::Graph::Walker
 public:
 	PatchForEachInstanceWalker( const Functor& functor ) : m_functor( functor ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( path.top().get().visible() ) {
 			PatchInstance* patch = Instance_getPatch( instance );
 			if ( patch != 0 ) {

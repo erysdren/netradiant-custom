@@ -22,15 +22,15 @@
 #pragma once
 
 #include "string/string.h"
+#include <vector>
 
 //
 // system functions
 //
 void    Sys_SetTitle( const char *text, bool modified );
 
-
 void RunBSP( size_t buildIdx );
-
+void RunBatch( const std::vector<CopiedString>& commands );
 
 void QE_InitVFS();
 
@@ -51,7 +51,6 @@ typedef struct
 	   cache for m_userEnginePath + mod subdirectory.
 	 */
 	CopiedString m_userGamePath;
-
 } QEGlobals_t;
 
 extern QEGlobals_t g_qeglobals;
@@ -61,4 +60,4 @@ extern SimpleCounter g_brushCount;
 extern SimpleCounter g_patchCount;
 extern SimpleCounter g_entityCount;
 
-void bsp_init();
+void build_init_variables();

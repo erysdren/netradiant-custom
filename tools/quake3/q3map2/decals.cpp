@@ -63,7 +63,7 @@ static Vector3 entityOrigin;
    returns false if a texture matrix cannot be created
  */
 
-static bool MakeTextureMatrix( decalProjector_t *dp, const Plane3f& projection, const bspDrawVert_t *a, const bspDrawVert_t *b, const bspDrawVert_t *c ){
+static bool MakeTextureMatrix( decalProjector_t& dp, const Plane3f& projection, const bspDrawVert_t *a, const bspDrawVert_t *b, const bspDrawVert_t *c ){
 	int i, j;
 	double bb, s, t;
 	DoubleVector3 pa, pb, pc;
@@ -83,14 +83,14 @@ static bool MakeTextureMatrix( decalProjector_t *dp, const Plane3f& projection, 
 
 		/* calculate barycentric basis for the triangle */
 		bb = ( b->st[ 0 ] - a->st[ 0 ] ) * ( c->st[ 1 ] - a->st[ 1 ] ) - ( c->st[ 0 ] - a->st[ 0 ] ) * ( b->st[ 1 ] - a->st[ 1 ] );
-		if ( fabs( bb ) < 0.00000001 ) {
+		if ( std::fabs( bb ) < 0.00000001 ) {
 			return false;
 		}
 
 		/* calculate texture origin */
 		#if 0
-		s = 0.0;
-		t = 0.0;
+		s = 0;
+		t = 0;
 		bary[ 0 ] = ( ( b->st[ 0 ] - s ) * ( c->st[ 1 ] - t ) - ( c->st[ 0 ] - s ) * ( b->st[ 1 ] - t ) ) / bb;
 		bary[ 1 ] = ( ( c->st[ 0 ] - s ) * ( a->st[ 1 ] - t ) - ( a->st[ 0 ] - s ) * ( c->st[ 1 ] - t ) ) / bb;
 		bary[ 2 ] = ( ( a->st[ 0 ] - s ) * ( b->st[ 1 ] - t ) - ( b->st[ 0 ] - s ) * ( a->st[ 1 ] - t ) ) / bb;
@@ -132,19 +132,19 @@ static bool MakeTextureMatrix( decalProjector_t *dp, const Plane3f& projection, 
 		vecs[ 2 ] = -projection.normal();
 
 		/* calculate transform axis */
-		for ( i = 0; i < 3; i++ ){
+		for ( i = 0; i < 3; ++i ){
 			axis[ i ] = vecs[ i ];
 			lengths[ i ] = VectorNormalize( axis[ i ] );
 		}
-		for ( i = 0; i < 2; i++ )
-			for ( j = 0; j < 3; j++ )
-				dp->texMat[ i ][ j ] = lengths[ i ] != 0.0 ? ( axis[ i ][ j ] / lengths[ i ] ) : 0.0;
-		//%	dp->texMat[ i ][ j ] = fabs( vecs[ i ][ j ] ) > 0.0 ? ( 1.0 / vecs[ i ][ j ] ) : 0.0;
-		//%	dp->texMat[ i ][ j ] = axis[ i ][ j ] > 0.0 ? ( 1.0 / axis[ i ][ j ] ) : 0.0;
+		for ( i = 0; i < 2; ++i )
+			for ( j = 0; j < 3; ++j )
+				dp.texMat[ i ][ j ] = lengths[ i ] != 0 ? ( axis[ i ][ j ] / lengths[ i ] ) : 0.0;
+		//%	dp.texMat[ i ][ j ] = std::fabs( vecs[ i ][ j ] ) > 0 ? ( 1.0 / vecs[ i ][ j ] ) : 0.0;
+		//%	dp.texMat[ i ][ j ] = axis[ i ][ j ] > 0 ? ( 1.0 / axis[ i ][ j ] ) : 0.0;
 
 		/* calculalate translation component */
-		dp->texMat[ 0 ][ 3 ] = a->st[ 0 ] - vector3_dot( a->xyz, dp->texMat[ 0 ].vec3() );
-		dp->texMat[ 1 ][ 3 ] = a->st[ 1 ] - vector3_dot( a->xyz, dp->texMat[ 1 ].vec3() );
+		dp.texMat[ 0 ][ 3 ] = a->st[ 0 ] - vector3_dot( a->xyz, dp.texMat[ 0 ].vec3() );
+		dp.texMat[ 1 ][ 3 ] = a->st[ 1 ] - vector3_dot( a->xyz, dp.texMat[ 1 ].vec3() );
 	}
 	#else
 	{
@@ -165,36 +165,36 @@ static bool MakeTextureMatrix( decalProjector_t *dp, const Plane3f& projection, 
 		texDeltas[ 2 ] = b->st - c->st;
 
 		/* walk st */
-		for ( i = 0; i < 2; i++ )
+		for ( i = 0; i < 2; ++i )
 		{
 			/* walk xyz */
-			for ( j = 0; j < 3; j++ )
+			for ( j = 0; j < 3; ++j )
 			{
 				/* clear deltas */
-				delta = 0.0;
-				texDelta = 0.0;
+				delta = 0;
+				texDelta = 0;
 
 				/* walk deltas */
-				for ( k = 0; k < 3; k++ )
+				for ( k = 0; k < 3; ++k )
 				{
-					if ( fabs( deltas[ k ][ j ] ) > delta &&
-					     fabs( texDeltas[ k ][ i ] ) > texDelta  ) {
+					if ( std::fabs( deltas[ k ][ j ] ) > delta &&
+					     std::fabs( texDeltas[ k ][ i ] ) > texDelta  ) {
 						delta = deltas[ k ][ j ];
 						texDelta = texDeltas[ k ][ i ];
 					}
 				}
 
 				/* set texture matrix component */
-				if ( fabs( delta ) > 0.0 ) {
-					dp->texMat[ i ][ j ] = texDelta / delta;
+				if ( std::fabs( delta ) > 0 ) {
+					dp.texMat[ i ][ j ] = texDelta / delta;
 				}
 				else{
-					dp->texMat[ i ][ j ] = 0.0;
+					dp.texMat[ i ][ j ] = 0;
 				}
 			}
 
 			/* set translation component */
-			dp->texMat[ i ][ 3 ] = a->st[ i ] - vector3_dot( pa, dp->texMat[ i ].vec3() );
+			dp.texMat[ i ][ 3 ] = a->st[ i ] - vector3_dot( pa, dp.texMat[ i ].vec3() );
 		}
 	}
 	#endif
@@ -202,34 +202,34 @@ static bool MakeTextureMatrix( decalProjector_t *dp, const Plane3f& projection, 
 	/* debug code */
 	#if 1
 	Sys_Printf( "Mat: [ %f %f %f %f ] [ %f %f %f %f ] Theta: %lf (%lf)\n",
-	            dp->texMat[ 0 ][ 0 ], dp->texMat[ 0 ][ 1 ], dp->texMat[ 0 ][ 2 ], dp->texMat[ 0 ][ 3 ],
-	            dp->texMat[ 1 ][ 0 ], dp->texMat[ 1 ][ 1 ], dp->texMat[ 1 ][ 2 ], dp->texMat[ 1 ][ 3 ],
-	            radians_to_degrees( acos( vector3_dot( dp->texMat[ 0 ].vec3(), dp->texMat[ 1 ].vec3() ) ) ),
+	            dp.texMat[ 0 ][ 0 ], dp.texMat[ 0 ][ 1 ], dp.texMat[ 0 ][ 2 ], dp.texMat[ 0 ][ 3 ],
+	            dp.texMat[ 1 ][ 0 ], dp.texMat[ 1 ][ 1 ], dp.texMat[ 1 ][ 2 ], dp.texMat[ 1 ][ 3 ],
+	            radians_to_degrees( acos( vector3_dot( dp.texMat[ 0 ].vec3(), dp.texMat[ 1 ].vec3() ) ) ),
 	            radians_to_degrees( acos( vector3_dot( axis[ 0 ], axis[ 1 ] ) ) ) );
 
 	Sys_Printf( "XYZ: %f %f %f ST: %f %f ST(t): %lf %lf\n",
 	            a->xyz[ 0 ], a->xyz[ 1 ], a->xyz[ 2 ],
 	            a->st[ 0 ], a->st[ 1 ],
-	            vector3_dot( a->xyz, dp->texMat[ 0 ].vec3() ) + dp->texMat[ 0 ][ 3 ], vector3_dot( a->xyz, dp->texMat[ 1 ].vec3() ) + dp->texMat[ 1 ][ 3 ] );
+	            vector3_dot( a->xyz, dp.texMat[ 0 ].vec3() ) + dp.texMat[ 0 ][ 3 ], vector3_dot( a->xyz, dp.texMat[ 1 ].vec3() ) + dp.texMat[ 1 ][ 3 ] );
 	#endif
 
 	/* test texture matrix */
-	s = vector3_dot( a->xyz, dp->texMat[ 0 ].vec3() ) + dp->texMat[ 0 ][ 3 ];
-	t = vector3_dot( a->xyz, dp->texMat[ 1 ].vec3() ) + dp->texMat[ 1 ][ 3 ];
+	s = vector3_dot( a->xyz, dp.texMat[ 0 ].vec3() ) + dp.texMat[ 0 ][ 3 ];
+	t = vector3_dot( a->xyz, dp.texMat[ 1 ].vec3() ) + dp.texMat[ 1 ][ 3 ];
 	if ( !float_equal_epsilon( s, a->st[ 0 ], 0.01 ) || !float_equal_epsilon( t, a->st[ 1 ], 0.01 ) ) {
 		Sys_Printf( "Bad texture matrix! (A) (%f, %f) != (%f, %f)\n",
 		            s, t, a->st[ 0 ], a->st[ 1 ] );
 		//%	return false;
 	}
-	s = vector3_dot( b->xyz, dp->texMat[ 0 ].vec3() ) + dp->texMat[ 0 ][ 3 ];
-	t = vector3_dot( b->xyz, dp->texMat[ 1 ].vec3() ) + dp->texMat[ 1 ][ 3 ];
+	s = vector3_dot( b->xyz, dp.texMat[ 0 ].vec3() ) + dp.texMat[ 0 ][ 3 ];
+	t = vector3_dot( b->xyz, dp.texMat[ 1 ].vec3() ) + dp.texMat[ 1 ][ 3 ];
 	if ( !float_equal_epsilon( s, b->st[ 0 ], 0.01 ) || !float_equal_epsilon( t, b->st[ 1 ], 0.01 ) ) {
 		Sys_Printf( "Bad texture matrix! (B) (%f, %f) != (%f, %f)\n",
 		            s, t, b->st[ 0 ], b->st[ 1 ] );
 		//%	return false;
 	}
-	s = vector3_dot( c->xyz, dp->texMat[ 0 ].vec3() ) + dp->texMat[ 0 ][ 3 ];
-	t = vector3_dot( c->xyz, dp->texMat[ 1 ].vec3() ) + dp->texMat[ 1 ][ 3 ];
+	s = vector3_dot( c->xyz, dp.texMat[ 0 ].vec3() ) + dp.texMat[ 0 ][ 3 ];
+	t = vector3_dot( c->xyz, dp.texMat[ 1 ].vec3() ) + dp.texMat[ 1 ][ 3 ];
 	if ( !float_equal_epsilon( s, c->st[ 0 ], 0.01 ) || !float_equal_epsilon( t, c->st[ 1 ], 0.01 ) ) {
 		Sys_Printf( "Bad texture matrix! (C) (%f, %f) != (%f, %f)\n",
 		            s, t, c->st[ 0 ], c->st[ 1 ] );
@@ -256,12 +256,12 @@ static void TransformDecalProjector( decalProjector_t *in, const Vector3 (&axis)
 	/* translate bounding box and sphere (note: rotated projector bounding box will be invalid!) */
 	out->minmax.mins = in->minmax.mins - origin;
 	out->minmax.maxs = in->minmax.maxs - origin;
-	out->center = in->center - origin;
-	out->radius = in->radius;
-	out->radius2 = in->radius2;
+	out->center      = in->center - origin;
+	out->radius      = in->radius;
+	out->radius2     = in->radius2;
 
 	/* translate planes */
-	for ( int i = 0; i < in->numPlanes; i++ )
+	for ( int i = 0; i < in->numPlanes; ++i )
 	{
 		out->planes[ i ].a = vector3_dot( in->planes[ i ].normal(), axis[ 0 ] );
 		out->planes[ i ].b = vector3_dot( in->planes[ i ].normal(), axis[ 1 ] );
@@ -270,7 +270,7 @@ static void TransformDecalProjector( decalProjector_t *in, const Vector3 (&axis)
 	}
 
 	/* translate texture matrix */
-	for ( int i = 0; i < 2; i++ )
+	for ( int i = 0; i < 2; ++i )
 	{
 		out->texMat[ i ][ 0 ] = vector3_dot( in->texMat[ i ].vec3(), axis[ 0 ] );
 		out->texMat[ i ][ 1 ] = vector3_dot( in->texMat[ i ].vec3(), axis[ 1 ] );
@@ -286,16 +286,7 @@ static void TransformDecalProjector( decalProjector_t *in, const Vector3 (&axis)
    creates a new decal projector from a triangle
  */
 
-static int MakeDecalProjector( shaderInfo_t *si, const Plane3f& projection, float distance, int numVerts, const bspDrawVert_t **dv ){
-	int i, j;
-	decalProjector_t    *dp;
-
-
-	/* dummy check */
-	if ( numVerts != 3 && numVerts != 4 ) {
-		return -1;
-	}
-
+static int MakeDecalProjector( shaderInfo_t *si, const Plane3f& projection, float distance, const TriRef& tri ){
 	/* limit check */
 	if ( numProjectors >= MAX_PROJECTORS ) {
 		Sys_Warning( "MAX_PROJECTORS (%d) exceeded, no more decal projectors available.\n", MAX_PROJECTORS );
@@ -303,45 +294,47 @@ static int MakeDecalProjector( shaderInfo_t *si, const Plane3f& projection, floa
 	}
 
 	/* create a new projector */
-	dp = &projectors[ numProjectors ];
-	memset( dp, 0, sizeof( *dp ) );
+	decalProjector_t& dp = projectors[ numProjectors ];
+	memset( &dp, 0, sizeof( dp ) );
 
 	/* basic setup */
-	dp->si = si;
-	dp->numPlanes = numVerts + 2;
+	dp.si = si;
+	dp.numPlanes = tri.size() + 2;
 
 	/* make texture matrix */
-	if ( !MakeTextureMatrix( dp, projection, dv[ 0 ], dv[ 1 ], dv[ 2 ] ) ) {
+	if ( !MakeTextureMatrix( dp, projection, tri[ 0 ], tri[ 1 ], tri[ 2 ] ) ) {
 		return -1;
 	}
 
 	/* bound the projector */
-	dp->minmax.clear();
-	for ( i = 0; i < numVerts; i++ )
+	dp.minmax.clear();
+	for ( size_t i = 0; i < tri.size(); ++i )
 	{
-		dp->minmax.extend( dv[ i ]->xyz );
-		dp->minmax.extend( dv[ i ]->xyz + projection.normal() * distance );
+		dp.minmax.extend( tri[ i ]->xyz );
+		dp.minmax.extend( tri[ i ]->xyz + projection.normal() * distance );
 	}
 
 	/* make bouding sphere */
-	dp->center = dp->minmax.origin();
-	dp->radius = vector3_length( dp->minmax.maxs - dp->center );
-	dp->radius2 = dp->radius * dp->radius;
+	dp.center = dp.minmax.origin();
+	dp.radius = vector3_length( dp.minmax.maxs - dp.center );
+	dp.radius2 = dp.radius * dp.radius;
 
 	/* make the front plane */
-	if ( !PlaneFromPoints( dp->planes[ 0 ], dv[ 0 ]->xyz, dv[ 1 ]->xyz, dv[ 2 ]->xyz ) ) {
+	if ( !PlaneFromPoints( dp.planes[ 0 ], tri[ 0 ]->xyz, tri[ 1 ]->xyz, tri[ 2 ]->xyz ) ) {
 		return -1;
 	}
 
 	/* make the back plane */
-	dp->planes[ 1 ].normal() = -dp->planes[ 0 ].normal();
-	dp->planes[ 1 ].dist() = vector3_dot( dv[ 0 ]->xyz + projection.normal() * distance, dp->planes[ 1 ].normal() );
+	dp.planes[ 1 ].normal() = -dp.planes[ 0 ].normal();
+	dp.planes[ 1 ].dist() = vector3_dot( tri[ 0 ]->xyz + projection.normal() * distance, dp.planes[ 1 ].normal() );
 
 	/* make the side planes */
-	for ( i = 0; i < numVerts; i++ )
+	for ( size_t i = 0; i < tri.size(); ++i )
 	{
-		j = ( i + 1 ) % numVerts;
-		if ( !PlaneFromPoints( dp->planes[ i + 2 ], dv[ j ]->xyz, dv[ i ]->xyz, dv[ i ]->xyz + projection.normal() * distance ) ) {
+		if ( !PlaneFromPoints( dp.planes[ i + 2 ],
+		                       tri[ ( i + 1 ) % tri.size() ]->xyz,
+		                       tri[ i ]->xyz,
+		                       tri[ i ]->xyz + projection.normal() * distance ) ) {
 			return -1;
 		}
 	}
@@ -362,7 +355,6 @@ static int MakeDecalProjector( shaderInfo_t *si, const Plane3f& projection, floa
 void ProcessDecals(){
 	float distance;
 	Plane3f projection, plane;
-	entity_t            *e2;
 
 
 	/* note it */
@@ -376,28 +368,28 @@ void ProcessDecals(){
 		}
 
 		/* any patches? */
-		if ( e.patches == NULL ) {
+		if ( e.patches.empty() ) {
 			Sys_Warning( "Decal entity without any patch meshes, ignoring.\n" );
 			e.epairs.clear();
 			continue;
 		}
 
 		/* find target */
-		e2 = FindTargetEntity( e.valueForKey( "target" ) );
+		entity_t *e2 = FindTargetEntity( e.valueForKey( "target" ) );
 
 		/* no target? */
-		if ( e2 == NULL ) {
+		if ( e2 == nullptr ) {
 			Sys_Warning( "Decal entity without a valid target, ignoring.\n" );
 			continue;
 		}
 
 		/* walk entity patches */
-		for ( parseMesh_t *p = e.patches; p != NULL; p = e.patches )
+		for ( parseMesh_t& p : e.patches )
 		{
 			/* setup projector */
 			Vector3 origin;
 			if ( VectorCompare( e.origin, g_vector3_identity ) ) {
-				origin = p->eMinmax.origin();
+				origin = p.eMinmax.origin();
 			}
 			else{
 				origin = e.origin;
@@ -411,73 +403,40 @@ void ProcessDecals(){
 			/* create projectors */
 			if ( distance > 0.125f ) {
 				/* tesselate the patch */
-				const int iterations = IterationsForCurve( p->longestCurve, patchSubdivisions );
-				mesh_t *subdivided = SubdivideMesh2( p->mesh, iterations );
-
-				/* fit it to the curve and remove colinear verts on rows/columns */
-				PutMeshOnCurve( *subdivided );
-				mesh_t *mesh = RemoveLinearMeshColumnsRows( subdivided );
-				FreeMesh( subdivided );
+				mesh_t mesh = TessellatedMesh( p.mesh, IterationsForCurve( p.longestCurve, patchSubdivisions ) );
 
 				/* offset by projector origin */
-				for ( bspDrawVert_t& vert : Span( mesh->verts, mesh->width * mesh->height ) )
+				for ( bspDrawVert_t& vert : Span( mesh.verts, mesh.numVerts() ) )
 					vert.xyz += e.origin;
 
 				/* iterate through the mesh quads */
-				for ( int y = 0; y < ( mesh->height - 1 ); y++ )
-				{
-					for ( int x = 0; x < ( mesh->width - 1 ); x++ )
+				for( MeshQuadIterator it( mesh ); it; ++it ){
+#if 0
+					/* planar? (nuking this optimization as it doesn't work on non-rectangular quads) */
+					if ( 0 && PlaneFromPoints( plane, dv[ 0 ]->xyz, dv[ 1 ]->xyz, dv[ 2 ]->xyz ) &&
+					     std::fabs( plane3_distance_to_point( plane, dv[ 1 ]->xyz ) ) <= PLANAR_EPSILON ) {
+						/* make a quad projector */
+						MakeDecalProjector( p.shaderInfo, projection, distance, 4, dv );
+					}
+					else
+#endif
 					{
-						/* set indexes */
-						const int pw[ 5 ] = {
-							x + ( y * mesh->width ),
-							x + ( ( y + 1 ) * mesh->width ),
-							x + 1 + ( ( y + 1 ) * mesh->width ),
-							x + 1 + ( y * mesh->width ),
-							x + ( y * mesh->width )    /* same as pw[ 0 ] */
-						};
-						/* set radix */
-						const int r = ( x + y ) & 1;
-
-						/* get drawverts */
-						const bspDrawVert_t *dv[ 4 ] = {
-							&mesh->verts[ pw[ r + 0 ] ],
-							&mesh->verts[ pw[ r + 1 ] ],
-							&mesh->verts[ pw[ r + 2 ] ],
-							&mesh->verts[ pw[ r + 3 ] ]
-						};
-						/* planar? (nuking this optimization as it doesn't work on non-rectangular quads) */
-						if ( 0 && PlaneFromPoints( plane, dv[ 0 ]->xyz, dv[ 1 ]->xyz, dv[ 2 ]->xyz ) &&
-						     fabs( plane3_distance_to_point( plane, dv[ 1 ]->xyz ) ) <= PLANAR_EPSILON ) {
-							/* make a quad projector */
-							MakeDecalProjector( p->shaderInfo, projection, distance, 4, dv );
-						}
-						else
-						{
-							/* make first triangle */
-							MakeDecalProjector( p->shaderInfo, projection, distance, 3, dv );
-
-							/* make second triangle */
-							dv[ 1 ] = dv[ 2 ];
-							dv[ 2 ] = dv[ 3 ];
-							MakeDecalProjector( p->shaderInfo, projection, distance, 3, dv );
-						}
+						for( const TriRef& tri : it.tris() )
+							MakeDecalProjector( p.shaderInfo, projection, distance, tri );
 					}
 				}
 
 				/* clean up */
-				free( mesh );
+				mesh.freeVerts();
 			}
-
-			/* remove patch from entity (fixme: leak!) */
-			e.patches = p->next;
-
-			/* push patch to worldspawn (enable this to debug projectors) */
-			#if 0
-			p->next = entities[ 0 ].patches;
-			entities[ 0 ].patches = p;
-			#endif
 		}
+		/* remove patches from entity */
+		e.patches.clear();
+
+		/* push patch to worldspawn (enable this to debug projectors) */
+		#if 0
+		entities[ 0 ].patches.splice_after( entities[ 0 ].patches.cbefore_begin(), e.patches );
+		#endif
 	}
 
 	/* emit some stats */
@@ -491,13 +450,7 @@ void ProcessDecals(){
    projects a decal onto a winding
  */
 
-static void ProjectDecalOntoWinding( decalProjector_t *dp, mapDrawSurface_t *ds, winding_t& w ){
-	int i, j;
-	mapDrawSurface_t    *ds2;
-	bspDrawVert_t       *dv;
-	Plane3f plane;
-
-
+static void ProjectDecalOntoWinding( decalProjector_t& dp, const mapDrawSurface_t& ds, winding_t& w ){
 	/* dummy check */
 	if ( w.size() < 3 ) {
 		return;
@@ -508,20 +461,21 @@ static void ProjectDecalOntoWinding( decalProjector_t *dp, mapDrawSurface_t *ds,
 		p += entityOrigin;
 
 	/* make a plane from the winding */
+	Plane3f plane;
 	if ( !PlaneFromPoints( plane, w.data() ) ) {
 		return;
 	}
 
 	/* backface check */
-	if ( vector3_dot( dp->planes[ 0 ].normal(), plane.normal() ) < -0.0001f ) {
+	if ( vector3_dot( dp.planes[ 0 ].normal(), plane.normal() ) < -0.0001f ) {
 		return;
 	}
 
 	/* walk list of planes */
-	for ( i = 0; i < dp->numPlanes; i++ )
+	for ( int i = 0; i < dp.numPlanes; ++i )
 	{
 		/* chop winding by the plane */
-		auto [front, back] = ClipWindingEpsilonStrict( w, dp->planes[ i ], 0.0625f ); /* strict, if identical plane we don't want to keep it */
+		auto [front, back] = ClipWindingEpsilonStrict( w, dp.planes[ i ], 0.0625f ); /* strict, if identical plane we don't want to keep it */
 
 		/* lose the front fragment */
 		/* if nothing left in back, then bail */
@@ -542,40 +496,40 @@ static void ProjectDecalOntoWinding( decalProjector_t *dp, mapDrawSurface_t *ds,
 	numDecalSurfaces++;
 
 	/* make a new surface */
-	ds2 = AllocDrawSurface( ESurfaceType::Decal );
+	mapDrawSurface_t& ds2 = AllocDrawSurface( ESurfaceType::Decal );
 
 	/* set it up */
-	ds2->entityNum = ds->entityNum;
-	ds2->castShadows = ds->castShadows;
-	ds2->recvShadows = ds->recvShadows;
-	ds2->shaderInfo = dp->si;
-	ds2->fogNum = ds->fogNum;   /* why was this -1? */
-	ds2->lightmapScale = ds->lightmapScale;
-	ds2->shadeAngleDegrees = ds->shadeAngleDegrees;
-	ds2->numVerts = w.size();
-	ds2->verts = safe_calloc( ds2->numVerts * sizeof( *ds2->verts ) );
+	ds2.entityNum         = ds.entityNum;
+	ds2.castShadows       = ds.castShadows;
+	ds2.recvShadows       = ds.recvShadows;
+	ds2.shaderInfo = dp.si;
+	ds2.fogNum            = ds.fogNum;   /* why was this -1? */
+	ds2.lightmapScale     = ds.lightmapScale;
+	ds2.shadeAngleDegrees = ds.shadeAngleDegrees;
+	ds2.ambientColor      = ds.ambientColor;
+	ds2.verts.resize( w.size(), c_bspDrawVert_t0 );
 
 	/* set vertexes */
-	for ( i = 0; i < ds2->numVerts; i++ )
+	for ( size_t i = 0; i < w.size(); ++i )
 	{
 		/* get vertex */
-		dv = &ds2->verts[ i ];
+		bspDrawVert_t& dv = ds2.verts[ i ];
 
 		/* set alpha */
-		const float d = plane3_distance_to_point( dp->planes[ 0 ], w[ i ] );
-		const float d2 = plane3_distance_to_point( dp->planes[ 1 ], w[ i ] );
+		const float d = plane3_distance_to_point( dp.planes[ 0 ], w[ i ] );
+		const float d2 = plane3_distance_to_point( dp.planes[ 1 ], w[ i ] );
 		const float alpha = 255.0f * d2 / ( d + d2 );
 
 		/* set misc */
-		dv->xyz = w[ i ] - entityOrigin;
-		dv->normal = plane.normal();
-		dv->st[ 0 ] = vector3_dot( dv->xyz, dp->texMat[ 0 ].vec3() ) + dp->texMat[ 0 ][ 3 ];
-		dv->st[ 1 ] = vector3_dot( dv->xyz, dp->texMat[ 1 ].vec3() ) + dp->texMat[ 1 ][ 3 ];
+		dv.xyz = w[ i ] - entityOrigin;
+		dv.normal = plane.normal();
+		dv.st[ 0 ] = vector3_dot( dv.xyz, dp.texMat[ 0 ].vec3() ) + dp.texMat[ 0 ][ 3 ];
+		dv.st[ 1 ] = vector3_dot( dv.xyz, dp.texMat[ 1 ].vec3() ) + dp.texMat[ 1 ][ 3 ];
 
 		/* set color */
-		for ( j = 0; j < MAX_LIGHTMAPS; j++ )
+		for ( int j = 0; j < MAX_LIGHTMAPS; ++j )
 		{
-			dv->color[ j ] = { 255, 255, 255, color_to_byte( alpha ) };
+			dv.color[ j ] = { 255, 255, 255, color_to_byte( alpha ) };
 		}
 	}
 }
@@ -587,15 +541,15 @@ static void ProjectDecalOntoWinding( decalProjector_t *dp, mapDrawSurface_t *ds,
    projects a decal onto a brushface surface
  */
 
-static void ProjectDecalOntoFace( decalProjector_t *dp, mapDrawSurface_t *ds ){
+static void ProjectDecalOntoFace( decalProjector_t& dp, const mapDrawSurface_t& ds ){
 	/* dummy check */
-	if ( ds->sideRef == NULL || ds->sideRef->side == NULL ) {
+	if ( ds.sideRef == nullptr ) {
 		return;
 	}
 
 	/* backface check */
-	if ( ds->planar ) {
-		if ( vector3_dot( dp->planes[ 0 ].normal(), mapplanes[ ds->planeNum ].normal() ) < -0.0001f ) {
+	if ( ds.planar ) {
+		if ( vector3_dot( dp.planes[ 0 ].normal(), mapplanes[ ds.planeNum ].normal() ) < -0.0001f ) {
 			return;
 		}
 	}
@@ -612,59 +566,29 @@ static void ProjectDecalOntoFace( decalProjector_t *dp, mapDrawSurface_t *ds ){
    projects a decal onto a patch surface
  */
 
-static void ProjectDecalOntoPatch( decalProjector_t *dp, mapDrawSurface_t *ds ){
+static void ProjectDecalOntoPatch( decalProjector_t& dp, mapDrawSurface_t& ds ){
 	/* backface check */
-	if ( ds->planar )
-		if ( vector3_dot( dp->planes[ 0 ].normal(), mapplanes[ ds->planeNum ].normal() ) < -0.0001f )
+	if ( ds.planar )
+		if ( vector3_dot( dp.planes[ 0 ].normal(), mapplanes[ ds.planeNum ].normal() ) < -0.0001f )
 			return;
 
 	/* tesselate the patch */
-	mesh_t src;
-	src.width = ds->patchWidth;
-	src.height = ds->patchHeight;
-	src.verts = ds->verts;
-	const int iterations = IterationsForCurve( ds->longestCurve, patchSubdivisions );
-	mesh_t *subdivided = SubdivideMesh2( src, iterations );
-
-	/* fit it to the curve and remove colinear verts on rows/columns */
-	PutMeshOnCurve( *subdivided );
-	mesh_t *mesh = RemoveLinearMeshColumnsRows( subdivided );
-	FreeMesh( subdivided );
+	mesh_t mesh = TessellatedMesh( mesh_t( ds.patchWidth, ds.patchHeight, ds.verts.data() ), IterationsForCurve( ds.longestCurve, patchSubdivisions ) );
 
 	/* iterate through the mesh quads */
-	for ( int y = 0; y < ( mesh->height - 1 ); y++ )
-	{
-		for ( int x = 0; x < ( mesh->width - 1 ); x++ )
-		{
-			/* set indexes */
-			const int pw[ 5 ] = {
-				x + ( y * mesh->width ),
-				x + ( ( y + 1 ) * mesh->width ),
-				x + 1 + ( ( y + 1 ) * mesh->width ),
-				x + 1 + ( y * mesh->width ),
-				x + ( y * mesh->width )    /* same as pw[ 0 ] */
-			};
-			/* set radix */
-			const int r = ( x + y ) & 1;
-
-			/* generate decal for first triangle */
+	for( MeshQuadIterator it( mesh ); it; ++it ){
+		for( const TriRef& tri : it.tris() ){
+			/* generate decal for triangle */
 			winding_t w{
-				mesh->verts[ pw[ r + 0 ] ].xyz,
-				mesh->verts[ pw[ r + 1 ] ].xyz,
-				mesh->verts[ pw[ r + 2 ] ].xyz };
+				tri[ 0 ]->xyz,
+				tri[ 1 ]->xyz,
+				tri[ 2 ]->xyz };
 			ProjectDecalOntoWinding( dp, ds, w );
-
-			/* generate decal for second triangle */
-			winding_t w2{
-				mesh->verts[ pw[ r + 0 ] ].xyz,
-				mesh->verts[ pw[ r + 2 ] ].xyz,
-				mesh->verts[ pw[ r + 3 ] ].xyz };
-			ProjectDecalOntoWinding( dp, ds, w2 );
 		}
 	}
 
 	/* clean up */
-	free( mesh );
+	mesh.freeVerts();
 }
 
 
@@ -674,28 +598,28 @@ static void ProjectDecalOntoPatch( decalProjector_t *dp, mapDrawSurface_t *ds ){
    projects a decal onto a triangle surface
  */
 
-static void ProjectDecalOntoTriangles( decalProjector_t *dp, mapDrawSurface_t *ds ){
+static void ProjectDecalOntoTriangles( decalProjector_t& dp, const mapDrawSurface_t& ds ){
 
 	/* triangle surfaces without shaders don't get marks by default */
-	if ( ds->type == ESurfaceType::Triangles && ds->shaderInfo->shaderText == NULL ) {
+	if ( ds.type == ESurfaceType::Triangles && ds.shaderInfo->shaderText == nullptr ) {
 		return;
 	}
 
 	/* backface check */
-	if ( ds->planar ) {
-		if ( vector3_dot( dp->planes[ 0 ].normal(), mapplanes[ ds->planeNum ].normal() ) < -0.0001f ) {
+	if ( ds.planar ) {
+		if ( vector3_dot( dp.planes[ 0 ].normal(), mapplanes[ ds.planeNum ].normal() ) < -0.0001f ) {
 			return;
 		}
 	}
 
 	/* iterate through triangles */
-	for ( int i = 0; i < ds->numIndexes; i += 3 )
+	for ( auto i = ds.indexes.cbegin(); i != ds.indexes.cend(); i += 3 )
 	{
 		/* generate decal */
 		winding_t w{
-			ds->verts[ ds->indexes[ i + 0 ] ].xyz,
-			ds->verts[ ds->indexes[ i + 1 ] ].xyz,
-			ds->verts[ ds->indexes[ i + 2 ] ].xyz };
+			ds.verts[ *( i + 0 ) ].xyz,
+			ds.verts[ *( i + 1 ) ].xyz,
+			ds.verts[ *( i + 2 ) ].xyz };
 		ProjectDecalOntoWinding( dp, ds, w );
 	}
 }
@@ -710,7 +634,6 @@ static void ProjectDecalOntoTriangles( decalProjector_t *dp, mapDrawSurface_t *d
 void MakeEntityDecals( const entity_t& e ){
 	int i, j, fOld;
 	decalProjector_t dp;
-	mapDrawSurface_t    *ds;
 
 
 	/* note it */
@@ -724,7 +647,7 @@ void MakeEntityDecals( const entity_t& e ){
 	Timer timer;
 
 	/* walk the list of decal projectors */
-	for ( i = 0; i < numProjectors; i++ )
+	for ( i = 0; i < numProjectors; ++i )
 	{
 		/* print pacifier */
 		if ( const int f = 10 * i / numProjectors; f != fOld ) {
@@ -739,36 +662,36 @@ void MakeEntityDecals( const entity_t& e ){
 		for ( j = e.firstDrawSurf; j < numMapDrawSurfs; ++j )
 		{
 			/* get surface */
-			ds = &mapDrawSurfs[ j ];
-			if ( ds->numVerts <= 0 ) {
+			mapDrawSurface_t& ds = mapDrawSurfs[ j ];
+			if ( ds.verts.empty() ) {
 				continue;
 			}
 
 			/* ignore autosprite or nomarks */
-			if ( ds->shaderInfo->autosprite || ( ds->shaderInfo->compileFlags & C_NOMARKS ) ) {
+			if ( ds.shaderInfo->autosprite || ( ds.shaderInfo->compileFlags & C_NOMARKS ) ) {
 				continue;
 			}
 
 			/* bounds check */
-			if ( !ds->minmax.test( dp.center, dp.radius ) ) {
+			if ( !ds.minmax.test( dp.center, dp.radius ) ) {
 				continue;
 			}
 
 			/* switch on type */
-			switch ( ds->type )
+			switch ( ds.type )
 			{
 			case ESurfaceType::Face:
-				ProjectDecalOntoFace( &dp, ds );
+				ProjectDecalOntoFace( dp, ds );
 				break;
 
 			case ESurfaceType::Patch:
-				ProjectDecalOntoPatch( &dp, ds );
+				ProjectDecalOntoPatch( dp, ds );
 				break;
 
 			case ESurfaceType::Triangles:
 			case ESurfaceType::ForcedMeta:
 			case ESurfaceType::Meta:
-				ProjectDecalOntoTriangles( &dp, ds );
+				ProjectDecalOntoTriangles( dp, ds );
 				break;
 
 			default:

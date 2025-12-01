@@ -30,7 +30,6 @@
 #include "igl.h"
 #include "irender.h"
 #include "renderable.h"
-#include "render.h"
 #include "renderer.h"
 #include "view.h"
 #include "os/path.h"
@@ -42,10 +41,10 @@
 #include "gtkutil/glwidget.h"
 #include "gtkutil/toolbar.h"
 #include "gtkutil/cursor.h"
-#include "gtkmisc.h"
 #include "gtkutil/fbo.h"
 #include "gtkutil/mousepresses.h"
 #include "gtkutil/guisettings.h"
+#include "gtkutil/widget.h"
 
 #include <QWidget>
 #include <QToolBar>
@@ -81,18 +80,18 @@ public:
 	ModelGraph( scene::Instantiable::Observer& observer ) : m_observer( observer ){
 	}
 
-	void addSceneChangedCallback( const SignalHandler& handler ){
+	void addSceneChangedCallback( const SignalHandler& handler ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: addSceneChangedCallback()" );
 	}
-	void sceneChanged(){
+	void sceneChanged() override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: sceneChanged()" );
 	}
 
-	scene::Node& root(){
+	scene::Node& root() override {
 		ASSERT_MESSAGE( !m_rootpath.empty(), "scenegraph root does not exist" );
 		return m_rootpath.top();
 	}
-	void insert_root( scene::Node& root ){
+	void insert_root( scene::Node& root ) override {
 		//globalOutputStream() << "insert_root\n";
 
 		ASSERT_MESSAGE( m_rootpath.empty(), "scenegraph root already exists" );
@@ -103,7 +102,7 @@ public:
 
 		m_rootpath.push( makeReference( root ) );
 	}
-	void erase_root(){
+	void erase_root() override {
 		//globalOutputStream() << "erase_root\n";
 
 		ASSERT_MESSAGE( !m_rootpath.empty(), "scenegraph root does not exist" );
@@ -116,46 +115,50 @@ public:
 
 		root.DecRef();
 	}
-	void boundsChanged(){
+	class Layer* currentLayer() override {
+		ASSERT_MESSAGE( 0, "Reached unreachable: currentLayer()" );
+		return nullptr;
+	}
+	void boundsChanged() override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: boundsChanged()" );
 	}
 
-	void traverse( const Walker& walker ){
+	void traverse( const Walker& walker ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: traverse()" );
 	}
 
-	void traverse_subgraph( const Walker& walker, const scene::Path& start ){
+	void traverse_subgraph( const Walker& walker, const scene::Path& start ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: traverse_subgraph()" );
 	}
 
-	scene::Instance* find( const scene::Path& path ){
+	scene::Instance* find( const scene::Path& path ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: find()" );
 		return nullptr;
 	}
 
-	void insert( scene::Instance* instance ){
+	void insert( scene::Instance* instance ) override {
 		m_instances.insert( InstanceMap::value_type( PathConstReference( instance->path() ), instance ) );
 		m_observer.insert( instance );
 	}
-	void erase( scene::Instance* instance ){
+	void erase( scene::Instance* instance ) override {
 		m_instances.erase( PathConstReference( instance->path() ) );
 		m_observer.erase( instance );
 	}
 
-	SignalHandlerId addBoundsChangedCallback( const SignalHandler& boundsChanged ){
+	SignalHandlerId addBoundsChangedCallback( const SignalHandler& boundsChanged ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: addBoundsChangedCallback()" );
 		return Handle<Opaque<SignalHandler>>( nullptr );
 	}
-	void removeBoundsChangedCallback( SignalHandlerId id ){
+	void removeBoundsChangedCallback( SignalHandlerId id ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: removeBoundsChangedCallback()" );
 	}
 
-	TypeId getNodeTypeId( const char* name ){
+	TypeId getNodeTypeId( const char* name ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: getNodeTypeId()" );
 		return 0;
 	}
 
-	TypeId getInstanceTypeId( const char* name ){
+	TypeId getInstanceTypeId( const char* name ) override {
 		ASSERT_MESSAGE( 0, "Reached unreachable: getInstanceTypeId()" );
 		return 0;
 	}
@@ -163,7 +166,6 @@ public:
 	void clear(){
 		DeleteSubgraph( root() );
 	}
-
 };
 
 /* specialized copy of class TraversableNodeSet */
@@ -178,17 +180,17 @@ class TraversableModelNodeSet : public scene::Traversable
 	}
 	void notifyInsertAll(){
 		if ( m_observer ) {
-			for ( UnsortedNodeSet::iterator i = m_children.begin(); i != m_children.end(); ++i )
+			for ( auto& node : m_children )
 			{
-				m_observer->insert( *i );
+				m_observer->insert( node );
 			}
 		}
 	}
 	void notifyEraseAll(){
 		if ( m_observer ) {
-			for ( UnsortedNodeSet::iterator i = m_children.begin(); i != m_children.end(); ++i )
+			for ( auto& node : m_children )
 			{
-				m_observer->erase( *i );
+				m_observer->erase( node );
 			}
 		}
 	}
@@ -232,19 +234,19 @@ public:
 		m_observer = 0;
 	}
 	/// \brief \copydoc scene::Traversable::insert()
-	void insert( scene::Node& node ){
+	void insert( scene::Node& node ) override {
 		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableModelNodeSet::insert: sanity check failed" );
 
 		ASSERT_MESSAGE( m_children.find( NodeSmartReference( node ) ) == m_children.end(), "TraversableModelNodeSet::insert - element already exists" );
 
-		m_children.insert( NodeSmartReference( node ) );
+		m_children.push_back( NodeSmartReference( node ) );
 
 		if ( m_observer ) {
 			m_observer->insert( node );
 		}
 	}
 	/// \brief \copydoc scene::Traversable::erase()
-	void erase( scene::Node& node ){
+	void erase( scene::Node& node ) override {
 		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableModelNodeSet::erase: sanity check failed" );
 
 		ASSERT_MESSAGE( m_children.find( NodeSmartReference( node ) ) != m_children.end(), "TraversableModelNodeSet::erase - failed to find element" );
@@ -256,7 +258,7 @@ public:
 		m_children.erase( NodeSmartReference( node ) );
 	}
 	/// \brief \copydoc scene::Traversable::traverse()
-	void traverse( const Walker& walker ){
+	void traverse( const Walker& walker ) override {
 		UnsortedNodeSet::iterator i = m_children.begin();
 		while ( i != m_children.end() )
 		{
@@ -267,13 +269,13 @@ public:
 		}
 	}
 	/// \brief \copydoc scene::Traversable::empty()
-	bool empty() const {
+	bool empty() const override {
 		return m_children.empty();
 	}
 };
 
 /* specialized copy of class MapRoot */
-class ModelGraphRoot : public scene::Node::Symbiot, public scene::Instantiable, public scene::Traversable::Observer
+class ModelGraphRoot final : public scene::Node::Symbiot, public scene::Instantiable, public scene::Traversable::Observer
 {
 	class TypeCasts
 	{
@@ -296,21 +298,20 @@ class ModelGraphRoot : public scene::Node::Symbiot, public scene::Instantiable, 
 public:
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	scene::Traversable& get( NullType<scene::Traversable>){
+	scene::Traversable& get( NullType<scene::Traversable> ){
 		return m_traverse;
 	}
-	TransformNode& get( NullType<TransformNode>){
+	TransformNode& get( NullType<TransformNode> ){
 		return m_transform;
 	}
 
-	ModelGraphRoot() : m_node( this, this, StaticTypeCasts::instance().get() ){
+	ModelGraphRoot() : m_node( this, this, StaticTypeCasts::instance().get(), nullptr ){
 		m_node.m_isRoot = true;
 
 		m_traverse.attach( this );
 	}
-	~ModelGraphRoot(){
-	}
-	void release(){
+	~ModelGraphRoot() = default;
+	void release() override {
 		m_traverse.detach( this );
 		delete this;
 	}
@@ -318,10 +319,10 @@ public:
 		return m_node;
 	}
 
-	void insert( scene::Node& child ){
+	void insert( scene::Node& child ) override {
 		m_instances.insert( child );
 	}
-	void erase( scene::Node& child ){
+	void erase( scene::Node& child ) override {
 		m_instances.erase( child );
 	}
 
@@ -329,16 +330,16 @@ public:
 		return ( new ModelGraphRoot( *this ) )->node();
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new SelectableInstance( path, parent );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };
@@ -349,7 +350,7 @@ public:
 
 #include "../plugins/entity/model.h"
 
-class ModelNode :
+class ModelNode final :
 	public scene::Node::Symbiot,
 	public scene::Instantiable,
 	public scene::Traversable::Observer
@@ -384,52 +385,52 @@ class ModelNode :
 public:
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	scene::Traversable& get( NullType<scene::Traversable>){
+	scene::Traversable& get( NullType<scene::Traversable> ){
 		return m_model.getTraversable();
 	}
-	TransformNode& get( NullType<TransformNode>){
+	TransformNode& get( NullType<TransformNode> ){
 		return m_transform;
 	}
 
 	ModelNode() :
-		m_node( this, this, StaticTypeCasts::instance().get() ){
+		m_node( this, this, StaticTypeCasts::instance().get(), nullptr ){
 		construct();
 	}
 	ModelNode( const ModelNode& other ) :
 		scene::Node::Symbiot( other ),
 		scene::Instantiable( other ),
 		scene::Traversable::Observer( other ),
-		m_node( this, this, StaticTypeCasts::instance().get() ){
+		m_node( this, this, StaticTypeCasts::instance().get(), nullptr ){
 		construct();
 	}
 	~ModelNode(){
 		destroy();
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	void insert( scene::Node& child ){
+	void insert( scene::Node& child ) override {
 		m_instances.insert( child );
 	}
-	void erase( scene::Node& child ){
+	void erase( scene::Node& child ) override {
 		m_instances.erase( child );
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new SelectableInstance( path, parent );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 
@@ -523,7 +524,7 @@ public:
 	}
 };
 
-class ModelBrowser : public scene::Instantiable::Observer
+class ModelBrowser final : public scene::Instantiable::Observer
 {
 	// track instances in the order of insertion
 	std::vector<scene::Instance*> m_modelInstances;
@@ -534,10 +535,8 @@ public:
 		//globalOutputStream() << "vertical scroll\n";
 		setOriginZ( -value );
 	} )
-	{
-	}
-	~ModelBrowser(){
-	}
+	{}
+	~ModelBrowser() = default;
 
 	const int m_MSAA = 8;
 	Vector3 m_background_color = Vector3( .25f );
@@ -718,25 +717,25 @@ public:
 		m_state_stack.push_back( state_type() );
 	}
 
-	void SetState( Shader* state, EStyle style ){
+	void SetState( Shader* state, EStyle style ) override {
 		ASSERT_NOTNULL( state );
 		if ( style == eFullMaterials ) {
 			m_state_stack.back().m_state = state;
 		}
 	}
-	EStyle getStyle() const {
+	EStyle getStyle() const override {
 		return eFullMaterials;
 	}
-	void PushState(){
+	void PushState() override {
 		m_state_stack.push_back( m_state_stack.back() );
 	}
-	void PopState(){
+	void PopState() override {
 		ASSERT_MESSAGE( !m_state_stack.empty(), "popping empty stack" );
 		m_state_stack.pop_back();
 	}
-	void Highlight( EHighlightMode mode, bool bEnable = true ){
+	void Highlight( EHighlightMode mode, bool bEnable = true ) override {
 	}
-	void addRenderable( const OpenGLRenderable& renderable, const Matrix4& localToWorld ){
+	void addRenderable( const OpenGLRenderable& renderable, const Matrix4& localToWorld ) override {
 		m_state_stack.back().m_state->addRenderable( renderable, localToWorld );
 	}
 
@@ -790,19 +789,19 @@ void ModelBrowser_render(){
 
 	Matrix4 m_projection;
 
-	m_projection[0] = 1.0f / static_cast<float>( W / 2.f );
-	m_projection[5] = 1.0f / static_cast<float>( H / 2.f );
+	m_projection[0] = 1.0f / ( W / 2.f );
+	m_projection[5] = 1.0f / ( H / 2.f );
 	m_projection[10] = 1.0f / ( 9999 );
 
-	m_projection[12] = 0.0f;
-	m_projection[13] = 0.0f;
-	m_projection[14] = -1.0f;
+	m_projection[12] = 0;
+	m_projection[13] = 0;
+	m_projection[14] = -1;
 
 	m_projection[1] = m_projection[2] = m_projection[3] =
 	m_projection[4] = m_projection[6] = m_projection[7] =
-	m_projection[8] = m_projection[9] = m_projection[11] = 0.0f;
+	m_projection[8] = m_projection[9] = m_projection[11] = 0;
 
-	m_projection[15] = 1.0f;
+	m_projection[15] = 1;
 
 
 	Matrix4 m_modelview;
@@ -889,9 +888,9 @@ void ModelBrowser_render(){
 			GLfloat inverse_cam_dir[4], ambient[4], diffuse[4];
 
 			ambient[0] = ambient[1] = ambient[2] = 0.4f;
-			ambient[3] = 1.0f;
+			ambient[3] = 1;
 			diffuse[0] = diffuse[1] = diffuse[2] = 0.4f;
-			diffuse[3] = 1.0f;
+			diffuse[3] = 1;
 
 			inverse_cam_dir[0] = -m_view.getViewDir()[0];
 			inverse_cam_dir[1] = -m_view.getViewDir()[1];
@@ -1108,7 +1107,7 @@ static void TreeView_onRowActivated( const QModelIndex& index ){
 
 		for( const CopiedString& filename : g_ModelBrowser.m_currentFolder->m_files ){
 			sstream( g_ModelBrowser.m_currentFolderPath, filename );
-			ModelNode *modelNode = new ModelNode;
+			auto *modelNode = new ModelNode;
 			modelNode->setModel( sstream );
 			NodeSmartReference node( modelNode->node() );
 			Node_getTraversable( g_modelGraph->root() )->insert( node );
@@ -1139,7 +1138,7 @@ void modelFS_traverse( const ModelFS& modelFS ){
 }
 #endif
 void ModelBrowser_constructTreeModel( const ModelFS& modelFS, QStandardItemModel* model, QStandardItem* parent ){
-	auto item = new QStandardItem( modelFS.m_folderName.c_str() );
+	auto *item = new QStandardItem( modelFS.m_folderName.c_str() );
 	parent->appendRow( item );
 	for( const ModelFS& m : modelFS.m_folders )
 		ModelBrowser_constructTreeModel( m, model, item ); //recursion
@@ -1157,7 +1156,7 @@ public:
 		const auto str = StringStream<128>( PathCleaned( pathsString ) );
 
 		const char* start = str.c_str();
-		while( 1 ){
+		while( true ){
 			while( *start == '*' )
 				++start;
 			const char* end = start;
@@ -1238,7 +1237,7 @@ void ModelBrowser_constructTree(){
 //%	modelFS_traverse( g_ModelBrowser.m_modelFS );
 
 
-	auto model = new QStandardItemModel( g_ModelBrowser.m_treeView ); //. ? delete old or clear() & reuse
+	auto *model = new QStandardItemModel( g_ModelBrowser.m_treeView ); //. ? delete old or clear() & reuse
 
 	{
 		if( !g_ModelBrowser.m_modelFS.m_files.empty() ){ // models in the root: add blank item for access
@@ -1267,13 +1266,13 @@ protected:
 QWidget* ModelBrowser_constructWindow( QWidget* toplevel ){
 	g_ModelBrowser.m_parent = toplevel;
 
-	QSplitter *splitter = new QSplitter;
-	QWidget *containerWidgetLeft = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
-	QWidget *containerWidgetRight = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
+	auto *splitter = new QSplitter;
+	auto *containerWidgetLeft = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
+	auto *containerWidgetRight = new QWidget; // Adding a QLayout to a QSplitter is not supported, use proxy widget
 	splitter->addWidget( containerWidgetLeft );
 	splitter->addWidget( containerWidgetRight );
-	QVBoxLayout *vbox = new QVBoxLayout( containerWidgetLeft );
-	QHBoxLayout *hbox = new QHBoxLayout( containerWidgetRight );
+	auto *vbox = new QVBoxLayout( containerWidgetLeft );
+	auto *hbox = new QHBoxLayout( containerWidgetRight );
 
 	hbox->setContentsMargins( 0, 0, 0, 0 );
 	vbox->setContentsMargins( 0, 0, 0, 0 );
@@ -1281,10 +1280,12 @@ QWidget* ModelBrowser_constructWindow( QWidget* toplevel ){
 	vbox->setSpacing( 0 );
 
 	{	// menu bar
-		QToolBar* toolbar = new QToolBar;
+		auto *toolbar = new QToolBar;
 		vbox->addWidget( toolbar );
+		const int iconSize = toolbar->style()->pixelMetric( QStyle::PixelMetric::PM_SmallIconSize );
+		toolbar->setIconSize( QSize( iconSize, iconSize ) );
 
-		toolbar_append_button( toolbar, "Reload Model Folders Tree View", "texbro_refresh.png", FreeCaller<void(), ModelBrowser_constructTree>() );
+		toolbar_append_button( toolbar, "Reload Model Folders Tree View", "refresh_modelstree.png", FreeCaller<void(), ModelBrowser_constructTree>() );
 	}
 	{	// TreeView
 		g_ModelBrowser.m_treeView = new TexBro_QTreeView;
@@ -1308,7 +1309,7 @@ QWidget* ModelBrowser_constructWindow( QWidget* toplevel ){
 		hbox->addWidget( g_ModelBrowser.m_gl_widget );
 	}
 	{	// gl_widget scrollbar
-		auto scroll = g_ModelBrowser.m_gl_scroll = new QScrollBar;
+		auto *scroll = g_ModelBrowser.m_gl_scroll = new QScrollBar;
 		hbox->addWidget( scroll );
 
 		QObject::connect( scroll, &QAbstractSlider::valueChanged, []( int value ){

@@ -62,11 +62,11 @@ private:
 public:
 
 	DTrainDrawer();
-	virtual ~DTrainDrawer( void );
+	~DTrainDrawer();
 
-	void render( RenderStateFlags state ) const;
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const;
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const;
+	void render( RenderStateFlags state ) const override;
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override;
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override;
 
 	void constructShaders();
 	void destroyShaders();

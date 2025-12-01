@@ -26,6 +26,7 @@
 #include "selectionlib.h"
 #include "math/aabb.h"
 #include "math/line.h"
+#include "math/frustum.h"
 
 // local must be a pure rotation
 inline Vector3 translation_to_local( const Vector3& translation, const Matrix4& local ){
@@ -62,7 +63,7 @@ public:
 		               ObservedSelectable( onchanged ) }{
 	}
 	bool isSelected() const {
-		return std::ranges::any_of( m_selectables, std::identity{}, &ObservedSelectable::isSelected );
+		return std::ranges::any_of( m_selectables, &ObservedSelectable::isSelected );
 	}
 	void setSelected( bool selected ){
 		for ( auto& se : m_selectables )
@@ -98,14 +99,14 @@ public:
 			  && vector3_dot( planes[i].normal(), closest_point - corners[indices[index + 1]] ) > 0
 			  && vector3_dot( planes[i].normal(), closest_point - corners[indices[index + 2]] ) > 0
 			  && vector3_dot( planes[i].normal(), closest_point - corners[indices[index + 3]] ) > 0 ) {
-				const double dot = fabs( vector3_dot( planes[i].normal(), viewdir ) );
+				const double dot = std::fabs( vector3_dot( planes[i].normal(), viewdir ) );
 				const double diff = bestDot - dot;
 				if( diff > 0.03 ){
 					bestDot = dot;
 					iselect[0] = i;
 					iselect[1] = -1;
 				}
-				else if( fabs( diff ) <= 0.03 && !test.getVolume().fill() ){ // select only plane in camera
+				else if( std::fabs( diff ) <= 0.03 && !test.getVolume().fill() ){ // select only plane in camera
 					iselect[1] = i;
 				}
 			}
@@ -219,10 +220,10 @@ public:
 		const bool some_extent_zero = aabb.extents[0] == 0 || aabb.extents[1] == 0 || aabb.extents[2] == 0;
 		for ( std::size_t i = 0; i < 24; ++++i ){
 			Line line( corners[edges[i]], corners[edges[i + 1]] );
-			if( aabb.extents[i / 8] != 0.f && matrix4_clip_line_by_nearplane( test.getVolume().GetViewMatrix(), line ) == 2 ){
+			if( aabb.extents[i / 8] != 0 && matrix4_clip_line_by_nearplane( test.getVolume().GetViewMatrix(), line ) == 2 ){
 				const Vector3 point_new = line_closest_point( line, g_vector3_identity );
 				const float dist_new = vector3_length_squared( point_new );
-				const float dot_new = fabs( vector3_dot( vector3_normalised( point_new ), vector3_normalised( line.end - line.start ) ) );
+				const float dot_new = std::fabs( vector3_dot( vector3_normalised( point_new ), vector3_normalised( line.end - line.start ) ) );
 				//effective epsilon is rather big: optimized 32 bit build is using doubles implicitly (floats might be straightly checked for equality); same code in brush.h is cool with way smaller epsilon
 				if( planeData.m_dist - dist_new > 1e-2f // new dist noticeably smaller
 				 || ( float_equal_epsilon( dist_new, planeData.m_dist, 1e-2f ) && dot_new < dot ) ){ // or ambiguous case. Resolve it by dot comparison
@@ -250,8 +251,9 @@ public:
 								assign_plane( plane2 );
 						}
 					}
-					else if( some_extent_zero || fabs( vector3_length_squared( line.end - line.start ) ) > 1e-3 ){
-						if( fabs( vector3_dot( plane1.normal(), test.getVolume().getViewDir() ) ) < fabs( vector3_dot( plane2.normal(), test.getVolume().getViewDir() ) ) ){
+					else if( some_extent_zero || std::fabs( vector3_length_squared( line.end - line.start ) ) > 1e-3 ){
+						if( std::fabs( vector3_dot( plane1.normal(), test.getVolume().getViewDir() ) )
+						  < std::fabs( vector3_dot( plane2.normal(), test.getVolume().getViewDir() ) ) ){
 							if( aabb.extents[adjacent_planes[i] / 2] == 0 ) /* select the other, if zero bound */
 								assign_plane( plane2 );
 							else
@@ -263,7 +265,6 @@ public:
 							else
 								assign_plane( plane2 );
 						}
-
 					}
 				}
 			}
@@ -304,7 +305,6 @@ public:
 				return;
 			}
 		}
-
 	}
 
 	AABB evaluateResize( const Vector3& translation ) const {

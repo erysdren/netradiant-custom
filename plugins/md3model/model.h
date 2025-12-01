@@ -48,14 +48,14 @@ public:
 	void clear(){
 		m_lights.clear();
 	}
-	void evaluateLights() const {
+	void evaluateLights() const override {
 	}
-	void lightsChanged() const {
+	void lightsChanged() const override {
 	}
-	void forEachLight( const RendererLightCallback& callback ) const {
-		for ( Lights::const_iterator i = m_lights.begin(); i != m_lights.end(); ++i )
+	void forEachLight( const RendererLightCallback& callback ) const override {
+		for ( const auto *light : m_lights )
 		{
-			callback( *( *i ) );
+			callback( *light );
 		}
 	}
 };
@@ -121,8 +121,8 @@ public:
 	}
 	void updateAABB(){
 		m_aabb_local = AABB();
-		for ( vertices_t::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
-			aabb_extend_by_point_safe( m_aabb_local, reinterpret_cast<const Vector3&>( ( *i ).vertex ) );
+		for ( const auto& v : m_vertices )
+			aabb_extend_by_point_safe( m_aabb_local, reinterpret_cast<const Vector3&>( v.vertex ) );
 
 
 
@@ -135,14 +135,14 @@ public:
 			ArbitraryMeshTriangle_sumTangents( a, b, c );
 		}
 
-		for ( Surface::vertices_t::iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+		for ( auto& v : m_vertices )
 		{
-			vector3_normalise( reinterpret_cast<Vector3&>( ( *i ).tangent ) );
-			vector3_normalise( reinterpret_cast<Vector3&>( ( *i ).bitangent ) );
+			vector3_normalise( reinterpret_cast<Vector3&>( v.tangent ) );
+			vector3_normalise( reinterpret_cast<Vector3&>( v.bitangent ) );
 		}
 	}
 
-	void render( RenderStateFlags state ) const {
+	void render( RenderStateFlags state ) const override {
 #if 1
 		if ( ( state & RENDER_BUMP ) != 0 ) {
 			gl().glNormalPointer( GL_FLOAT, sizeof( ArbitraryMeshVertex ), &m_vertices.data()->normal );
@@ -171,10 +171,10 @@ public:
 #if defined( _DEBUG ) && !defined( _DEBUG_QUICKER )
 		gl().glBegin( GL_LINES );
 
-		for ( VertexBuffer<ArbitraryMeshVertex>::const_iterator i = m_vertices.begin(); i != m_vertices.end(); ++i )
+		for ( const auto& v : m_vertices )
 		{
-			Vector3 normal = vector3_added( vertex3f_to_vector3( ( *i ).vertex ), vector3_scaled( normal3f_to_vector3( ( *i ).normal ), 8 ) );
-			gl().glVertex3fv( vertex3f_to_array( ( *i ).vertex ) );
+			Vector3 normal = vector3_added( vertex3f_to_vector3( v.vertex ), vector3_scaled( normal3f_to_vector3( v.normal ), 8 ) );
+			gl().glVertex3fv( vertex3f_to_array( v.vertex ) );
 			gl().glVertex3fv( vector3_to_array( normal ) );
 		}
 		gl().glEnd();
@@ -226,9 +226,9 @@ public:
 	Callback<void()> m_lightsChanged;
 
 	~Model(){
-		for ( surfaces_t::iterator i = m_surfaces.begin(); i != m_surfaces.end(); ++i )
+		for ( auto *surf : m_surfaces )
 		{
-			delete *i;
+			delete surf;
 		}
 	}
 
@@ -250,25 +250,25 @@ public:
 	}
 	void updateAABB(){
 		m_aabb_local = AABB();
-		for ( surfaces_t::iterator i = m_surfaces.begin(); i != m_surfaces.end(); ++i )
+		for ( const auto *surf : m_surfaces )
 		{
-			aabb_extend_by_aabb_safe( m_aabb_local, ( *i )->localAABB() );
+			aabb_extend_by_aabb_safe( m_aabb_local, surf->localAABB() );
 		}
 	}
 
-	VolumeIntersectionValue intersectVolume( const VolumeTest& test, const Matrix4& localToWorld ) const {
+	VolumeIntersectionValue intersectVolume( const VolumeTest& test, const Matrix4& localToWorld ) const override {
 		return test.TestAABB( m_aabb_local, localToWorld );
 	}
 
-	virtual const AABB& localAABB() const {
+	virtual const AABB& localAABB() const override {
 		return m_aabb_local;
 	}
 
 	void testSelect( Selector& selector, SelectionTest& test, const Matrix4& localToWorld ){
-		for ( surfaces_t::iterator i = m_surfaces.begin(); i != m_surfaces.end(); ++i )
+		for ( auto *surf : m_surfaces )
 		{
-			if ( ( *i )->intersectVolume( test.getVolume(), localToWorld ) != c_volumeOutside ) {
-				( *i )->testSelect( selector, test, localToWorld );
+			if ( surf->intersectVolume( test.getVolume(), localToWorld ) != c_volumeOutside ) {
+				surf->testSelect( selector, test, localToWorld );
 			}
 		}
 	}
@@ -323,10 +323,10 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	Bounded& get( NullType<Bounded>){
+	Bounded& get( NullType<Bounded> ){
 		return m_model;
 	}
-	Cullable& get( NullType<Cullable>){
+	Cullable& get( NullType<Cullable> ){
 		return m_model;
 	}
 
@@ -355,15 +355,15 @@ public:
 		}
 	}
 	void destroyRemaps(){
-		for ( SurfaceRemaps::iterator i = m_skins.begin(); i != m_skins.end(); ++i )
+		for ( auto& [ name, shader ] : m_skins )
 		{
-			if ( ( *i ).second != 0 ) {
-				GlobalShaderCache().release( ( *i ).first.c_str() );
-				( *i ).second = 0;
+			if ( shader != 0 ) {
+				GlobalShaderCache().release( name.c_str() );
+				shader = 0;
 			}
 		}
 	}
-	void skinChanged(){
+	void skinChanged() override {
 		ASSERT_MESSAGE( m_skins.size() == m_model.size(), "ERROR" );
 		destroyRemaps();
 		constructRemaps();
@@ -402,23 +402,23 @@ public:
 		}
 	}
 
-	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderSolid( Renderer& renderer, const VolumeTest& volume ) const override {
 		m_lightList->evaluateLights();
 
 		render( renderer, volume, Instance::localToWorld() );
 	}
-	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const {
+	void renderWireframe( Renderer& renderer, const VolumeTest& volume ) const override {
 		renderSolid( renderer, volume );
 	}
 
-	void testSelect( Selector& selector, SelectionTest& test ){
+	void testSelect( Selector& selector, SelectionTest& test ) override {
 		m_model.testSelect( selector, test, Instance::localToWorld() );
 	}
 
-	bool testLight( const RendererLight& light ) const {
+	bool testLight( const RendererLight& light ) const override {
 		return light.testAABB( worldAABB() );
 	}
-	void insertLight( const RendererLight& light ){
+	void insertLight( const RendererLight& light ) override {
 		const Matrix4& localToWorld = Instance::localToWorld();
 		SurfaceLightLists::iterator j = m_surfaceLightLists.begin();
 		for ( Model::const_iterator i = m_model.begin(); i != m_model.end(); ++i )
@@ -426,15 +426,15 @@ public:
 			Surface_addLight( *( *i ), *j++, localToWorld, light );
 		}
 	}
-	void clearLights(){
-		for ( SurfaceLightLists::iterator i = m_surfaceLightLists.begin(); i != m_surfaceLightLists.end(); ++i )
+	void clearLights() override {
+		for ( auto& lightList : m_surfaceLightLists )
 		{
-			( *i ).clear();
+			lightList.clear();
 		}
 	}
 };
 
-class ModelNode : public scene::Node::Symbiot, public scene::Instantiable
+class ModelNode final : public scene::Node::Symbiot, public scene::Instantiable
 {
 	class TypeCasts
 	{
@@ -456,30 +456,30 @@ public:
 
 	typedef LazyStatic<TypeCasts> StaticTypeCasts;
 
-	ModelNode() : m_node( this, this, StaticTypeCasts::instance().get() ){
+	ModelNode() : m_node( this, this, StaticTypeCasts::instance().get(), nullptr ){
 	}
 
 	Model& model(){
 		return m_model;
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 	scene::Node& node(){
 		return m_node;
 	}
 
-	scene::Instance* create( const scene::Path& path, scene::Instance* parent ){
+	scene::Instance* create( const scene::Path& path, scene::Instance* parent ) override {
 		return new ModelInstance( path, parent, m_model );
 	}
-	void forEachInstance( const scene::Instantiable::Visitor& visitor ){
+	void forEachInstance( const scene::Instantiable::Visitor& visitor ) override {
 		m_instances.forEachInstance( visitor );
 	}
-	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ){
+	void insert( scene::Instantiable::Observer* observer, const scene::Path& path, scene::Instance* instance ) override {
 		m_instances.insert( observer, path, instance );
 	}
-	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ){
+	scene::Instance* erase( scene::Instantiable::Observer* observer, const scene::Path& path ) override {
 		return m_instances.erase( observer, path );
 	}
 };
@@ -548,7 +548,7 @@ inline void Model_constructNull( Model& model ){
 		surface.indices().insert( *i );
 	}
 
-	surface.setShader( "" );
+	surface.setShader( "nomodel" );
 
 	surface.updateAABB();
 

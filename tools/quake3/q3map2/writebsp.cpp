@@ -40,11 +40,8 @@
  */
 
 int EmitShader( const char *shader, const int *contentFlags, const int *surfaceFlags ){
-	shaderInfo_t    *si;
-
-
 	/* handle special cases */
-	if ( shader == NULL ) {
+	if ( shader == nullptr ) {
 		shader = "noshader";
 	}
 
@@ -52,16 +49,16 @@ int EmitShader( const char *shader, const int *contentFlags, const int *surfaceF
 	for ( size_t i = 0; i < bspShaders.size(); ++i )
 	{
 		/* ydnar: handle custom surface/content flags */
-		if ( surfaceFlags != NULL && bspShaders[ i ].surfaceFlags != *surfaceFlags ) {
+		if ( surfaceFlags != nullptr && bspShaders[ i ].surfaceFlags != *surfaceFlags ) {
 			continue;
 		}
-		if ( contentFlags != NULL && bspShaders[ i ].contentFlags != *contentFlags ) {
+		if ( contentFlags != nullptr && bspShaders[ i ].contentFlags != *contentFlags ) {
 			continue;
 		}
 		if ( !doingBSP ){
-			si = ShaderInfoForShader( shader );
-			if ( !strEmptyOrNull( si->remapShader ) ) {
-				shader = si->remapShader;
+			const shaderInfo_t& si = ShaderInfoForShader( shader );
+			if ( !strEmptyOrNull( si.remapShader ) ) {
+				shader = si.remapShader;
 			}
 		}
 		/* compare name */
@@ -71,21 +68,21 @@ int EmitShader( const char *shader, const int *contentFlags, const int *surfaceF
 	}
 
 	/* get shaderinfo */
-	si = ShaderInfoForShader( shader );
+	const shaderInfo_t& si = ShaderInfoForShader( shader );
 
 	/* emit a new shader */
 	const int i = bspShaders.size(); // store index
 	bspShader_t& bspShader = bspShaders.emplace_back();
 
-	strcpy( bspShader.shader, si->shader );
+	strcpy( bspShader.shader, si.shader );
 	/* handle custom content/surface flags */
-	bspShader.surfaceFlags = ( surfaceFlags != NULL )? *surfaceFlags : si->surfaceFlags;
-	bspShader.contentFlags = ( contentFlags != NULL )? *contentFlags : si->contentFlags;
+	bspShader.surfaceFlags = ( surfaceFlags != nullptr )? *surfaceFlags : si.surfaceFlags;
+	bspShader.contentFlags = ( contentFlags != nullptr )? *contentFlags : si.contentFlags;
 
 	/* recursively emit any damage shaders */
-	if ( !strEmptyOrNull( si->damageShader ) ) {
-		Sys_FPrintf( SYS_VRB, "Shader %s has damage shader %s\n", si->shader.c_str(), si->damageShader );
-		EmitShader( si->damageShader, NULL, NULL );
+	if ( !strEmptyOrNull( si.damageShader ) ) {
+		Sys_FPrintf( SYS_VRB, "Shader %s has damage shader %s\n", si.shader.c_str(), si.damageShader );
+		EmitShader( si.damageShader, nullptr, nullptr );
 	}
 
 	/* return index */
@@ -183,7 +180,7 @@ static int EmitDrawNode_r( node_t *node ){
 	//
 	// recursively output the other nodes
 	//
-	for ( int i = 0; i < 2; i++ )
+	for ( int i = 0; i < 2; ++i )
 	{
 		// reference node by id, as it may be reallocated
 		if ( node->children[i]->planenum == PLANENUM_LEAF ) {
@@ -210,14 +207,10 @@ static int EmitDrawNode_r( node_t *node ){
 void SetModelNumbers(){
 	int models = 1;
 	for ( std::size_t i = 1; i < entities.size(); ++i ) {
-		if ( !entities[i].brushes.empty() || entities[i].patches ) {
-			char value[16];
-			sprintf( value, "*%i", models );
-			models++;
-			entities[i].setKeyValue( "model", value );
+		if ( !entities[i].brushes.empty() || !entities[i].patches.empty() ) {
+			entities[i].setKeyValue( "model", models++, "*%i" );
 		}
 	}
-
 }
 
 
@@ -230,7 +223,6 @@ void SetModelNumbers(){
 
 void SetLightStyles(){
 	int j, numStyles;
-	char value[ 10 ];
 	char lightTargets[ MAX_SWITCHED_LIGHTS ][ 64 ];
 	int lightStyles[ MAX_SWITCHED_LIGHTS ];
 	int numStrippedLights = 0;
@@ -271,7 +263,7 @@ void SetLightStyles(){
 		}
 
 		/* find this targetname */
-		for ( j = 0; j < numStyles; j++ )
+		for ( j = 0; j < numStyles; ++j )
 			if ( lightStyles[ j ] == style && strEqual( lightTargets[ j ], t ) ) {
 				break;
 			}
@@ -287,13 +279,11 @@ void SetLightStyles(){
 		}
 
 		/* set explicit style */
-		sprintf( value, "%d", MAX_SWITCHED_LIGHTS + j );
-		e.setKeyValue( "style", value );
+		e.setKeyValue( "style", MAX_SWITCHED_LIGHTS + j );
 
 		/* set old style */
 		if ( style != LS_NORMAL ) {
-			sprintf( value, "%d", style );
-			e.setKeyValue( "switch_style", value );
+			e.setKeyValue( "switch_style", style );
 		}
 	}
 
@@ -305,9 +295,7 @@ void SetLightStyles(){
 void UnSetLightStyles(){
 	for ( entity_t& e : entities ){
 		if ( e.classname_prefixed( "light" ) && !strEmpty( e.valueForKey( "targetname" ) ) && !strEmpty( e.valueForKey( "style" ) ) ) {
-			char value[ 10 ];
-			sprintf( value, "%d", e.intForKey( "switch_style" ) ); // value or 0, latter is fine too
-			e.setKeyValue( "style", value );
+			e.setKeyValue( "style", e.intForKey( "switch_style" ) ); // value or 0, latter is fine too
 		}
 	}
 }
@@ -362,42 +350,31 @@ void EndBSPFile( bool do_write ){
 
 /*
    EmitBrushes()
-   writes the brush list to the bsp
+   writes the entity brush list to the bsp
  */
 
-void EmitBrushes( brushlist_t& brushes, int *firstBrush, int *numBrushes ){
+void EmitBrushes( entity_t& e ){
 	/* set initial brush */
-	if ( firstBrush != NULL ) {
-		*firstBrush = bspBrushes.size();
-	}
-	if ( numBrushes != NULL ) {
-		*numBrushes = 0;
-	}
+	e.firstBrush = bspBrushes.size();
+	e.numBrushes = e.brushes.size();
 
 	/* walk list of brushes */
-	for ( brush_t& b : brushes )
+	for ( brush_t& b : e.brushes )
 	{
 		/* get bsp brush */
 		b.outputNum = bspBrushes.size();
 		bspBrush_t& db = bspBrushes.emplace_back();
-		if ( numBrushes != NULL ) {
-			( *numBrushes )++;
-		}
 
 		db.shaderNum = EmitShader( b.contentShader->shader, &b.contentShader->contentFlags, &b.contentShader->surfaceFlags );
 		db.firstSide = bspBrushSides.size();
+		db.numSides = b.sides.size();
 
 		/* walk sides */
-		db.numSides = 0;
 		for ( side_t& side : b.sides )
 		{
-			/* set output number to bogus initially */
-			side.outputNum = -1;
-
 			/* emit side */
 			side.outputNum = bspBrushSides.size();
 			bspBrushSide_t& cp = bspBrushSides.emplace_back();
-			db.numSides++;
 			cp.planeNum = side.planenum;
 
 			/* emit shader */
@@ -405,10 +382,10 @@ void EmitBrushes( brushlist_t& brushes, int *firstBrush, int *numBrushes ){
 				cp.shaderNum = EmitShader( side.shaderInfo->shader, &side.shaderInfo->contentFlags, &side.shaderInfo->surfaceFlags );
 			}
 			else if( side.bevel ) { /* emit surfaceFlags for bevels to get correct physics at walkable brush edges and vertices */
-				cp.shaderNum = EmitShader( NULL, NULL, &side.surfaceFlags );
+				cp.shaderNum = EmitShader( nullptr, nullptr, &side.surfaceFlags );
 			}
 			else{
-				cp.shaderNum = EmitShader( NULL, NULL, NULL );
+				cp.shaderNum = EmitShader( nullptr, nullptr, nullptr );
 			}
 		}
 	}
@@ -431,7 +408,7 @@ void EmitFogs(){
 		strcpy( bspFog.shader, fog.si->shader );
 
 		/* global fog doesn't have an associated brush */
-		if ( fog.brush == NULL ) {
+		if ( fog.brush == nullptr ) {
 			bspFog.brushNum = -1;
 			bspFog.visibleSide = -1;
 		}
@@ -451,7 +428,6 @@ void EmitFogs(){
 			for ( size_t j = 6; j-- > 0; ) // prioritize +Z (index 5) then -Z (index 4) in ambiguous case; fogged pit is assumed as most likely case
 			{
 				if ( !fog.brush->sides[ j ].visibleHull.empty() && !( fog.brush->sides[ j ].compileFlags & C_NODRAW ) ) {
-					Sys_Printf( "Fog %zu has visible side %zu\n", i, j );
 					bspFog.visibleSide = j;
 					break;
 				}
@@ -461,12 +437,12 @@ void EmitFogs(){
 				for ( size_t j = 6; j < fog.brush->sides.size(); ++j )
 				{
 					if ( !fog.brush->sides[ j ].visibleHull.empty() && !( fog.brush->sides[ j ].compileFlags & C_NODRAW ) ) {
-						Sys_Printf( "Fog %zu has visible side %zu\n", i, j );
 						bspFog.visibleSide = j;
 						break;
 					}
 				}
 			}
+			Sys_Printf( "Fog %zu has visible side %i\n", i, bspFog.visibleSide );
 		}
 	}
 
@@ -506,9 +482,9 @@ void BeginModel( const entity_t& e ){
 	}
 
 	/* bound patches */
-	for ( const parseMesh_t *p = e.patches; p; p = p->next )
+	for ( const parseMesh_t& p : e.patches )
 	{
-		for ( const bspDrawVert_t& vert : Span( p->mesh.verts, p->mesh.width * p->mesh.height ) )
+		for ( const bspDrawVert_t& vert : Span( p.mesh.verts, p.mesh.numVerts() ) )
 			minmax.extend( vert.xyz );
 	}
 

@@ -34,8 +34,6 @@
 #include "stream/stringstream.h"
 #include "moduleobservers.h"
 
-#include "commandlib.h"
-
 #include "preferences.h"
 #include "mainframe.h"
 
@@ -57,9 +55,9 @@ EClassModules& EntityClassManager_getEClassModules();
  */
 
 void CleanEntityList( EntityClasses& entityClasses ){
-	for ( EntityClasses::iterator i = entityClasses.begin(); i != entityClasses.end(); ++i )
+	for ( auto [ name, eclass ] : entityClasses )
 	{
-		( *i ).second->free( ( *i ).second );
+		eclass->free( eclass );
 	}
 	entityClasses.clear();
 }
@@ -70,11 +68,11 @@ void Eclass_Clear(){
 }
 
 EntityClass* EClass_InsertSortedList( EntityClasses& entityClasses, EntityClass *entityClass ){
-	std::pair<EntityClasses::iterator, bool> result = entityClasses.insert( EntityClasses::value_type( entityClass->name(), entityClass ) );
-	if ( !result.second ) {
+	auto [ it, inserted ] = entityClasses.insert( EntityClasses::value_type( entityClass->name(), entityClass ) );
+	if ( !inserted ) {
 		entityClass->free( entityClass );
 	}
-	return ( *result.first ).second;
+	return it->second;
 }
 
 EntityClass* Eclass_InsertAlphabetized( EntityClass *e ){
@@ -82,9 +80,9 @@ EntityClass* Eclass_InsertAlphabetized( EntityClass *e ){
 }
 
 void Eclass_forEach( EntityClassVisitor& visitor ){
-	for ( EntityClasses::iterator i = g_entityClasses.begin(); i != g_entityClasses.end(); ++i )
+	for ( auto [ name, eclass ] : g_entityClasses )
 	{
-		visitor.visit( ( *i ).second );
+		visitor.visit( eclass );
 	}
 }
 
@@ -92,10 +90,10 @@ void Eclass_forEach( EntityClassVisitor& visitor ){
 class RadiantEclassCollector : public EntityClassCollector
 {
 public:
-	void insert( EntityClass* eclass ){
+	void insert( EntityClass* eclass ) override {
 		Eclass_InsertAlphabetized( eclass );
 	}
-	void insert( const char* name, const ListAttributeType& list ){
+	void insert( const char* name, const ListAttributeType& list ) override {
 		g_listTypes.insert( ListAttributeTypes::value_type( name, list ) );
 	}
 };
@@ -144,24 +142,20 @@ public:
 		if ( filterMode.filter_mp_sp ) {
 			if ( string_empty( GlobalRadiant().getGameMode() ) || string_equal( GlobalRadiant().getGameMode(), "sp" ) ) {
 				if ( string_equal_n( name, filterMode.sp_ignore_prefix, strlen( filterMode.sp_ignore_prefix ) ) ) {
-					globalOutputStream() << "Ignoring '" << name << "'\n";
+					globalOutputStream() << "Ignoring " << SingleQuoted( name ) << '\n';
 					return;
 				}
 			}
 			else
 			{
 				if ( string_equal_n( name, filterMode.mp_ignore_prefix, strlen( filterMode.mp_ignore_prefix ) ) ) {
-					globalOutputStream() << "Ignoring '" << name << "'\n";
+					globalOutputStream() << "Ignoring " << SingleQuoted( name ) << '\n';
 					return;
 				}
 			}
 		}
 
-		// for a given name, we grab the first .def in the vfs
-		// this allows to override baseq3/scripts/entities.def for instance
-		const auto relPath = StringStream( m_directory, name );
-
-		scanner.scanFile( g_collector, relPath );
+		scanner.scanFile( g_collector, StringStream( m_directory, name ) );
 	}
 };
 
@@ -175,13 +169,19 @@ struct PathLess
 typedef std::map<CopiedString, const char*, PathLess> Paths;
 
 void EntityClassQuake3_constructDirectory( const char* directory, const char* extension, Paths& paths ){
-	globalOutputStream() << "EntityClass: searching " << makeQuoted( directory ) << " for *." << extension << '\n';
+	globalOutputStream() << "EntityClass: searching " << Quoted( directory ) << " for *." << extension << '\n';
 	Directory_forEach( directory, matchFileExtension( extension, [&]( const char *name ){
 		paths.insert( Paths::value_type( name, directory ) );
 	}));
 }
 
 
+/* facts:
+   modules are alpha sorted, so .def .fgd .ent (xml) loading order
+   all base & mod files of the same type are alpha sorted together
+   equal file name in mod is ignored
+   equal eclass name inserted later is ignored
+*/
 void EntityClassQuake3_Construct(){
 	const auto baseDirectory = StringStream( GlobalRadiant().getGameToolsPath(), GlobalRadiant().getRequiredGameDescriptionKeyValue( "basegame" ), '/' );
 	const auto gameDirectory = StringStream( GlobalRadiant().getGameToolsPath(), GlobalRadiant().getGameName(), '/' );
@@ -194,17 +194,19 @@ void EntityClassQuake3_Construct(){
 		LoadEntityDefinitionsVisitor( const char* baseDirectory, const char* gameDirectory )
 			: baseDirectory( baseDirectory ), gameDirectory( gameDirectory ){
 		}
-		void visit( const char* name, const EntityClassScanner& table ) const {
+		void visit( const char* name, const EntityClassScanner& table ) const override {
 			Paths paths;
 			EntityClassQuake3_constructDirectory( baseDirectory, table.getExtension(), paths );
 			if ( !string_equal( baseDirectory, gameDirectory ) ) {
 				EntityClassQuake3_constructDirectory( gameDirectory, table.getExtension(), paths );
 			}
 
-			for ( Paths::iterator i = paths.begin(); i != paths.end(); ++i )
+			for ( const auto& [ name, path ] : paths )
 			{
-				EntityClassesLoadFile( table, ( *i ).second ) ( ( *i ).first.c_str() );
+				EntityClassesLoadFile( table, path ) ( name.c_str() );
 			}
+
+			table.finalize( g_collector );
 		}
 	};
 
@@ -234,14 +236,14 @@ class EntityClassQuake3 : public ModuleObserver
 public:
 	EntityClassQuake3() : m_unrealised( 4 ){
 	}
-	void realise(){
+	void realise() override{
 		if ( --m_unrealised == 0 ) {
 			//globalOutputStream() << "Entity Classes: realise\n";
 			EntityClassQuake3_Construct();
 			m_observers.realise();
 		}
 	}
-	void unrealise(){
+	void unrealise() override{
 		if ( ++m_unrealised == 1 ) {
 			m_observers.unrealise();
 			//globalOutputStream() << "Entity Classes: unrealise\n";

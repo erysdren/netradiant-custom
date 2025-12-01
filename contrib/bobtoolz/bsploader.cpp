@@ -14,17 +14,17 @@ int numbrushes;
 int numbrushsides;
 int numleafbrushes;
 
-byte          *visBytes =         NULL;
-dnode_t       *dnodes =           NULL;
-dplane_t      *dplanes =          NULL;
-dleaf_t       *dleafs =           NULL;
-qdrawVert_t   *drawVerts =        NULL;
-int           *drawVertsIndices = NULL;
-dsurface_t    *drawSurfaces =     NULL;
-int           *dleafsurfaces =    NULL;
-dbrush_t      *dbrushes =         NULL;
-dbrushside_t  *dbrushsides =      NULL;
-int           *dleafbrushes =     NULL;
+byte          *visBytes =         nullptr;
+dnode_t       *dnodes =           nullptr;
+dplane_t      *dplanes =          nullptr;
+dleaf_t       *dleafs =           nullptr;
+qdrawVert_t   *drawVerts =        nullptr;
+int           *drawVertsIndices = nullptr;
+dsurface_t    *drawSurfaces =     nullptr;
+int           *dleafsurfaces =    nullptr;
+dbrush_t      *dbrushes =         nullptr;
+dbrushside_t  *dbrushsides =      nullptr;
+int           *dleafbrushes =     nullptr;
 
 #define IBSP_IDENT   ( ( 'P' << 24 ) + ( 'S' << 16 ) + ( 'B' << 8 ) + 'I' )
 #define IBSP_VERSION_Q3         46
@@ -103,7 +103,7 @@ void SwapBlock( int *block, int sizeOfBlock ) {
 	int i;
 
 	sizeOfBlock >>= 2;
-	for ( i = 0; i < sizeOfBlock; i++ ) {
+	for ( i = 0; i < sizeOfBlock; ++i ) {
 		block[i] = LittleLong( block[i] );
 	}
 }
@@ -115,14 +115,14 @@ void SwapBlock( int *block, int sizeOfBlock ) {
    Byte swaps all data in a bsp file.
    =============
  */
-void SwapBSPFile( void ) {
+void SwapBSPFile() {
 	int i;
 
 	// models
 //	SwapBlock( (int *)dmodels, nummodels * sizeof( dmodels[0] ) );
 
 	// shaders (don't swap the name)
-//	for ( i = 0; i < numShaders; i++ ) {
+//	for ( i = 0; i < numShaders; ++i ) {
 //		dshaders[i].contentFlags = LittleLong( dshaders[i].contentFlags );
 //		dshaders[i].surfaceFlags = LittleLong( dshaders[i].surfaceFlags );
 //	}
@@ -153,7 +153,7 @@ void SwapBSPFile( void ) {
 	( (int *)&visBytes )[1] = LittleLong( ( (int *)&visBytes )[1] );
 
 	// drawverts (don't swap colors )
-	for ( i = 0; i < numDrawVerts; i++ ) {
+	for ( i = 0; i < numDrawVerts; ++i ) {
 		drawVerts[i].lightmap[0] = LittleFloat( drawVerts[i].lightmap[0] );
 		drawVerts[i].lightmap[1] = LittleFloat( drawVerts[i].lightmap[1] );
 		drawVerts[i].st[0] = LittleFloat( drawVerts[i].st[0] );
@@ -173,7 +173,7 @@ void SwapBSPFile( void ) {
 	SwapBlock( (int *)drawSurfaces, numDrawSurfaces * sizeof( drawSurfaces[0] ) );
 
 	// fogs
-//	for ( i = 0; i < numFogs; i++ ) {
+//	for ( i = 0; i < numFogs; ++i ) {
 //		dfogs[i].brushNum = LittleLong( dfogs[i].brushNum );
 //		dfogs[i].visibleSide = LittleLong( dfogs[i].visibleSide );
 //	}

@@ -40,28 +40,6 @@
    ------------------------------------------------------------------------------- */
 
 /*
-   AllocSideRef() - ydnar
-   allocates and assigns a brush side reference
- */
-
-sideRef_t *AllocSideRef( const side_t *side, sideRef_t *next ){
-	/* dummy check */
-	if ( side == NULL ) {
-		return next;
-	}
-
-	/* allocate and return */
-	sideRef_t *sideRef = safe_malloc( sizeof( *sideRef ) );
-	sideRef->side = side;
-	sideRef->next = next;
-	return sideRef;
-}
-
-
-
-
-
-/*
    BoundBrush()
    sets the mins/maxs based on the windings
    returns false if the brush doesn't enclose a valid volume
@@ -92,7 +70,7 @@ Vector3 SnapWeldVector( const Vector3& a, const Vector3& b ){
 	Vector3 out;
 
 	/* do each element */
-	for ( int i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 	{
 		/* round to integer */
 		const float ai = std::rint( a[ i ] );
@@ -107,7 +85,7 @@ Vector3 SnapWeldVector( const Vector3& a, const Vector3& b ){
 		}
 
 		/* use nearest */
-		else if ( fabs( ai - a[ i ] ) < fabs( bi - b[ i ] ) ) {
+		else if ( std::fabs( ai - a[ i ] ) < std::fabs( bi - b[ i ] ) ) {
 			out[ i ] = a[ i ];
 		}
 		else{
@@ -116,7 +94,7 @@ Vector3 SnapWeldVector( const Vector3& a, const Vector3& b ){
 
 		/* snap */
 		const float outi = std::rint( out[ i ] );
-		if ( fabs( outi - out[ i ] ) <= SNAP_EPSILON ) {
+		if ( std::fabs( outi - out[ i ] ) <= SNAP_EPSILON ) {
 			out[ i ] = outi;
 		}
 	}
@@ -143,12 +121,12 @@ static DoubleVector3 SnapWeldVectorAccu( const DoubleVector3& a, const DoubleVec
 
 	DoubleVector3 out;
 
-	for ( int i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 	{
 		const double ai = std::rint( a[i] );
 		const double bi = std::rint( b[i] );
-		const double ad = fabs( ai - a[i] );
-		const double bd = fabs( bi - b[i] );
+		const double ad = std::fabs( ai - a[i] );
+		const double bd = std::fabs( bi - b[i] );
 
 		if ( ad < bd ) {
 			if ( ad < SNAP_EPSILON ) {
@@ -239,13 +217,10 @@ static bool FixWinding( winding_t& w ){
 static bool FixWindingAccu( winding_accu_t& w ){
 	bool altered = false;
 
-	while ( true )
+	while ( w.size() > 1 )   // Don't remove the only remaining point.
 	{
-		if ( w.size() < 2 ) {
-			break;                   // Don't remove the only remaining point.
-		}
 		bool done = true;
-		for ( winding_accu_t::iterator i = w.end() - 1, j = w.begin(); j != w.end(); i = j, ++j )
+		for ( winding_accu_t::iterator i = w.end() - 1, j = w.begin(); j != w.end(); i = j++ )
 		{
 			if ( vector3_length( *i - *j ) < DEGENERATE_EPSILON ) {
 				// TODO: I think the "snap weld vector" was written before
@@ -274,7 +249,66 @@ static bool FixWindingAccu( winding_accu_t& w ){
 	return altered;
 }
 
+// Solve: n1·x = d1, n2·x = d2, n3·x = d3
+// Returns true if unique solution
+static bool solve3Planes( const Plane3 &p1, const Plane3 &p2, const Plane3 &p3, DoubleVector3 &out ){
+	// Build matrix: rows = normals
+	const double m[3][3] = { { p1.normal().x(), p1.normal().y(), p1.normal().z() },
+	                         { p2.normal().x(), p2.normal().y(), p2.normal().z() },
+	                         { p3.normal().x(), p3.normal().y(), p3.normal().z() } };
+	const double b[3] = { p1.dist(), p2.dist(), p3.dist() };
 
+	// Cramer's rule
+	const double det = m[0][0] * ( m[1][1] * m[2][2] - m[2][1] * m[1][2] ) -
+	                   m[0][1] * ( m[1][0] * m[2][2] - m[2][0] * m[1][2] ) +
+	                   m[0][2] * ( m[1][0] * m[2][1] - m[1][1] * m[2][0] );
+
+	if( std::fabs( det ) < 1e-9 )
+		return false; // parallel or degenerate
+
+	// x = det(mx) / det
+	const double mx[3][3] = { { b[0], m[0][1], m[0][2] },
+	                          { b[1], m[1][1], m[1][2] },
+	                          { b[2], m[2][1], m[2][2] } };
+	const double det_x = mx[0][0] * ( mx[1][1] * mx[2][2] - mx[2][1] * mx[1][2] ) -
+	                     mx[0][1] * ( mx[1][0] * mx[2][2] - mx[2][0] * mx[1][2] ) +
+	                     mx[0][2] * ( mx[1][0] * mx[2][1] - mx[1][1] * mx[2][0] );
+	// y
+	const double my[3][3] = { { m[0][0], b[0], m[0][2] },
+	                          { m[1][0], b[1], m[1][2] },
+	                          { m[2][0], b[2], m[2][2] } };
+	const double det_y = my[0][0] * ( my[1][1] * my[2][2] - my[2][1] * my[1][2] ) -
+	                     my[0][1] * ( my[1][0] * my[2][2] - my[2][0] * my[1][2] ) +
+	                     my[0][2] * ( my[1][0] * my[2][1] - my[1][1] * my[2][0] );
+	// z
+	const double mz[3][3] = { { m[0][0], m[0][1], b[0] },
+	                          { m[1][0], m[1][1], b[1] },
+	                          { m[2][0], m[2][1], b[2] } };
+	const double det_z = mz[0][0] * ( mz[1][1] * mz[2][2] - mz[2][1] * mz[1][2] ) -
+	                     mz[0][1] * ( mz[1][0] * mz[2][2] - mz[2][0] * mz[1][2] ) +
+	                     mz[0][2] * ( mz[1][0] * mz[2][1] - mz[1][1] * mz[2][0] );
+	out.x() = det_x / det;
+	out.y() = det_y / det;
+	out.z() = det_z / det;
+
+	return true;
+}
+
+static DoubleMinMax brushMinMaxFromPlanes( const std::vector<Plane3>& planes ){
+	DoubleMinMax minmax;
+
+	for ( auto i = planes.cbegin(), end = planes.cend(); i != end; ++i )
+		for ( auto j = i + 1; j != end; ++j )
+			for ( auto k = j + 1; k != end; ++k )
+				if( DoubleVector3 v; solve3Planes( *i, *j, *k, v ) )
+					// Validate against ALL planes
+					if( std::ranges::all_of( planes, [&]( const Plane3& plane ){ return plane3_distance_to_point( plane, v ) < ON_EPSILON; } ) )
+						minmax.extend( v );
+
+	return minmax;
+}
+
+#define Q3MAP2_EXPERIMENTAL_OFFSET_WINDING_CREATION 1
 /*
    CreateBrushWindings()
    makes basewindigs for sides and mins/maxs for the brush
@@ -282,17 +316,43 @@ static bool FixWindingAccu( winding_accu_t& w ){
  */
 
 bool CreateBrushWindings( brush_t& brush ){
+	std::vector<Plane3> planes;
+	planes.reserve( brush.sides.size() );
+
+	for( const side_t& side : brush.sides ){
+		ENSURE( !side.bevel );
+		planes.push_back( ( side.plane.normal() != g_vector3_identity )? side.plane : Plane3( mapplanes[ side.planenum ].plane ) );
+	}
+#if Q3MAP2_EXPERIMENTAL_OFFSET_WINDING_CREATION
+	DoubleMinMax minmax = brushMinMaxFromPlanes( planes );
+
+	if( !minmax.valid() )
+		return false;
+
+	const DoubleVector3 offset = minmax.origin();
+	minmax.maxs -= offset;
+	minmax.mins -= offset;
+	for( Plane3& p : planes )
+		p = plane3_translated( plane3_flipped( p ), -offset ); // flip for clipping
+#else
+	for( Plane3& p : planes )
+		p = plane3_flipped( p );
+#endif
 	/* walk the list of brush sides */
 	for ( size_t i = 0; i < brush.sides.size(); ++i )
 	{
 		/* get side and plane */
 		side_t& side = brush.sides[ i ];
-		const plane_t& plane = mapplanes[ side.planenum ];
 
 		/* make huge winding */
 #if Q3MAP2_EXPERIMENTAL_HIGH_PRECISION_MATH_FIXES
-		winding_accu_t w = BaseWindingForPlaneAccu( ( side.plane.normal() != g_vector3_identity )? side.plane : Plane3( plane.plane ) );
+	#if Q3MAP2_EXPERIMENTAL_OFFSET_WINDING_CREATION
+		winding_accu_t w = BaseWindingForPlaneAccu( plane3_flipped( planes[ i ] ), minmax );
+	#else
+		winding_accu_t w = BaseWindingForPlaneAccu( plane3_flipped( planes[ i ] ) );
+	#endif
 #else
+		const plane_t& plane = mapplanes[ side.planenum ];
 		winding_t w = BaseWindingForPlane( plane.plane );
 #endif
 
@@ -300,15 +360,14 @@ bool CreateBrushWindings( brush_t& brush ){
 		for ( size_t j = 0; j < brush.sides.size() && !w.empty(); ++j )
 		{
 			const side_t& cside = brush.sides[ j ];
-			const plane_t& cplane = mapplanes[ cside.planenum ^ 1 ];
 			if ( i == j
-			|| cside.planenum == ( side.planenum ^ 1 ) /* back side clipaway */
-			|| cside.bevel ) {
+			|| cside.planenum == ( side.planenum ^ 1 ) ) { /* back side clipaway */
 				continue;
 			}
 #if Q3MAP2_EXPERIMENTAL_HIGH_PRECISION_MATH_FIXES
-			ChopWindingInPlaceAccu( w, ( cside.plane.normal() != g_vector3_identity )? plane3_flipped( cside.plane ) : Plane3( cplane.plane ), 0 );
+			ChopWindingInPlaceAccu( w, planes[ j ], 0 );
 #else
+			const plane_t& cplane = mapplanes[ cside.planenum ^ 1 ];
 			ChopWindingInPlace( w, cplane.plane, 0 ); // CLIP_EPSILON );
 #endif
 
@@ -326,10 +385,16 @@ bool CreateBrushWindings( brush_t& brush ){
 		/* set side winding */
 #if Q3MAP2_EXPERIMENTAL_HIGH_PRECISION_MATH_FIXES
 		FixWindingAccu( w );
-		if( w.size() >= 3 )
+		if( w.size() >= 3 ){
+	#if Q3MAP2_EXPERIMENTAL_OFFSET_WINDING_CREATION
+			for( DoubleVector3& v : w )
+				v += offset;
+	#endif
 			side.winding = CopyWindingAccuToRegular( w );
-		else
+		}
+		else{
 			side.winding.clear();
+		}
 #else
 		side.winding.swap( w );
 #endif
@@ -354,11 +419,8 @@ static brush_t BrushFromBounds( const Vector3& mins, const Vector3& maxs ){
 	b.sides.resize( 6 );
 	for ( int i = 0; i < 3; ++i )
 	{
-		float dist = maxs[i];
-		b.sides[i].planenum = FindFloatPlane( g_vector3_axes[i], dist, 1, &maxs );
-
-		dist = -mins[i];
-		b.sides[3 + i].planenum = FindFloatPlane( -g_vector3_axes[i], dist, 1, &mins );
+		b.sides[i    ].planenum = FindFloatPlane( Plane3f(  g_vector3_axes[i],  maxs[i] ), Span( &maxs, 1 ) );
+		b.sides[i + 3].planenum = FindFloatPlane( Plane3f( -g_vector3_axes[i], -mins[i] ), Span( &mins, 1 ) );
 	}
 
 	CreateBrushWindings( b );
@@ -429,7 +491,6 @@ void WriteBSPBrushMap( const char *name, const brushlist_t& list ){
 	fprintf( f, "}\n" );
 
 	fclose( f );
-
 }
 
 
@@ -448,18 +509,22 @@ static int FilterBrushIntoTree_r( brush_t&& b, node_t *node ){
 
 	/* add it to the leaf list */
 	if ( node->planenum == PLANENUM_LEAF ) {
-		/* something somewhere is hammering brushlist */
 		node->brushlist.push_front( std::move( b ) );
 
 		/* classify the leaf by the structural brush */
 		if ( !b.detail ) {
 			if ( b.opaque ) {
 				node->opaque = true;
-				node->areaportal = false;
 			}
-			else if ( b.compileFlags & C_AREAPORTAL ) {
-				if ( !node->opaque ) {
-					node->areaportal = true;
+			else if ( b.compileFlags & C_AREAPORTAL ) { // find and flag C_AREAPORTAL portals, this is not always passed through node->compileFlags
+				const auto side = std::ranges::find_if( b.original->sides, []( const side_t& side ){ return side.compileFlags & C_AREAPORTAL; } );
+
+				for ( portal_t *p = node->portals; p; p = p->nextPortal( node ) )
+				{
+					if( p->onnode != nullptr && ( p->onnode->planenum | 1 ) == ( side->planenum | 1 ) )
+						if( windings_intersect_coplanar( ( p->onnode->planenum == side->planenum )
+						                                 ? p->winding : ReverseWinding( p->winding ), side->winding, side->plane ) )
+							p->compileFlags |= C_AREAPORTAL;
 				}
 			}
 		}
@@ -471,8 +536,8 @@ static int FilterBrushIntoTree_r( brush_t&& b, node_t *node ){
 	auto [front, back] = SplitBrush( b, node->planenum );
 
 	int c = 0;
-	c += FilterBrushIntoTree_r( std::move( front ), node->children[ 0 ] );
-	c += FilterBrushIntoTree_r( std::move( back ), node->children[ 1 ] );
+	c += FilterBrushIntoTree_r( std::move( front ), node->children[eFront] );
+	c += FilterBrushIntoTree_r( std::move( back ), node->children[eBack] );
 
 	return c;
 }
@@ -544,14 +609,9 @@ bool WindingIsTiny( const winding_t& w ){
 */
 	int edges = 0;
 
-	for ( size_t i = w.size() - 1, j = 0; j < w.size(); i = j, ++j )
-	{
-		if ( vector3_length( w[j] - w[i] ) > EDGE_LENGTH ) {
-			if ( ++edges == 3 ) {
-				return false;
-			}
-		}
-	}
+	for ( auto prev = w.cend() - 1, next = w.cbegin(); next != w.cend(); prev = next++ )
+		if ( vector3_length( *next - *prev ) > EDGE_LENGTH && ++edges == 3 )
+			return false;
 	return true;
 }
 
@@ -625,12 +685,12 @@ static std::pair<brush_t, brush_t> SplitBrush( const brush_t& brush, int planenu
 		}
 	}
 
-	if ( d_front < 0.1 ) { // PLANESIDE_EPSILON)
+	if ( d_front < 0.1f ) { // PLANESIDE_EPSILON)
 		// only on back
 		return { {}, brush };
 	}
 
-	if ( d_back > -0.1 ) { // PLANESIDE_EPSILON)
+	if ( d_back > -0.1f ) { // PLANESIDE_EPSILON)
 		// only on front
 		return { brush, {} };
 	}
@@ -659,7 +719,7 @@ static std::pair<brush_t, brush_t> SplitBrush( const brush_t& brush, int planenu
 
 	// split it for real
 	brush_t     b[2]{ brush, brush };
-	for ( int i = 0; i < 2; i++ )
+	for ( int i = 0; i < 2; ++i )
 	{
 		b[i].sides.clear();
 	}
@@ -672,7 +732,7 @@ static std::pair<brush_t, brush_t> SplitBrush( const brush_t& brush, int planenu
 			winding_t cw[2];
 			std::tie( cw[0], cw[1] ) =
 			ClipWindingEpsilonStrict( side.winding, plane, 0 /*PLANESIDE_EPSILON*/ ); /* strict, in parallel case we get the face back because it also is the midwinding */
-			for ( int i = 0; i < 2; i++ )
+			for ( int i = 0; i < 2; ++i )
 			{
 				if ( !cw[i].empty() ) {
 					side_t& cs = b[i].sides.emplace_back( side );
@@ -684,7 +744,7 @@ static std::pair<brush_t, brush_t> SplitBrush( const brush_t& brush, int planenu
 
 
 	// see if we have valid polygons on both sides
-	for ( int i = 0; i < 2; i++ )
+	for ( int i = 0; i < 2; ++i )
 	{
 		if ( b[i].sides.size() < 3 || !BoundBrush( b[i] ) ) {
 			if ( b[i].sides.size() >= 3 ) {
@@ -711,12 +771,12 @@ static std::pair<brush_t, brush_t> SplitBrush( const brush_t& brush, int planenu
 	}
 
 	// add the midwinding to both sides
-	for ( int i = 0; i < 2; i++ )
+	for ( int i = 0; i < 2; ++i )
 	{
 		side_t& cs = b[i].sides.emplace_back();
 
 		cs.planenum = planenum ^ i ^ 1;
-		cs.shaderInfo = NULL;
+		cs.shaderInfo = nullptr;
 		if ( i == 0 ) {
 			cs.winding = midwinding; // copy
 		}
@@ -725,9 +785,9 @@ static std::pair<brush_t, brush_t> SplitBrush( const brush_t& brush, int planenu
 		}
 	}
 
-	for ( int i = 0; i < 2; i++ )
+	for ( int i = 0; i < 2; ++i )
 	{
-		if ( BrushVolume( b[i] ) < 1.0 ) {
+		if ( BrushVolume( b[i] ) < 1 ) {
 			b[i].sides.clear();
 			//			Sys_FPrintf( SYS_WRN | SYS_VRBflag, "tiny volume after clip\n" );
 		}

@@ -32,21 +32,21 @@
 
 inline Matrix4 matrix4_frustum( float left, float right, float bottom, float top, float nearval, float farval ){
 	return Matrix4(
-	           static_cast<float>( ( 2 * nearval ) / ( right - left ) ),
+	           ( 2 * nearval ) / ( right - left ),
 	           0,
 	           0,
 	           0,
 	           0,
-	           static_cast<float>( ( 2 * nearval ) / ( top - bottom ) ),
+	           ( 2 * nearval ) / ( top - bottom ),
 	           0,
 	           0,
-	           static_cast<float>( ( right + left ) / ( right - left ) ),
-	           static_cast<float>( ( top + bottom ) / ( top - bottom ) ),
-	           static_cast<float>( -( farval + nearval ) / ( farval - nearval ) ),
+	           ( right + left ) / ( right - left ),
+	           ( top + bottom ) / ( top - bottom ),
+	           -( farval + nearval ) / ( farval - nearval ),
 	           -1,
 	           0,
 	           0,
-	           static_cast<float>( -( 2 * farval * nearval ) / ( farval - nearval ) ),
+	           -( 2 * farval * nearval ) / ( farval - nearval ),
 	           0
 	       );
 }
@@ -106,12 +106,12 @@ public:
 			if ( b0 ^ b1 ) {
 				*out = vector4_subtracted( *next, *i );
 
-				double scale = ClipPlane::scale( *i, *out );
+				const double scale = ClipPlane::scale( *i, *out );
 
-				( *out )[0] = static_cast<float>( ( *i )[0] + scale * ( ( *out )[0] ) );
-				( *out )[1] = static_cast<float>( ( *i )[1] + scale * ( ( *out )[1] ) );
-				( *out )[2] = static_cast<float>( ( *i )[2] + scale * ( ( *out )[2] ) );
-				( *out )[3] = static_cast<float>( ( *i )[3] + scale * ( ( *out )[3] ) );
+				( *out )[0] = ( *i )[0] + scale * ( ( *out )[0] );
+				( *out )[1] = ( *i )[1] + scale * ( ( *out )[1] );
+				( *out )[2] = ( *i )[2] + scale * ( ( *out )[2] );
+				( *out )[3] = ( *i )[3] + scale * ( ( *out )[3] );
 
 				++out;
 			}
@@ -231,12 +231,12 @@ inline std::size_t homogenous_clip_line( Vector4 clipped[2] ){
 		if ( index ^ CLIP_X_LT_W( p1 ) ) {
 			Vector4 clip( vector4_subtracted( p1, p0 ) );
 
-			double scale = ( p0[0] - p0[3] ) / ( clip[3] - clip[0] );
+			const double scale = ( p0[0] - p0[3] ) / ( clip[3] - clip[0] );
 
-			clip[0] = static_cast<float>( p0[0] + scale * clip[0] );
-			clip[1] = static_cast<float>( p0[1] + scale * clip[1] );
-			clip[2] = static_cast<float>( p0[2] + scale * clip[2] );
-			clip[3] = static_cast<float>( p0[3] + scale * clip[3] );
+			clip[0] = p0[0] + scale * clip[0];
+			clip[1] = p0[1] + scale * clip[1];
+			clip[2] = p0[2] + scale * clip[2];
+			clip[3] = p0[3] + scale * clip[3];
 
 			clipped[index] = clip;
 		}
@@ -250,12 +250,12 @@ inline std::size_t homogenous_clip_line( Vector4 clipped[2] ){
 		if ( index ^ CLIP_X_GT_W( p1 ) ) {
 			Vector4 clip( vector4_subtracted( p1, p0 ) );
 
-			double scale = ( p0[0] + p0[3] ) / ( -clip[3] - clip[0] );
+			const double scale = ( p0[0] + p0[3] ) / ( -clip[3] - clip[0] );
 
-			clip[0] = static_cast<float>( p0[0] + scale * clip[0] );
-			clip[1] = static_cast<float>( p0[1] + scale * clip[1] );
-			clip[2] = static_cast<float>( p0[2] + scale * clip[2] );
-			clip[3] = static_cast<float>( p0[3] + scale * clip[3] );
+			clip[0] = p0[0] + scale * clip[0];
+			clip[1] = p0[1] + scale * clip[1];
+			clip[2] = p0[2] + scale * clip[2];
+			clip[3] = p0[3] + scale * clip[3];
 
 			clipped[index] = clip;
 		}
@@ -269,12 +269,12 @@ inline std::size_t homogenous_clip_line( Vector4 clipped[2] ){
 		if ( index ^ CLIP_Y_LT_W( p1 ) ) {
 			Vector4 clip( vector4_subtracted( p1, p0 ) );
 
-			double scale = ( p0[1] - p0[3] ) / ( clip[3] - clip[1] );
+			const double scale = ( p0[1] - p0[3] ) / ( clip[3] - clip[1] );
 
-			clip[0] = static_cast<float>( p0[0] + scale * clip[0] );
-			clip[1] = static_cast<float>( p0[1] + scale * clip[1] );
-			clip[2] = static_cast<float>( p0[2] + scale * clip[2] );
-			clip[3] = static_cast<float>( p0[3] + scale * clip[3] );
+			clip[0] = p0[0] + scale * clip[0];
+			clip[1] = p0[1] + scale * clip[1];
+			clip[2] = p0[2] + scale * clip[2];
+			clip[3] = p0[3] + scale * clip[3];
 
 			clipped[index] = clip;
 		}
@@ -288,12 +288,12 @@ inline std::size_t homogenous_clip_line( Vector4 clipped[2] ){
 		if ( index ^ CLIP_Y_GT_W( p1 ) ) {
 			Vector4 clip( vector4_subtracted( p1, p0 ) );
 
-			double scale = ( p0[1] + p0[3] ) / ( -clip[3] - clip[1] );
+			const double scale = ( p0[1] + p0[3] ) / ( -clip[3] - clip[1] );
 
-			clip[0] = static_cast<float>( p0[0] + scale * clip[0] );
-			clip[1] = static_cast<float>( p0[1] + scale * clip[1] );
-			clip[2] = static_cast<float>( p0[2] + scale * clip[2] );
-			clip[3] = static_cast<float>( p0[3] + scale * clip[3] );
+			clip[0] = p0[0] + scale * clip[0];
+			clip[1] = p0[1] + scale * clip[1];
+			clip[2] = p0[2] + scale * clip[2];
+			clip[3] = p0[3] + scale * clip[3];
 
 			clipped[index] = clip;
 		}
@@ -307,12 +307,12 @@ inline std::size_t homogenous_clip_line( Vector4 clipped[2] ){
 		if ( index ^ CLIP_Z_LT_W( p1 ) ) {
 			Vector4 clip( vector4_subtracted( p1, p0 ) );
 
-			double scale = ( p0[2] - p0[3] ) / ( clip[3] - clip[2] );
+			const double scale = ( p0[2] - p0[3] ) / ( clip[3] - clip[2] );
 
-			clip[0] = static_cast<float>( p0[0] + scale * clip[0] );
-			clip[1] = static_cast<float>( p0[1] + scale * clip[1] );
-			clip[2] = static_cast<float>( p0[2] + scale * clip[2] );
-			clip[3] = static_cast<float>( p0[3] + scale * clip[3] );
+			clip[0] = p0[0] + scale * clip[0];
+			clip[1] = p0[1] + scale * clip[1];
+			clip[2] = p0[2] + scale * clip[2];
+			clip[3] = p0[3] + scale * clip[3];
 
 			clipped[index] = clip;
 		}
@@ -326,12 +326,12 @@ inline std::size_t homogenous_clip_line( Vector4 clipped[2] ){
 		if ( index ^ CLIP_Z_GT_W( p1 ) ) {
 			Vector4 clip( vector4_subtracted( p1, p0 ) );
 
-			double scale = ( p0[2] + p0[3] ) / ( -clip[3] - clip[2] );
+			const double scale = ( p0[2] + p0[3] ) / ( -clip[3] - clip[2] );
 
-			clip[0] = static_cast<float>( p0[0] + scale * clip[0] );
-			clip[1] = static_cast<float>( p0[1] + scale * clip[1] );
-			clip[2] = static_cast<float>( p0[2] + scale * clip[2] );
-			clip[3] = static_cast<float>( p0[3] + scale * clip[3] );
+			clip[0] = p0[0] + scale * clip[0];
+			clip[1] = p0[1] + scale * clip[1];
+			clip[2] = p0[2] + scale * clip[2];
+			clip[3] = p0[3] + scale * clip[3];
 
 			clipped[index] = clip;
 		}
@@ -388,12 +388,12 @@ inline std::size_t matrix4_clip_line_by_nearplane( const Matrix4& self, Line& li
 		if ( index ^ CLIP_Z_GT_W( p1 ) ) {
 			Vector4 clip( vector4_subtracted( p1, p0 ) );
 
-			double scale = ( p0[2] + p0[3] ) / ( -clip[3] - clip[2] );
+			const double scale = ( p0[2] + p0[3] ) / ( -clip[3] - clip[2] );
 
-			clip[0] = static_cast<float>( p0[0] + scale * clip[0] );
-			clip[1] = static_cast<float>( p0[1] + scale * clip[1] );
-			clip[2] = static_cast<float>( p0[2] + scale * clip[2] );
-			clip[3] = static_cast<float>( p0[3] + scale * clip[3] );
+			clip[0] = p0[0] + scale * clip[0];
+			clip[1] = p0[1] + scale * clip[1];
+			clip[2] = p0[2] + scale * clip[2];
+			clip[3] = p0[3] + scale * clip[3];
 
 			points[index] = clip;
 		}
@@ -414,8 +414,7 @@ struct Frustum
 {
 	Plane3 right, left, bottom, top, back, front;
 
-	Frustum(){
-	}
+	Frustum() = default;
 	Frustum( const Plane3& _right,
 	         const Plane3& _left,
 	         const Plane3& _bottom,
@@ -449,10 +448,10 @@ inline Frustum frustum_inverse_transformed( const Frustum& frustum, const Matrix
 }
 
 inline bool viewproj_test_point( const Matrix4& viewproj, const Vector3& point ){
-	Vector4 hpoint( matrix4_transformed_vector4( viewproj, Vector4( point, 1.0f ) ) );
-	if ( fabs( hpoint[0] ) < fabs( hpoint[3] )
-	  && fabs( hpoint[1] ) < fabs( hpoint[3] )
-	  && fabs( hpoint[2] ) < fabs( hpoint[3] ) ) {
+	Vector4 hpoint( matrix4_transformed_vector4( viewproj, Vector4( point, 1 ) ) );
+	if ( std::fabs( hpoint[0] ) < std::fabs( hpoint[3] )
+	  && std::fabs( hpoint[1] ) < std::fabs( hpoint[3] )
+	  && std::fabs( hpoint[2] ) < std::fabs( hpoint[3] ) ) {
 		return true;
 	}
 	return false;
@@ -549,9 +548,9 @@ inline double plane_distance_to_point( const Plane3& plane, const Vector3& point
 }
 
 inline double plane_distance_to_oriented_extents( const Plane3& plane, const Vector3& extents, const Matrix4& orientation ){
-	return fabs( extents[0] * vector3_dot( plane.normal(), orientation.x().vec3() ) )
-	     + fabs( extents[1] * vector3_dot( plane.normal(), orientation.y().vec3() ) )
-	     + fabs( extents[2] * vector3_dot( plane.normal(), orientation.z().vec3() ) );
+	return std::fabs( extents[0] * vector3_dot( plane.normal(), orientation.x().vec3() ) )
+	     + std::fabs( extents[1] * vector3_dot( plane.normal(), orientation.y().vec3() ) )
+	     + std::fabs( extents[2] * vector3_dot( plane.normal(), orientation.z().vec3() ) );
 }
 
 /// \brief Return false if \p aabb with \p orientation is partially or completely outside \p plane.

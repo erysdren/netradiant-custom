@@ -31,12 +31,10 @@
 #include "version.h"
 
 #include "ifilesystem.h"
-#include "iundo.h"
-#include "ifilter.h"
-#include "itoolbar.h"
-#include "editable.h"
 #include "ientity.h"
 #include "ishaders.h"
+#include "ieclass.h"
+#include "irender.h"
 #include "igl.h"
 #include "moduleobserver.h"
 
@@ -66,21 +64,17 @@
 #include "os/path.h"
 #include "os/file.h"
 #include <glib.h>
-#include "eclasslib.h"
 #include "moduleobservers.h"
 
 #include "gtkutil/glfont.h"
 #include "gtkutil/glwidget.h"
 #include "gtkutil/image.h"
 #include "gtkutil/menu.h"
-#include "gtkutil/toolbar.h"
-#include "gtkutil/widget.h"
 #include "gtkutil/guisettings.h"
 
 #include "autosave.h"
 #include "build.h"
 #include "brushmanip.h"
-#include "brushmodule.h"
 #include "camwindow.h"
 #include "csg.h"
 #include "commands.h"
@@ -97,13 +91,11 @@
 #include "help.h"
 #include "map.h"
 #include "mru.h"
-#include "patchdialog.h"
 #include "patchmanip.h"
 #include "plugin.h"
 #include "pluginmanager.h"
 #include "pluginmenu.h"
 #include "plugintoolbar.h"
-#include "points.h"
 #include "preferences.h"
 #include "qe3.h"
 #include "qgl.h"
@@ -114,6 +106,7 @@
 #include "textures.h"
 #include "texwindow.h"
 #include "modelwindow.h"
+#include "layerswindow.h"
 #include "url.h"
 #include "xywindow.h"
 #include "windowobservers.h"
@@ -122,7 +115,6 @@
 #include "referencecache.h"
 
 #include "colors.h"
-#include "theme.h"
 #include "tools.h"
 #include "filterbar.h"
 
@@ -134,13 +126,13 @@ class VFSModuleObserver : public ModuleObserver
 public:
 	VFSModuleObserver() : m_unrealised( 1 ){
 	}
-	void realise(){
+	void realise() override {
 		if ( --m_unrealised == 0 ) {
 			QE_InitVFS();
 			GlobalFileSystem().initialise();
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		if ( ++m_unrealised == 1 ) {
 			GlobalFileSystem().shutdown();
 		}
@@ -192,10 +184,10 @@ void HomePaths_Realise(){
 				qSHGetKnownFolderPath = (qSHGetKnownFolderPath_t *) GetProcAddress( shfolder, "SHGetKnownFolderPath" );
 			}
 			else{
-				qSHGetKnownFolderPath = NULL;
+				qSHGetKnownFolderPath = nullptr;
 			}
-			CoInitializeEx( NULL, COINIT_APARTMENTTHREADED );
-			if ( qSHGetKnownFolderPath && qSHGetKnownFolderPath( qFOLDERID_SavedGames, qKF_FLAG_CREATE | qKF_FLAG_NO_ALIAS, NULL, &mydocsdirw ) == S_OK ) {
+			CoInitializeEx( nullptr, COINIT_APARTMENTTHREADED );
+			if ( qSHGetKnownFolderPath && qSHGetKnownFolderPath( qFOLDERID_SavedGames, qKF_FLAG_CREATE | qKF_FLAG_NO_ALIAS, nullptr, &mydocsdirw ) == S_OK ) {
 				memset( mydocsdir, 0, sizeof( mydocsdir ) );
 				wcstombs( mydocsdir, mydocsdirw, sizeof( mydocsdir ) - 1 );
 				CoTaskMemFree( mydocsdirw );
@@ -211,7 +203,7 @@ void HomePaths_Realise(){
 			if ( shfolder ) {
 				FreeLibrary( shfolder );
 			}
-			if ( SUCCEEDED( SHGetFolderPath( NULL, CSIDL_PERSONAL, NULL, 0, mydocsdir ) ) ) {
+			if ( SUCCEEDED( SHGetFolderPath( nullptr, CSIDL_PERSONAL, nullptr, 0, mydocsdir ) ) ) {
 				path( DirectoryCleaned( mydocsdir ), "My Games/", ( prefix + 1 ), '/' );
 				// win32: only add it if it already exists
 				if ( file_is_directory( path ) ) {
@@ -230,7 +222,7 @@ void HomePaths_Realise(){
 
 		g_qeglobals.m_userEnginePath = EnginePath_get();
 	}
-	while ( 0 );
+	while ( false );
 
 	Q_mkdir( g_qeglobals.m_userEnginePath.c_str() );
 
@@ -255,13 +247,13 @@ class HomePathsModuleObserver : public ModuleObserver
 public:
 	HomePathsModuleObserver() : m_unrealised( 1 ){
 	}
-	void realise(){
+	void realise() override {
 		if ( --m_unrealised == 0 ) {
 			HomePaths_Realise();
 			g_homePathObservers.realise();
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		if ( ++m_unrealised == 1 ) {
 			g_homePathObservers.unrealise();
 		}
@@ -416,7 +408,6 @@ void Paths_constructPage( PreferenceGroup& group ){
 		                      StringImportCallback( EnginePathImportCaller( extraPath ) ),
 		                      StringExportCallback( StringExportCaller( extraPath ) )
 		                    );
-
 }
 void Paths_registerPreferencesPage(){
 	PreferencesDialog_addGamePage( makeCallbackF( Paths_constructPage ) );
@@ -429,12 +420,12 @@ public:
 	void BuildDialog() override {
 		GetWidget()->setWindowTitle( "Engine Path Configuration" );
 
-		auto vbox = new QVBoxLayout( GetWidget() );
+		auto *vbox = new QVBoxLayout( GetWidget() );
 		{
-			auto frame = new QGroupBox( "Path settings" );
+			auto *frame = new QGroupBox( "Path settings" );
 			vbox->addWidget( frame );
 
-			auto grid = new QGridLayout( frame );
+			auto *grid = new QGridLayout( frame );
 			grid->setAlignment( Qt::AlignmentFlag::AlignTop );
 			grid->setColumnStretch( 0, 111 );
 			grid->setColumnStretch( 1, 333 );
@@ -449,7 +440,7 @@ public:
 #else
 #error "unsupported platform"
 #endif
-				const auto text = StringStream( "Select directory, where game executable sits (typically ", makeQuoted( engine ), ")\n" );
+				const auto text = StringStream( "Select directory, where game executable sits (typically ", Quoted( engine ), ")\n" );
 				grid->addWidget( new QLabel( text.c_str() ), 0, 0, 1, 2 );
 			}
 			{
@@ -458,7 +449,7 @@ public:
 			}
 		}
 		{
-			auto buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok );
+			auto *buttons = new QDialogButtonBox( QDialogButtonBox::StandardButton::Ok );
 			vbox->addWidget( buttons );
 			QObject::connect( buttons, &QDialogButtonBox::accepted, GetWidget(), &QDialog::accept );
 		}
@@ -552,7 +543,7 @@ void Radiant_loadModules( const char* path ){
 		ASSERT_MESSAGE( strlen( path ) + strlen( name ) < 1024, "" );
 		strcpy( fullname, path );
 		strcat( fullname, name );
-		globalOutputStream() << "Found '" << fullname << "'\n";
+		globalOutputStream() << "Found " << SingleQuoted( fullname ) << '\n';
 		GlobalModuleServer_loadModule( fullname );
 	}));
 }
@@ -572,12 +563,12 @@ class WorldspawnColourEntityClassObserver : public ModuleObserver
 public:
 	WorldspawnColourEntityClassObserver() : m_unrealised( 1 ){
 	}
-	void realise(){
+	void realise() override {
 		if ( --m_unrealised == 0 ) {
 			SetWorldspawnColour( g_xywindow_globals.color_brushes );
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		if ( ++m_unrealised == 1 ) {
 		}
 	}
@@ -646,15 +637,15 @@ extern char **environ;
 #endif
 void Radiant_Restart(){
 	if( ConfirmModified( "Restart Radiant" ) ){
-		const auto mapname = StringStream( makeQuoted( Map_Name( g_map ) ) );
+		const auto mapname = StringStream( Quoted( Map_Name( g_map ) ) );
 
 		char *argv[] = { string_clone( environment_get_app_filepath() ),
-	                     Map_Unnamed( g_map )? NULL : string_clone( mapname ),
-	                     NULL };
+	                     Map_Unnamed( g_map )? nullptr : string_clone( mapname ),
+	                     nullptr };
 #ifdef WIN32
 		const int status = !_spawnv( P_NOWAIT, argv[0], argv );
 #else
-		const int status = posix_spawn( NULL, argv[0], NULL, NULL, argv, environ );
+		const int status = posix_spawn( nullptr, argv[0], nullptr, nullptr, argv, environ );
 #endif
 
 		// quit if radiant successfully started
@@ -727,6 +718,12 @@ void ModelBrowser_ToggleShow(){
 	GroupDialog_showPage( g_page_models );
 }
 
+QWidget* g_page_layers;
+
+void LayersBrowser_ToggleShow(){
+	GroupDialog_showPage( g_page_layers);
+}
+
 
 static class EverySecondTimer
 {
@@ -761,20 +758,20 @@ WaitDialog create_wait_dialog( const char* title, const char* text ){
 	/* Qt::Tool window type doesn't steal focus, which saves e.g. from losing freelook camera mode on autosave
 	   or entity menu from hiding, while clicked with ctrl, by tex/model loading popup.
 	   Qt::WidgetAttribute::WA_ShowWithoutActivating is implied, but lets have it set too. */
-	auto window = new QWidget( MainFrame_getWindow(), Qt::Tool | Qt::WindowTitleHint );
+	auto *window = new QWidget( MainFrame_getWindow(), Qt::Tool | Qt::WindowTitleHint );
 	window->setWindowTitle( title );
 	window->setWindowModality( Qt::WindowModality::ApplicationModal );
 	window->setAttribute( Qt::WidgetAttribute::WA_ShowWithoutActivating );
 
-	auto label = new QLabel( text );
+	auto *label = new QLabel( text );
 	{
-		auto box = new QHBoxLayout( window );
+		auto *box = new QHBoxLayout( window );
 		box->setSizeConstraint( QLayout::SizeConstraint::SetFixedSize );
 		box->setContentsMargins( 20, 5, 20, 3 );
 		box->addWidget( label );
 		label->setMinimumWidth( 200 );
 	}
-	return WaitDialog{ window, label };
+	return WaitDialog{ .m_window = window, .m_label = label };
 }
 
 namespace
@@ -885,8 +882,6 @@ void create_file_menu( QMenuBar *menubar ){
 	create_menu_item_with_mnemonic( menu, "Save s&elected...", "SaveSelected" );
 	create_menu_item_with_mnemonic( menu, "Save re&gion...", "SaveRegion" );
 	menu->addSeparator();
-//	create_menu_item_with_mnemonic( menu, "&Refresh models", "RefreshReferences" );
-//	menu->addSeparator();
 	create_menu_item_with_mnemonic( menu, "&Pointfile", "TogglePointfile" );
 	menu->addSeparator();
 	MRU_constructMenu( menu );
@@ -924,6 +919,7 @@ void create_edit_menu( QMenuBar *menubar ){
 	create_menu_item_with_mnemonic( menu, "Select Textured", "SelectTextured" );
 	create_menu_item_with_mnemonic( menu, "&Expand Selection To Primitives", "ExpandSelectionToPrimitives" );
 	create_menu_item_with_mnemonic( menu, "&Expand Selection To Entities", "ExpandSelectionToEntities" );
+	create_menu_item_with_mnemonic( menu, "&Expand Selection To Layers", "ExpandSelectionToLayers" );
 	create_menu_item_with_mnemonic( menu, "Select Connected Entities", "SelectConnectedEntities" );
 
 	menu->addSeparator();
@@ -951,8 +947,9 @@ void create_view_menu( QMenuBar *menubar, MainFrame::EViewStyle style ){
 	}
 	create_menu_item_with_mnemonic( menu, "Model Browser", "ToggleModelBrowser" );
 	create_menu_item_with_mnemonic( menu, "Entity Inspector", "ToggleEntityInspector" );
+	create_menu_item_with_mnemonic( menu, "Layers Browser", "ToggleLayersBrowser" );
 	create_menu_item_with_mnemonic( menu, "&Surface Inspector", "SurfaceInspector" );
-	create_menu_item_with_mnemonic( menu, "Entity List", "EntityList" );
+	create_menu_item_with_mnemonic( menu, "Entity List", "ToggleEntityList" );
 
 	menu->addSeparator();
 	{
@@ -1175,6 +1172,7 @@ void create_misc_menu( QMenuBar *menubar ){
 
 	create_menu_item_with_mnemonic( menu, "Find brush...", "FindBrush" );
 	create_menu_item_with_mnemonic( menu, "Map Info...", "MapInfo" );
+	create_menu_item_with_mnemonic( menu, "&Refresh models", "RefreshReferences" );
 	create_menu_item_with_mnemonic( menu, "Set 2D &Background image...", makeCallbackF( WXY_SetBackgroundImage ) );
 	create_menu_item_with_mnemonic( menu, "Fullscreen", "Fullscreen" );
 	create_menu_item_with_mnemonic( menu, "Maximize view", "MaximizeView" );
@@ -1234,7 +1232,8 @@ void create_main_menu( QMenuBar *menubar, MainFrame::EViewStyle style ){
 	create_misc_menu( menubar );
 	create_entity_menu( menubar );
 	create_brush_menu( menubar );
-	create_patch_menu( menubar );
+	if ( !string_equal( g_pGameDescription->getKeyValue( "no_patch" ), "1" ) )
+		create_patch_menu( menubar );
 	create_plugins_menu( menubar );
 	create_help_menu( menubar );
 }
@@ -1304,7 +1303,7 @@ void Misc_registerShortcuts(){
 	command_connect_accelerator( "Redo2" );
 	command_connect_accelerator( "UnSelectSelection2" );
 	command_connect_accelerator( "DeleteSelection2" );
-
+	command_connect_accelerator( "DeleteSelection3" );
 }
 
 
@@ -1322,6 +1321,7 @@ void register_shortcuts(){
 	TexBro_registerShortcuts();
 	Misc_registerShortcuts();
 	Entity_registerShortcuts();
+	Layers_registerShortcuts();
 }
 
 void File_constructToolbar( QToolBar* toolbar ){
@@ -1371,54 +1371,59 @@ void XYWnd_constructToolbar( QToolBar* toolbar ){
 }
 
 void Manipulators_constructToolbar( QToolBar* toolbar ){
+	toolbar_append_toggle_button( toolbar, "Resize (Q)", "select_mouseresize.png", "MouseDrag" ); // hardcoded shortcut tip of "MouseDragOrTransform"...
+	toolbar_append_toggle_button( toolbar, "Clipper", "select_clipper.png", "ToggleClipper" );
 	toolbar_append_toggle_button( toolbar, "Translate", "select_mousetranslate.png", "MouseTranslate" );
 	toolbar_append_toggle_button( toolbar, "Rotate", "select_mouserotate.png", "MouseRotate" );
 	toolbar_append_toggle_button( toolbar, "Scale", "select_mousescale.png", "MouseScale" );
 	toolbar_append_toggle_button( toolbar, "Transform (Q)", "select_mousetransform.png", "MouseTransform" ); // hardcoded shortcut tip of "MouseDragOrTransform"...
-	toolbar_append_toggle_button( toolbar, "Resize (Q)", "select_mouseresize.png", "MouseDrag" ); // hardcoded shortcut tip of "MouseDragOrTransform"...
-	toolbar_append_toggle_button( toolbar, "Clipper", "select_clipper.png", "ToggleClipper" );
 //	toolbar_append_toggle_button( toolbar, "Build", "select_mouserotate.png", "MouseBuild" );
 	toolbar_append_toggle_button( toolbar, "UV Tool", "select_mouseuv.png", "MouseUV" );
 }
 
+extern CopiedString g_toolbarHiddenButtons;
+
+#include <QSvgGenerator>
 void create_main_toolbar( QToolBar *toolbar,  MainFrame::EViewStyle style ){
+	QSvgGenerator dummy; // reference symbol, so that Qt5Svg.dll required dependency is explicit, also install-dlls-msys2-mingw.sh will find it
+
  	File_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	UndoRedo_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	RotateFlip_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	Select_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	CSG_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	ComponentModes_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	if ( style != MainFrame::eSplit ) {
 		XYWnd_constructToolbar( toolbar );
-		toolbar->addSeparator();
+		toolbar_append_separator( toolbar );
 	}
 
 	CamWnd_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	Manipulators_constructToolbar( toolbar );
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	if ( !string_equal( g_pGameDescription->getKeyValue( "no_patch" ), "1" ) ) {
 		Patch_constructToolbar( toolbar );
-		toolbar->addSeparator();
+		toolbar_append_separator( toolbar );
 	}
 
 	toolbar_append_toggle_button( toolbar, "Texture Lock", "texture_lock.png", "TogTexLock" );
 	toolbar_append_toggle_button( toolbar, "Texture Vertex Lock", "texture_vertexlock.png", "TogTexVertexLock" );
- 	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 
 	toolbar_append_button( toolbar, "Entities", "entities.png", "ToggleEntityInspector" );
 	// disable the console and texture button in the regular layouts
@@ -1432,7 +1437,7 @@ void create_main_toolbar( QToolBar *toolbar,  MainFrame::EViewStyle style ){
 	// TODO: call light inspector
 	//QAction* g_view_lightinspector_button = toolbar_append_button( toolbar, "Light Inspector", "lightinspector.png", "ToggleLightInspector" );
 
-	toolbar->addSeparator();
+	toolbar_append_separator( toolbar );
 	toolbar_append_button( toolbar, "Refresh Models", "refresh_models.png", "RefreshReferences" );
 }
 
@@ -1440,7 +1445,7 @@ void create_main_toolbar( QToolBar *toolbar,  MainFrame::EViewStyle style ){
 void create_main_statusbar( QStatusBar *statusbar, QLabel *pStatusLabel[c_status__count] ){
 	statusbar->setSizeGripEnabled( false );
 	{
-		QLabel *label = new QLabel;
+		auto *label = new QLabel;
 		statusbar->addPermanentWidget( label, 1 );
 		pStatusLabel[c_status_command] = label;
 	}
@@ -1448,14 +1453,16 @@ void create_main_statusbar( QStatusBar *statusbar, QLabel *pStatusLabel[c_status
 	for ( int i = 1; i < c_status__count; ++i )
 	{
 		if( i == c_status_brushcount ){
-			QWidget *widget = new QWidget;
-			QHBoxLayout *hbox = new QHBoxLayout( widget );
+			auto *widget = new QWidget;
+			auto *hbox = new QHBoxLayout( widget );
 			hbox->setMargin( 0 );
 			statusbar->addPermanentWidget( widget, 0 );
-			const char* imgs[3] = { "status_brush.png", "patch_wireframe.png", "status_entity.png" };
+			const char* imgs[3] = { "status_brush.png", "status_patch.png", "status_entity.png" };
 			for( ; i < c_status_brushcount + 3; ++i ){
-				QLabel *label = new QLabel();
-				label->setPixmap( new_local_image( imgs[i - c_status_brushcount] ) );
+				auto *label = new QLabel();
+				auto pixmap = new_local_image( imgs[i - c_status_brushcount] );
+				pixmap.setDevicePixelRatio( label->devicePixelRatio() );
+				label->setPixmap( pixmap.scaledToHeight( 16 * label->devicePixelRatio() * label->logicalDpiX() / 96, Qt::TransformationMode::SmoothTransformation ) );
 				hbox->addWidget( label );
 
 				label = new QLabel();
@@ -1466,7 +1473,7 @@ void create_main_statusbar( QStatusBar *statusbar, QLabel *pStatusLabel[c_status
 			--i;
 		}
 		else{
-			QLabel *label = new QLabel;
+			auto *label = new QLabel;
 			if( i == c_status_grid ){
 				statusbar->addPermanentWidget( label, 0 );
 				label->setToolTip( " <b>G</b>: <u>G</u>rid size<br> <b>F</b>: map <u>F</u>ormat<br> <b>C</b>: camera <u>C</u>lip distance <br> <b>L</b>: texture <u>L</u>ock" );
@@ -1527,7 +1534,6 @@ void MainFrame::SetActiveXY( XYWnd* p ){
 	if ( m_pActiveXY ) {
 		m_pActiveXY->SetActive( true );
 	}
-
 }
 
 #ifdef WIN32
@@ -1581,7 +1587,7 @@ public:
 		}
 	}
 	void toggle(){
-		return m_maximized ? unmaximize() : maximize();
+		m_maximized ? unmaximize() : maximize();
 	}
 };
 
@@ -1607,11 +1613,21 @@ protected:
 		}
 		return QMainWindow::event( event );
 	}
+public:
+	QMenu* createPopupMenu() override {
+		auto *menu = QMainWindow::createPopupMenu();
+		if( menu == nullptr )
+			menu = new QMenu;
+		else
+			menu->addSeparator();
+		toolbar_construct_control_menu( menu );
+		return menu;
+	}
 };
 
 
 QSplashScreen *create_splash(){
-	QSplashScreen *splash = new QSplashScreen( new_local_image( "splash.png" ) );
+	auto *splash = new QSplashScreen( new_local_image( "splash.png" ) );
 	splash->show();
 	return splash;
 }
@@ -1647,8 +1663,6 @@ void MainFrame::Create(){
 
 	GlobalWindowObservers_connectTopLevel( window );
 
-	QApplication::setWindowIcon( new_local_icon( "radiant.ico" ) );
-
 	/* GlobalCommands_insert plugins commands */
 	GetPlugInMgr().Init( window );
 	/* then load shortcuts cfg */
@@ -1664,18 +1678,21 @@ void MainFrame::Create(){
 
 	{
 		{
-			QToolBar *toolbar = window->addToolBar( "Main Toolbar" );
-			toolbar->setObjectName( "Main Toolbar" );
+			auto *toolbar = new QToolBar( "Main Toolbar" );
+			toolbar->setObjectName( "Main_Toolbar" ); // required for proper state save/restore
+			window->addToolBar( Qt::ToolBarArea::TopToolBarArea, toolbar );
 			create_main_toolbar( toolbar, CurrentStyle() );
 		}
 		{
-			QToolBar *toolbar = window->addToolBar( "Filter Toolbar" );
-			toolbar->setObjectName( "Filter Toolbar" );
+			auto *toolbar = new QToolBar( "Filter Toolbar" );
+			toolbar->setObjectName( "Filter_Toolbar" ); // required for proper state save/restore
+			window->addToolBar( Qt::ToolBarArea::RightToolBarArea, toolbar );
 			create_filter_toolbar( toolbar );
 		}
 		{
-			QToolBar *toolbar = window->addToolBar( "Plugin Toolbar" );
-			toolbar->setObjectName( "Plugin Toolbar" );
+			auto *toolbar = new QToolBar( "Plugin Toolbar" );
+			toolbar->setObjectName( "Plugin_Toolbar" ); // required for proper state save/restore
+			window->addToolBar( Qt::ToolBarArea::RightToolBarArea, toolbar );
 			create_plugin_toolbar( toolbar );
 		}
 	}
@@ -1692,6 +1709,8 @@ void MainFrame::Create(){
 	}
 
 	g_page_models = GroupDialog_addPage( "Models", ModelBrowser_constructWindow( GroupDialog_getWindow() ), RawStringExportCaller( "Models" ) );
+
+	g_page_layers = GroupDialog_addPage( "Layers", LayersBrowser_constructWindow( GroupDialog_getWindow() ), RawStringExportCaller( "Layers" ) );
 
 	window->show();
 
@@ -1732,7 +1751,7 @@ void MainFrame::Create(){
 	}
 	else if ( CurrentStyle() == eFloating ) {
 		{
-			QWidget* window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
+			auto *window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
 			window->setWindowTitle( "Camera" );
 			g_guiSettings.addWindow( window, "floating/cam", 400, 300, 50, 100 );
 
@@ -1740,7 +1759,7 @@ void MainFrame::Create(){
 			GlobalCamera_setCamWnd( *m_pCamWnd );
 
 			{
-				auto box = new QHBoxLayout( window );
+				auto *box = new QHBoxLayout( window );
 				box->setContentsMargins( 1, 1, 1, 1 );
 				box->addWidget( CamWnd_getWidget( *m_pCamWnd ) );
 			}
@@ -1752,7 +1771,7 @@ void MainFrame::Create(){
 		}
 
 		{
-			QWidget* window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
+			auto *window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
 			g_guiSettings.addWindow( window, "floating/xy", 400, 300, 500, 100 );
 
 			m_pXYWnd = new XYWnd();
@@ -1760,7 +1779,7 @@ void MainFrame::Create(){
 			m_pXYWnd->SetViewType( XY );
 
 			{
-				auto box = new QHBoxLayout( window );
+				auto *box = new QHBoxLayout( window );
 				box->setContentsMargins( 1, 1, 1, 1 );
 				box->addWidget( m_pXYWnd->GetWidget() );
 			}
@@ -1770,7 +1789,7 @@ void MainFrame::Create(){
 		}
 
 		{
-			QWidget* window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
+			auto *window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
 			g_guiSettings.addWindow( window, "floating/xz", 400, 300, 500, 450 );
 
 			m_pXZWnd = new XYWnd();
@@ -1778,7 +1797,7 @@ void MainFrame::Create(){
 			m_pXZWnd->SetViewType( XZ );
 
 			{
-				auto box = new QHBoxLayout( window );
+				auto *box = new QHBoxLayout( window );
 				box->setContentsMargins( 1, 1, 1, 1 );
 				box->addWidget( m_pXZWnd->GetWidget() );
 			}
@@ -1788,7 +1807,7 @@ void MainFrame::Create(){
 		}
 
 		{
-			QWidget* window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
+			auto *window = new QWidget( m_window, Qt::Dialog | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint );
 			g_guiSettings.addWindow( window, "floating/yz", 400, 300, 50, 450 );
 
 			m_pYZWnd = new XYWnd();
@@ -1796,7 +1815,7 @@ void MainFrame::Create(){
 			m_pYZWnd->SetViewType( YZ );
 
 			{
-				auto box = new QHBoxLayout( window );
+				auto *box = new QHBoxLayout( window );
 				box->setContentsMargins( 1, 1, 1, 1 );
 				box->addWidget( m_pYZWnd->GetWidget() );
 			}
@@ -1841,12 +1860,14 @@ void MainFrame::Create(){
 		m_hSplit->setStretchFactor( 1, 2222 );
 		m_hSplit->setStretchFactor( 2, 0 );
 	}
+	else{ // floating group dialog
+		GlobalWindowObservers_connectTopLevel( GroupDialog_getWindow() ); // for layers browser icons toggle
+	}
 
 	EntityList_constructWindow( window );
 	PreferencesDialog_constructWindow( window );
 	FindTextureDialog_constructWindow( window );
 	SurfaceInspector_constructWindow( window );
-	theme_contruct();
 
 	SetActiveXY( m_pXYWnd );
 
@@ -1855,6 +1876,7 @@ void MainFrame::Create(){
 
 	s_qe_every_second_timer.enable();
 
+	toolbar_importState( g_toolbarHiddenButtons.c_str() );
 	RestoreGuiState();
 
 	//GlobalShortcuts_reportUnregistered();
@@ -1888,6 +1910,7 @@ void MainFrame::Shutdown(){
 	delete std::exchange( m_pXZWnd, nullptr );
 
 	ModelBrowser_destroyWindow();
+	LayersBrowser_destroyWindow();
 	TextureBrowser_destroyWindow();
 
 	DeleteCamWnd( m_pCamWnd );
@@ -2055,9 +2078,11 @@ void MainFrame_Construct(){
 	GlobalCommands_insert( "ToggleConsole", makeCallbackF( Console_ToggleShow ), QKeySequence( "O" ) );
 	GlobalCommands_insert( "ToggleEntityInspector", makeCallbackF( EntityInspector_ToggleShow ), QKeySequence( "N" ) );
 	GlobalCommands_insert( "ToggleModelBrowser", makeCallbackF( ModelBrowser_ToggleShow ), QKeySequence( "/" ) );
-	GlobalCommands_insert( "EntityList", makeCallbackF( EntityList_toggleShown ), QKeySequence( "L" ) );
+	GlobalCommands_insert( "ToggleLayersBrowser", makeCallbackF( LayersBrowser_ToggleShow ), QKeySequence( "L" ) );
+	GlobalCommands_insert( "ToggleEntityList", makeCallbackF( EntityList_toggleShown ), QKeySequence( "Shift+L" ) );
 
 	Select_registerCommands();
+	Layers_registerCommands();
 
 	Tools_registerCommands();
 
@@ -2081,6 +2106,7 @@ void MainFrame_Construct(){
 	GlobalPreferenceSystem().registerPreference( "DetachableMenus", makeBoolStringImportCallback( LatchedAssignCaller( g_Layout_enableDetachableMenus ) ), BoolExportStringCaller( g_Layout_enableDetachableMenus.m_latched ) );
 	GlobalPreferenceSystem().registerPreference( "QE4StyleWindows", makeIntStringImportCallback( LatchedAssignCaller( g_Layout_viewStyle ) ), IntExportStringCaller( g_Layout_viewStyle.m_latched ) );
 	GlobalPreferenceSystem().registerPreference( "BuiltInGroupDialog", makeBoolStringImportCallback( LatchedAssignCaller( g_Layout_builtInGroupDialog ) ), BoolExportStringCaller( g_Layout_builtInGroupDialog.m_latched ) );
+	GlobalPreferenceSystem().registerPreference( "ToolbarHiddenButtons", CopiedStringImportStringCaller( g_toolbarHiddenButtons ), CopiedStringExportStringCaller( g_toolbarHiddenButtons ) );
 	GlobalPreferenceSystem().registerPreference( "OpenGLFont", CopiedStringImportStringCaller( g_OpenGLFont ), CopiedStringExportStringCaller( g_OpenGLFont ) );
 	GlobalPreferenceSystem().registerPreference( "OpenGLFontSize", IntImportStringCaller( g_OpenGLFontSize ), IntExportStringCaller( g_OpenGLFontSize ) );
 

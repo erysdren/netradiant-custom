@@ -26,7 +26,7 @@
 #include "generic/callback.h"
 
 template<typename Copyable>
-class BasicUndoMemento : public UndoMemento
+class BasicUndoMemento final : public UndoMemento
 {
 	Copyable m_data;
 public:
@@ -34,7 +34,7 @@ public:
 		: m_data( data ){
 	}
 
-	void release(){
+	void release() override {
 		delete this;
 	}
 
@@ -45,7 +45,7 @@ public:
 
 
 template<typename Copyable>
-class ObservedUndoableObject : public Undoable
+class ObservedUndoableObject final : public Undoable
 {
 	typedef Callback<void(const Copyable&)> ImportCallback;
 
@@ -57,10 +57,8 @@ public:
 
 	ObservedUndoableObject( Copyable & object, const ImportCallback &importCallback )
 		: m_object( object ), m_importCallback( importCallback ), m_undoQueue( 0 ), m_map( 0 )
-	{
-	}
-	~ObservedUndoableObject(){
-	}
+	{}
+	~ObservedUndoableObject() = default;
 
 	MapFile* map(){
 		return m_map;
@@ -85,17 +83,17 @@ public:
 		}
 	}
 
-	UndoMemento* exportState() const {
+	UndoMemento* exportState() const override {
 		return new BasicUndoMemento<Copyable>( m_object );
 	}
-	void importState( const UndoMemento* state ){
+	void importState( const UndoMemento* state ) override {
 		save();
 		m_importCallback( ( static_cast<const BasicUndoMemento<Copyable>*>( state ) )->get() );
 	}
 };
 
 template<typename Copyable>
-class UndoableObject : public Undoable
+class UndoableObject final : public Undoable
 {
 	Copyable& m_object;
 	UndoObserver* m_undoQueue;
@@ -105,8 +103,7 @@ public:
 	UndoableObject( Copyable& object )
 		: m_object( object ), m_undoQueue( 0 ), m_map( 0 )
 	{}
-	~UndoableObject(){
-	}
+	~UndoableObject() = default;
 
 	void instanceAttach( MapFile* map ){
 		m_map = map;
@@ -127,10 +124,10 @@ public:
 		}
 	}
 
-	UndoMemento* exportState() const {
+	UndoMemento* exportState() const override {
 		return new BasicUndoMemento<Copyable>( m_object );
 	}
-	void importState( const UndoMemento* state ){
+	void importState( const UndoMemento* state ) override {
 		save();
 		m_object = ( static_cast<const BasicUndoMemento<Copyable>*>( state ) )->get();
 	}

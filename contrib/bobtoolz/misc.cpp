@@ -124,7 +124,7 @@ char* TranslateString( char *buf ){
 
 	std::size_t l = strlen( buf );
 	char* out = buf2;
-	for ( std::size_t i = 0; i < l; i++ )
+	for ( std::size_t i = 0; i < l; ++i )
 	{
 		if ( buf[i] == '\n' ) {
 			*out++ = '\r';
@@ -144,7 +144,7 @@ char* UnixToDosPath( char* path ){
 #ifndef WIN32
 	return path;
 #else
-	for ( char* p = path; *p; p++ )
+	for ( char* p = path; *p; ++p )
 	{
 		if ( *p == '/' ) {
 			*p = '\\';
@@ -194,7 +194,7 @@ void StartBSP(){
 	char command[1024];
 	sprintf( command, "%s -nowater -fulldetail %s", exename, mapname );
 
-	Q_Exec( NULL, command, NULL, false, true );
+	Q_Exec( nullptr, command, nullptr, false, true );
 }
 
 class EntityWriteMiniPrt
@@ -277,7 +277,7 @@ const scene::Path* FindEntityFromTargetname( const char* targetname ){
 	return Scene_forEachEntity( EntityFindByKeyValue( "targetname", targetname ) ).result;
 }
 
-void FillDefaultTexture( _QERFaceData* faceData, vec3_t va, vec3_t vb, vec3_t vc, const char* texture ){
+void FillDefaultTexture( _QERFaceData* faceData, const vec3_accu_t va, const vec3_accu_t vb, const vec3_accu_t vc, const char* texture ){
 	faceData->m_texdef.rotate = 0;
 	faceData->m_texdef.scale[0] = 0.5;
 	faceData->m_texdef.scale[1] = 0.5;

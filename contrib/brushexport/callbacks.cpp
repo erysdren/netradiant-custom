@@ -34,7 +34,7 @@ void OnExportClicked( bool choose_path ){
 			}
 		}
 
-		const char* cpath = GlobalRadiant().m_pfnFileDialog( g_dialog.window, false, "Save as Obj", buffer, 0, false, false, true );
+		const char* cpath = GlobalRadiant().m_pfnFileDialog( g_dialog.window, false, "Save as Obj", buffer, "*.obj", false, false, true );
 		if ( !cpath ) {
 			return;
 		}
@@ -98,7 +98,7 @@ void OnAddMaterial(){
 
 	const char* name = path_get_filename_start( text.constData() );
 	if ( strlen( name ) > 0 ) {
-		auto item = new QListWidgetItem( name );
+		auto *item = new QListWidgetItem( name );
 		item->setFlags( Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsEnabled | Qt::ItemNeverHasChildren );
 		g_dialog.t_materialist->addItem( item );
 	}

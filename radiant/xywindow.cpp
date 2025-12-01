@@ -31,7 +31,6 @@
 
 #include "ientity.h"
 #include "igl.h"
-#include "ibrush.h"
 #include "iundo.h"
 #include "iimage.h"
 #include "ifilesystem.h"
@@ -47,15 +46,14 @@
 #include "string/string.h"
 #include "stream/stringstream.h"
 
-#include "scenelib.h"
 #include "eclasslib.h"
 #include "renderer.h"
 #include "moduleobserver.h"
 
-#include "gtkutil/menu.h"
 #include "gtkutil/widget.h"
 #include "gtkutil/glwidget.h"
 #include "gtkutil/filechooser.h"
+#include "gtkutil/cursor.h"
 #include "gtkutil/fbo.h"
 #include "gtkmisc.h"
 #include "select.h"
@@ -272,7 +270,6 @@ void XYWnd::FocusOnBounds( const AABB& bounds ){
 	NDIM1NDIM2( m_viewType )
 	SetScale( std::min( Width() / ( 3.f * std::max( 128.f, bounds.extents[ nDim1 ] ) ),
 	                    Height() / ( 3.f * std::max( 128.f, bounds.extents[ nDim2 ] ) ) ) );
-
 }
 
 VIEWTYPE GlobalXYWnd_getCurrentViewType(){
@@ -649,30 +646,21 @@ void XYWnd_OrientCamera( XYWnd* xywnd, int x, int y, CamWnd& camwnd ){
 	const int nAngle = ( viewtype == XY ) ? CAMERA_YAW : CAMERA_PITCH;
 	if ( point[nDim2] || point[nDim1] ) {
 		Vector3 angles( Camera_getAngles( camwnd ) );
-		angles[nAngle] = static_cast<float>( radians_to_degrees( atan2( point[nDim2], point[nDim1] ) ) );
-		if( angles[CAMERA_YAW] < 0 )
-			angles[CAMERA_YAW] += 360;
+		angles[nAngle] = radians_to_degrees( atan2( point[nDim2], point[nDim1] ) );
+		float &p = angles[CAMERA_PITCH], &y = angles[CAMERA_YAW];
+		if( y < 0 ) // normalize yaw to 0..360
+			y += 360;
 		if ( nAngle == CAMERA_PITCH ){
-			if( fabs( angles[CAMERA_PITCH] ) > 90 ){
-				angles[CAMERA_PITCH] = ( angles[CAMERA_PITCH] > 0 ) ? ( -angles[CAMERA_PITCH] + 180 ) : ( -angles[CAMERA_PITCH] - 180 );
-				if( viewtype == YZ ){
-					if( angles[CAMERA_YAW] < 180 ){
-						angles[CAMERA_YAW] = 360 - angles[CAMERA_YAW];
-					}
-				}
-				else if( angles[CAMERA_YAW] < 90 || angles[CAMERA_YAW] > 270 ){
-					angles[CAMERA_YAW] = 180 - angles[CAMERA_YAW];
-				}
+			const bool flipPitch = std::fabs( p ) > 90;
+			if( flipPitch )
+				p = -p + std::copysign( 180, p );
+
+			if( viewtype == YZ ){
+				if( ( y < 180 ) == flipPitch ) // mirror yaw along X
+					y = 360 - y;
 			}
-			else{
-				if( viewtype == YZ ){
-					if( angles[CAMERA_YAW] > 180 ){
-						angles[CAMERA_YAW] = 360 - angles[CAMERA_YAW];
-					}
-				}
-				else if( angles[CAMERA_YAW] > 90 && angles[CAMERA_YAW] < 270 ){
-					angles[CAMERA_YAW] = 180 - angles[CAMERA_YAW];
-				}
+			else if( ( y < 90 || y > 270 ) == flipPitch ){  // mirror yaw along Y
+				y = 180 - y;
 			}
 		}
 		Camera_setAngles( camwnd, angles );
@@ -729,7 +717,7 @@ void XYWnd::NewBrushDrag( int x, int y, bool square, bool cube ){
 	}
 
 	if( square || cube ){
-		const float squaresize = std::max( fabs( maxs[nDim1] - mins[nDim1] ), fabs( maxs[nDim2] - mins[nDim2] ) );
+		const float squaresize = std::max( std::fabs( maxs[nDim1] - mins[nDim1] ), std::fabs( maxs[nDim2] - mins[nDim2] ) );
 		for( auto i : { nDim1, nDim2 } )
 			maxs[i] = mins[i] + std::copysign( squaresize, maxs[i] - mins[i] );
 		if( cube ){
@@ -737,7 +725,7 @@ void XYWnd::NewBrushDrag( int x, int y, bool square, bool cube ){
 		}
 	}
 
-	for ( int i = 0; i < 3; i++ )
+	for ( int i = 0; i < 3; ++i )
 	{
 		if ( mins[i] == maxs[i] )
 			return; // don't create a degenerate brush
@@ -831,7 +819,7 @@ public:
 			addItem( m_previous.c_str(), "" );
 		}
 	}
-	void visit( EntityClass* e ){
+	void visit( EntityClass* e ) override {
 		ASSERT_MESSAGE( !string_empty( e->name() ), "entity-class has no name" );
 		if ( !m_previous.empty() ) {
 			addItem( m_previous.c_str(), e->name() );
@@ -1313,7 +1301,7 @@ void XYWnd::XY_DrawGrid() {
 	while ( ( stepy * m_fScale ) <= 32.0f ) // text step y must be at least 32
 		stepy *= 2;
 
-	const float a = ( ( GetSnapGridSize() > 0.0f ) ? 1.0f : 0.3f );
+	const float a = ( ( GetSnapGridSize() > 0 ) ? 1.0f : 0.3f );
 
 	gl().glDisable( GL_TEXTURE_2D );
 	gl().glDisable( GL_TEXTURE_1D );
@@ -1429,7 +1417,7 @@ void XYWnd::XY_DrawGrid() {
 
 	// draw coordinate text if needed
 	if ( g_xywindow_globals_private.show_coordinates ) {
-		gl().glColor4fv( vector4_to_array( Vector4( g_xywindow_globals.color_gridtext, 1.0f ) ) );
+		gl().glColor4fv( vector4_to_array( Vector4( g_xywindow_globals.color_gridtext, 1 ) ) );
 		const float offx = m_vOrigin[nDim2] + h - ( 1 + GlobalOpenGL().m_font->getPixelHeight() ) / m_fScale;
 		const float offy = m_vOrigin[nDim1] - w +  4                                            / m_fScale;
 		const float fontDescent = ( GlobalOpenGL().m_font->getPixelDescent() - 1 ) / m_fScale;
@@ -1443,7 +1431,6 @@ void XYWnd::XY_DrawGrid() {
 			sprintf( text, "%g", y );
 			GlobalOpenGL().drawString( text );
 		}
-
 	}
 
 	if ( g_xywindow_globals_private.show_axis ){
@@ -1458,7 +1445,7 @@ void XYWnd::XY_DrawGrid() {
 	// show current work zone?
 	// the work zone is used to place dropped points and brushes
 	if ( g_xywindow_globals_private.show_workzone ) {
-		gl().glColor4f( 1.0f, 0.0f, 0.0f, 1.0f );
+		gl().glColor4f( 1, 0, 0, 1 );
 		gl().glBegin( GL_LINES );
 		gl().glVertex2f( xb, Select_getWorkZone().d_work_min[nDim2] );
 		gl().glVertex2f( xe, Select_getWorkZone().d_work_min[nDim2] );
@@ -1589,9 +1576,9 @@ void XYWnd::DrawCameraIcon( const Vector3& origin, const Vector3& angles ){
 	gl().glEnd();
 
 	gl().glBegin( GL_LINE_STRIP );
-	gl().glVertex3f( x + static_cast<float>( fov * cos( a + c_pi / 4 ) ), y + static_cast<float>( fov * sin( a + c_pi / 4 ) ), 0 );
+	gl().glVertex3f( x + fov * cos( a + c_pi / 4 ), y + fov * sin( a + c_pi / 4 ), 0 );
 	gl().glVertex3f( x, y, 0 );
-	gl().glVertex3f( x + static_cast<float>( fov * cos( a - c_pi / 4 ) ), y + static_cast<float>( fov * sin( a - c_pi / 4 ) ), 0 );
+	gl().glVertex3f( x + fov * cos( a - c_pi / 4 ), y + fov * sin( a - c_pi / 4 ), 0 );
 	gl().glEnd();
 }
 
@@ -1676,28 +1663,28 @@ public:
 		m_state_stack.push_back( state_type() );
 	}
 
-	void SetState( Shader* state, EStyle style ){
+	void SetState( Shader* state, EStyle style ) override {
 		ASSERT_NOTNULL( state );
 		if ( style == eWireframeOnly ) {
 			m_state_stack.back().m_state = state;
 		}
 	}
-	EStyle getStyle() const {
+	EStyle getStyle() const override {
 		return eWireframeOnly;
 	}
-	void PushState(){
+	void PushState() override {
 		m_state_stack.push_back( m_state_stack.back() );
 	}
-	void PopState(){
+	void PopState() override {
 		ASSERT_MESSAGE( !m_state_stack.empty(), "popping empty stack" );
 		m_state_stack.pop_back();
 	}
-	void Highlight( EHighlightMode mode, bool bEnable = true ){
+	void Highlight( EHighlightMode mode, bool bEnable = true ) override {
 		( bEnable )
 		? m_state_stack.back().m_highlight |= mode
 		: m_state_stack.back().m_highlight &= ~mode;
 	}
-	void addRenderable( const OpenGLRenderable& renderable, const Matrix4& localToWorld ){
+	void addRenderable( const OpenGLRenderable& renderable, const Matrix4& localToWorld ) override {
 		if ( m_state_stack.back().m_highlight & ePrimitive ) {
 			m_state_selected->addRenderable( renderable, localToWorld );
 		}
@@ -1717,19 +1704,19 @@ private:
 };
 
 void XYWnd::updateProjection(){
-	m_projection[0] = 1.0f / static_cast<float>( m_nWidth / 2 );
-	m_projection[5] = 1.0f / static_cast<float>( m_nHeight / 2 );
+	m_projection[0] = 1.0f / ( m_nWidth / 2 );
+	m_projection[5] = 1.0f / ( m_nHeight / 2 );
 	m_projection[10] = 1.0f / ( g_MaxWorldCoord * m_fScale );
 
-	m_projection[12] = 0.0f;
-	m_projection[13] = 0.0f;
-	m_projection[14] = -1.0f;
+	m_projection[12] = 0;
+	m_projection[13] = 0;
+	m_projection[14] = -1;
 
 	m_projection[1] = m_projection[2] = m_projection[3] =
 	m_projection[4] = m_projection[6] = m_projection[7] =
-	m_projection[8] = m_projection[9] = m_projection[11] = 0.0f;
+	m_projection[8] = m_projection[9] = m_projection[11] = 0;
 
-	m_projection[15] = 1.0f;
+	m_projection[15] = 1;
 
 	m_view.Construct( m_projection, m_modelview, m_nWidth, m_nHeight );
 }
@@ -1920,7 +1907,7 @@ void XYWnd::XY_Draw(){
 
 		gl().glColor3fv( vector3_to_array( g_xywindow_globals.color_viewname ) );
 
-		gl().glRasterPos3f( 2.f, 0.f, 0.0f );
+		gl().glRasterPos3f( 2, 0, 0 );
 		extern const char* Renderer_GetStats( int frame2frame );
 		GlobalOpenGL().drawString( Renderer_GetStats( m_render_time.elapsed_msec() ) );
 		m_render_time.start();
@@ -2042,16 +2029,13 @@ class EntityClassMenu : public ModuleObserver
 public:
 	EntityClassMenu() : m_unrealised( 1 ){
 	}
-	void realise(){
+	void realise() override {
 		if ( --m_unrealised == 0 ) {
 		}
 	}
-	void unrealise(){
+	void unrealise() override {
 		if ( ++m_unrealised == 1 ) {
-			if ( XYWnd::m_mnuDrop != 0 ) {
-				delete XYWnd::m_mnuDrop;
-				XYWnd::m_mnuDrop = 0;
-			}
+			delete std::exchange( XYWnd::m_mnuDrop, nullptr );
 		}
 	}
 };
@@ -2284,11 +2268,11 @@ void XYWindow_Construct(){
 	GlobalToggles_insert( "ToggleSideView", ToggleShown::ToggleCaller( g_yz_side_shown ), ToggleItem::AddCallbackCaller( g_yz_side_shown.m_item ) );
 	GlobalToggles_insert( "ToggleFrontView", ToggleShown::ToggleCaller( g_xz_front_shown ), ToggleItem::AddCallbackCaller( g_xz_front_shown.m_item ) );
 	GlobalCommands_insert( "NextView", makeCallbackF( XY_NextView ), QKeySequence( "Ctrl+Tab" ) );
-	GlobalCommands_insert( "ZoomIn", makeCallbackF( XY_ZoomIn ), QKeySequence( "Delete" ) );
+	GlobalCommands_insert( "ZoomIn", makeCallbackF( XY_ZoomIn ) );
 	GlobalCommands_insert( "ZoomOut", makeCallbackF( XY_ZoomOut ), QKeySequence( "Insert" ) );
-	GlobalCommands_insert( "ViewTop", makeCallbackF( XY_Top ), QKeySequence( Qt::Key_7 + Qt::KeypadModifier ) );
-	GlobalCommands_insert( "ViewFront", makeCallbackF( XY_Front ), QKeySequence( Qt::Key_1 + Qt::KeypadModifier ) );
-	GlobalCommands_insert( "ViewSide", makeCallbackF( XY_Side ), QKeySequence( Qt::Key_3 + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "ViewTop", makeCallbackF( XY_Top ), QKeySequence( +Qt::Key_7 + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "ViewFront", makeCallbackF( XY_Front ), QKeySequence( +Qt::Key_1 + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "ViewSide", makeCallbackF( XY_Side ), QKeySequence( +Qt::Key_3 + Qt::KeypadModifier ) );
 	GlobalCommands_insert( "Zoom100", makeCallbackF( XY_Zoom100 ) );
 	GlobalCommands_insert( "CenterXYView", makeCallbackF( XY_Centralize ), QKeySequence( "Ctrl+Shift+Tab" ) );
 	GlobalCommands_insert( "XYFocusOnSelected", makeCallbackF( XY_Focus ), QKeySequence( "`" ) );

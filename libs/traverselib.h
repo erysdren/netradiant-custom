@@ -96,7 +96,7 @@ public:
 		return *this;
 	}
 };
-typedef UnsortedSet<NodeSmartReference> UnsortedNodeSet;
+typedef UnsortedSet<NodeSmartReference, true> UnsortedNodeSet;
 
 /// \brief Calls \p observer->\c insert for each node that exists only in \p other and \p observer->\c erase for each node that exists only in \p self
 inline void nodeset_diff( const UnsortedNodeSet& self, const UnsortedNodeSet& other, scene::Traversable::Observer* observer ){
@@ -122,17 +122,17 @@ class TraversableNodeSet : public scene::Traversable
 	}
 	void notifyInsertAll(){
 		if ( m_observer ) {
-			for ( UnsortedNodeSet::iterator i = m_children.begin(); i != m_children.end(); ++i )
+			for ( auto& node : m_children )
 			{
-				m_observer->insert( *i );
+				m_observer->insert( node );
 			}
 		}
 	}
 	void notifyEraseAll(){
 		if ( m_observer ) {
-			for ( UnsortedNodeSet::iterator i = m_children.begin(); i != m_children.end(); ++i )
+			for ( auto& node : m_children )
 			{
-				m_observer->erase( *i );
+				m_observer->erase( node );
 			}
 		}
 	}
@@ -176,20 +176,20 @@ public:
 		m_observer = 0;
 	}
 	/// \brief \copydoc scene::Traversable::insert()
-	void insert( scene::Node& node ){
+	void insert( scene::Node& node ) override {
 		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableNodeSet::insert: sanity check failed" );
 		m_undo.save();
 
 		ASSERT_MESSAGE( m_children.find( NodeSmartReference( node ) ) == m_children.end(), "TraversableNodeSet::insert - element already exists" );
 
-		m_children.insert( NodeSmartReference( node ) );
+		m_children.push_back( NodeSmartReference( node ) );
 
 		if ( m_observer ) {
 			m_observer->insert( node );
 		}
 	}
 	/// \brief \copydoc scene::Traversable::erase()
-	void erase( scene::Node& node ){
+	void erase( scene::Node& node ) override {
 		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableNodeSet::erase: sanity check failed" );
 		m_undo.save();
 
@@ -202,7 +202,7 @@ public:
 		m_children.erase( NodeSmartReference( node ) );
 	}
 	/// \brief \copydoc scene::Traversable::traverse()
-	void traverse( const Walker& walker ){
+	void traverse( const Walker& walker ) override {
 		UnsortedNodeSet::iterator i = m_children.begin();
 		while ( i != m_children.end() )
 		{
@@ -213,7 +213,7 @@ public:
 		}
 	}
 	/// \brief \copydoc scene::Traversable::empty()
-	bool empty() const {
+	bool empty() const override {
 		return m_children.empty();
 	}
 
@@ -256,7 +256,7 @@ public:
 		}
 		m_observer = 0;
 	}
-	void insert( scene::Node& node ){
+	void insert( scene::Node& node ) override {
 		ASSERT_MESSAGE( m_node == 0, "TraversableNode::insert - element already exists" );
 
 		m_node = &node;
@@ -266,7 +266,7 @@ public:
 			m_observer->insert( node );
 		}
 	}
-	void erase( scene::Node& node ){
+	void erase( scene::Node& node ) override {
 		ASSERT_MESSAGE( m_node == &node, "TraversableNode::erase - failed to find element" );
 
 		if ( m_observer != 0 ) {
@@ -276,12 +276,12 @@ public:
 		m_node = 0;
 		node.DecRef();
 	}
-	void traverse( const scene::Traversable::Walker& walker ){
+	void traverse( const scene::Traversable::Walker& walker ) override {
 		if ( m_node != 0 ) {
 			Node_traverseSubgraph( *m_node, walker );
 		}
 	}
-	bool empty() const {
+	bool empty() const override {
 		return m_node != 0;
 	}
 
@@ -319,10 +319,10 @@ public:
 class TraversableObserverPairRelay : public ReferencePair<scene::Traversable::Observer>, public scene::Traversable::Observer
 {
 public:
-	void insert( scene::Node& node ){
+	void insert( scene::Node& node ) override {
 		forEach( TraversableObserverInsert( node ) );
 	}
-	void erase( scene::Node& node ){
+	void erase( scene::Node& node ) override {
 		forEach( TraversableObserverErase( node ) );
 	}
 };
@@ -341,9 +341,9 @@ public:
 	}
 	template<typename Functor>
 	void forEach( const Functor& functor ){
-		for ( typename Values::iterator i = m_values.begin(); i != m_values.end(); ++i )
+		for ( auto *value : m_values )
 		{
-			functor( *( *i ) );
+			functor( *value );
 		}
 	}
 };
@@ -351,10 +351,10 @@ public:
 class TraversableObserverRelay : public ReferenceSet<scene::Traversable::Observer>, public scene::Traversable::Observer
 {
 public:
-	void insert( scene::Node& node ){
+	void insert( scene::Node& node ) override {
 		forEach( TraversableObserverInsert( node ) );
 	}
-	void erase( scene::Node& node ){
+	void erase( scene::Node& node ) override {
 		forEach( TraversableObserverErase( node ) );
 	}
 };

@@ -98,14 +98,14 @@ static std::forward_list<VFS_PAKFILE>  g_pakFiles;
 static std::vector<CopiedString> g_strDirs;
 std::vector<CopiedString> g_strForbiddenDirs;
 static constexpr bool g_bUsePak = true;
-char g_strLoadedFileLocation[1024];
+StringOutputStream g_loadedScriptLocation;
 
 // =============================================================================
 // Static functions
 
 static void vfsInitPakFile( const char *filename ){
 	unzFile uf = unzOpen( filename );
-	if ( uf != NULL ) {
+	if ( uf != nullptr ) {
 		VFS_PAK& pak = g_paks.emplace_front( uf, filename );
 
 		if ( unzGoToFirstFile( uf ) == UNZ_OK ) {
@@ -113,7 +113,7 @@ static void vfsInitPakFile( const char *filename ){
 				char filename_inzip[256];
 				unz_file_info file_info;
 
-				if ( unzGetCurrentFileInfo( uf, &file_info, filename_inzip, std::size( filename_inzip ), NULL, 0, NULL, 0 ) != UNZ_OK ) {
+				if ( unzGetCurrentFileInfo( uf, &file_info, filename_inzip, std::size( filename_inzip ), nullptr, 0, nullptr, 0 ) != UNZ_OK ) {
 					break;
 				}
 
@@ -141,10 +141,9 @@ void vfsInitDirectory( const char *path ){
 	GDir *dir;
 
 	const auto path_is_forbidden = []( const char *path ){
-		for ( const auto& forbidden : g_strForbiddenDirs )
-			if ( matchpattern( path_get_filename_start( path ), forbidden.c_str(), TRUE ) )
-				return true;
-		return false;
+		return std::ranges::any_of( g_strForbiddenDirs, [path]( const CopiedString& forbidden ){
+			return matchpattern( path_get_filename_start( path ), forbidden.c_str(), TRUE );
+		} );
 	};
 
 	{
@@ -161,9 +160,9 @@ void vfsInitDirectory( const char *path ){
 	const CopiedString pathCleaned = g_strDirs.emplace_back( StringStream( DirectoryCleaned( path ) ) );
 
 	if ( g_bUsePak ) {
-		dir = g_dir_open( path, 0, NULL );
+		dir = g_dir_open( path, 0, nullptr );
 
-		if ( dir != NULL ) {
+		if ( dir != nullptr ) {
 			std::vector<StringOutputStream> paks;
 			const char* name;
 			while ( ( name = g_dir_read_name( dir ) ) )
@@ -183,7 +182,7 @@ void vfsInitDirectory( const char *path ){
 			// sort paks in ascending order
 			// pakFiles are then prepended to the list, reversing the order
 			// thus later (zzz) pak content have priority over earlier, just like in engine
-			std::sort( paks.begin(), paks.end(),
+			std::ranges::sort( paks,
 			[]( const char* a, const char* b ){
 				return string_compare_nocase_upper( a, b ) < 0;
 			} );
@@ -199,16 +198,16 @@ void vfsInitDirectory( const char *path ){
 std::vector<CopiedString> vfsListShaderFiles( const char *shaderPath ){
 	std::vector<CopiedString> list;
 	const auto insert = [&list]( const char *name ){
-		for( const CopiedString& str : list )
-			if( striEqual( str.c_str(), name ) )
-				return;
-		list.emplace_back( name );
+		if( std::ranges::none_of( list, [name]( const CopiedString& str ){
+			return striEqual( str.c_str(), name );
+		} ) )
+			list.emplace_back( name );
 	};
 	/* search in dirs */
 	for ( const auto& strdir : g_strDirs ){
-		GDir *dir = g_dir_open( StringStream( strdir, shaderPath, '/' ), 0, NULL );
+		GDir *dir = g_dir_open( StringStream( strdir, shaderPath, '/' ), 0, nullptr );
 
-		if ( dir != NULL ) {
+		if ( dir != nullptr ) {
 			const char* name;
 			while ( ( name = g_dir_read_name( dir ) ) )
 			{
@@ -263,16 +262,16 @@ int vfsGetFileCount( const char *filename ){
 }
 
 // NOTE: when loading a file, you have to allocate one extra byte and set it to \0
-MemBuffer vfsLoadFile( const char *filename, int index /* = 0 */ ){
+MemBuffer vfsLoadFile( const char *filename, int index /* = 0 */, bool script /* = false */ ){
 
-	const auto load_full_path = [] ( const char *filename ) -> MemBuffer
+	const auto load_full_path = [script] ( const char *filename ) -> MemBuffer
 	{
-		strcpy( g_strLoadedFileLocation, filename );
+		if( script ) g_loadedScriptLocation( filename );
 
 		MemBuffer buffer;
 
 		FILE *f = fopen( filename, "rb" );
-		if ( f != NULL ) {
+		if ( f != nullptr ) {
 			fseek( f, 0, SEEK_END );
 			buffer = MemBuffer( ftell( f ) );
 			rewind( f );
@@ -309,7 +308,7 @@ MemBuffer vfsLoadFile( const char *filename, int index /* = 0 */ ){
 	{
 		if ( strEqual( file.name.c_str(), fixedname ) && 0 == index-- )
 		{
-			std::snprintf( g_strLoadedFileLocation, std::size( g_strLoadedFileLocation ), "%s :: %s", file.pak.unzFilePath.c_str(), filename );
+			if( script ) g_loadedScriptLocation( file.pak.unzFilePath.c_str(), " :: ", filename );
 
 			unzFile zipfile = file.pak.zipfile;
 			*(unz_s*)zipfile = file.zipinfo;

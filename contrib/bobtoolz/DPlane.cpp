@@ -58,15 +58,11 @@ DPlane::DPlane( const vec3_t va, const vec3_t vb, const vec3_t vc, const _QERFac
 	m_shader = texInfo.m_shader;
 }
 
-DPlane::~DPlane(){
-
-}
-
 //////////////////////////////////////////////////////////////////////
 // Implementation
 //////////////////////////////////////////////////////////////////////
 
-vec_t DPlane::DistanceToPoint( vec3_t pnt ){
+vec_t DPlane::DistanceToPoint( const vec3_t pnt ) const {
 	vec3_t tmp;
 	VectorSubtract( pnt, points[0], tmp );
 	return DotProduct( tmp, normal );
@@ -105,9 +101,9 @@ bool DPlane::PlaneIntersection( DPlane *pl1, DPlane *pl2, vec3_t out ){
 bool DPlane::IsRedundant( std::list<DPoint*>& pointList ){
 	int cnt = 0;
 
-	for ( std::list<DPoint *>::const_iterator point = pointList.begin(); point != pointList.end(); point++ )
+	for ( const auto *point : pointList )
 	{
-		if ( fabs( DistanceToPoint( ( *point )->_pnt ) ) < MAX_ROUND_ERROR ) {
+		if ( std::fabs( DistanceToPoint( point->_pnt ) ) < MAX_ROUND_ERROR ) {
 			cnt++;
 		}
 
@@ -121,11 +117,11 @@ bool DPlane::IsRedundant( std::list<DPoint*>& pointList ){
 bool DPlane::operator ==( const DPlane& other ) const {
 	vec3_t chk;
 	VectorSubtract( other.normal, normal, chk );
-	if ( fabs( VectorLength( chk ) ) > MAX_ROUND_ERROR ) {
+	if ( std::fabs( VectorLength( chk ) ) > MAX_ROUND_ERROR ) {
 		return false;
 	}
 
-	if ( fabs( other._d - _d ) > MAX_ROUND_ERROR ) {
+	if ( std::fabs( other._d - _d ) > MAX_ROUND_ERROR ) {
 		return false;
 	}
 
@@ -135,14 +131,14 @@ bool DPlane::operator ==( const DPlane& other ) const {
 bool DPlane::operator !=( DPlane& other ){
 	vec3_t chk;
 	VectorAdd( other.normal, normal, chk );
-	if ( fabs( VectorLength( chk ) ) > MAX_ROUND_ERROR ) {
+	if ( std::fabs( VectorLength( chk ) ) > MAX_ROUND_ERROR ) {
 		return false;
 	}
 
 	return true;
 }
 
-DWinding DPlane::BaseWindingForPlane(){
+DWinding DPlane::BaseWindingForPlane() const {
 	int i, x;
 	vec_t max, v;
 	vec3_t org, vright, vup;
@@ -151,9 +147,9 @@ DWinding DPlane::BaseWindingForPlane(){
 
 	max = -131072;
 	x = -1;
-	for ( i = 0; i < 3; i++ )
+	for ( i = 0; i < 3; ++i )
 	{
-		v = fabs( normal[i] );
+		v = std::fabs( normal[i] );
 		if ( v > max ) {
 			x = i;
 			max = v;
