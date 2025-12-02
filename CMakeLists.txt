@@ -476,6 +476,7 @@ add_module(archivevpk
 		${PROJECT_SOURCE_DIR}/plugins/archivevpk/plugin.cpp
 )
 target_link_libraries(archivevpk PRIVATE sourcepp::vpkpp)
+set_target_properties(sourcepp_vpkpp miniz minizip-ng zlib-ng bzip2 liblzma sourcepp_crypto sourcepp_parser sourcepp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_module(entity
 	SOURCES
