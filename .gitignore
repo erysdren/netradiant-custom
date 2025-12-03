@@ -1,10 +1,10 @@
 *.[oda]
 /.settings/
 /games/
-/install/
+/install*/
 /.vscode/
 /.idea/
 /.cache/
 /.clang*
 /compile_commands.json
-build*/
+/build*/
