@@ -14,13 +14,6 @@ FetchContent_Declare(
 	EXCLUDE_FROM_ALL
 )
 
-FetchContent_Declare(
-	assimp
-	GIT_REPOSITORY https://github.com/assimp/assimp.git
-	GIT_TAG "v6.0.1"
-	EXCLUDE_FROM_ALL
-)
-
 set(SOURCEPP_LIBS_START_ENABLED OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_USE_KVPP ON CACHE BOOL "" FORCE) # for VMTs
 set(SOURCEPP_USE_MDLPP ON CACHE BOOL "" FORCE) # for MDLs
@@ -30,11 +23,7 @@ set(SOURCEPP_VTFPP_SUPPORT_EXR OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_VTFPP_SUPPORT_QOI OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_VTFPP_SUPPORT_WEBP OFF CACHE BOOL "" FORCE)
 
-set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(ASSIMP_INJECT_DEBUG_POSTFIX OFF CACHE BOOL "" FORCE)
-set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(sourcepp assimp)
+FetchContent_MakeAvailable(sourcepp)
 
 # packages
 
@@ -323,98 +312,6 @@ else()
 	endif()
 endif()
 
-# q3map2
-
-add_executable(q3map2
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/cmdlib.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/qimagelib.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/inout.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/jpeg.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/md4.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/mutex.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/polylib.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/scriplib.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/threads.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/unzip.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/vfs.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/common/miniz.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/autopk3.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/brush.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/bspfile_abstract.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/bspfile_ibsp.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/bspfile_rbsp.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/bsp.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/convert_ase.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/convert_bsp.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/convert_json.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/convert_map.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/convert_obj.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/decals.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/exportents.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/facebsp.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/fog.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/games.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/help.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/image.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/leakfile.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/light_bounce.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/lightmaps_ydnar.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/light.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/light_trace.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/light_ydnar.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/main.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/map.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/minimap.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/mesh.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/model.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/patch.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/path_init.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/portals.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/prtfile.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/shaders.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/surface_extra.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/surface_foliage.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/surface_fur.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/surface_meta.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/surface.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/tjunction.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/tree.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/visflow.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/vis.cpp
-	${PROJECT_SOURCE_DIR}/tools/quake3/q3map2/writebsp.cpp
-)
-target_compile_options(q3map2 PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
-target_compile_options(q3map2 PRIVATE -Wreorder -fno-exceptions -fno-rtti)
-target_link_libraries(q3map2 PRIVATE l_net filematch ddslib etclib)
-target_link_libraries(q3map2 PRIVATE LibXml2::LibXml2)
-target_link_libraries(q3map2 PRIVATE assimp)
-target_link_libraries(q3map2 PRIVATE ${LIBJPEG_LIBRARIES} ${LIBPNG_LIBRARIES} ${GLIB2_LIBRARIES})
-target_include_directories(q3map2 PRIVATE ${LIBJPEG_INCLUDE_DIRS} ${LIBPNG_INCLUDE_DIRS} ${GLIB2_INCLUDE_DIRS})
-target_include_directories(q3map2 PRIVATE
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_SOURCE_DIR}/libs
-	${PROJECT_SOURCE_DIR}/tools/quake3/common
-)
-target_compile_definitions(q3map2 PRIVATE
-	RADIANT_VERSION=\"${RADIANT_VERSION}\"
-	RADIANT_MAJOR_VERSION=\"${RADIANT_MAJOR_VERSION}\"
-	RADIANT_MINOR_VERSION=\"${RADIANT_MINOR_VERSION}\"
-	RADIANT_ABOUTMSG=\"${RADIANT_ABOUTMSG}\"
-	Q3MAP_VERSION=\"${Q3MAP_VERSION}\"
-)
-set_target_properties(q3map2
-	PROPERTIES
-		CXX_STANDARD_REQUIRED ON
-		CXX_STANDARD 20
-		LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
-		RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install
-)
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-	target_compile_definitions(q3map2 PRIVATE WIN32)
-else()
-	target_compile_definitions(q3map2 PRIVATE POSIX XWINDOWS)
-endif()
-
 # modules
 
 function(add_module name)
@@ -549,20 +446,6 @@ add_module(mapxml
 		${PROJECT_SOURCE_DIR}/plugins/mapxml/xmlwrite.cpp
 )
 target_link_libraries(mapxml PRIVATE LibXml2::LibXml2)
-
-add_module(assmodel
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/assmodel/mdlimage.cpp
-		${PROJECT_SOURCE_DIR}/plugins/assmodel/model.cpp
-		${PROJECT_SOURCE_DIR}/plugins/assmodel/plugin.cpp
-)
-target_link_libraries(assmodel PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
-target_link_libraries(assmodel PRIVATE assimp)
-set_target_properties(assimp
-	PROPERTIES
-		LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/modules
-		RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/modules
-)
 
 add_module(shaders
 	SOURCES
