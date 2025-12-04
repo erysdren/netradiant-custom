@@ -361,7 +361,7 @@ const char* TextureBrowser_GetSelectedShader(){
 void TextureBrowser_SetStatus( const char* name ){
 	IShader* shader = QERApp_Shader_ForName( name );
 	qtexture_t* q = shader->getTexture();
-	const auto strTex = StringStream( ( string_equal_prefix_nocase( name, "materials/" )? name + 9 : name ),
+	const auto strTex = StringStream( ( string_equal_prefix_nocase( name, "materials/" )? name + 10 : name ),
 	                                  " W: ", q->width,
 	                                  " H: ", q->height );
 	shader->DecRef();

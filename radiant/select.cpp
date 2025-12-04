@@ -689,7 +689,7 @@ void FindReplaceTextures( const char* pFind, const char* pReplace, bool bSelecte
 	const auto command = StringStream<64>( "textureFindReplace -find ", pFind, " -replace ", pReplace );
 	UndoableCommand undo( command );
 
-	if( shader_equal( pReplace, "textures/" ) )
+	if( shader_equal( pReplace, "materials/" ) )
 		pReplace = 0; //do search
 
 	if ( bSelected ) {

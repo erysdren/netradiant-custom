@@ -660,7 +660,7 @@ R"(
 		rgbGen identity
 	}
 	{
-		map textures/
+		map materials/
 		blendFunc GL_DST_COLOR GL_ZERO
 		rgbGen identity
 	}
@@ -672,7 +672,7 @@ R"(
 R"(
 	surfaceparm nolightmap
 	{
-		map textures/
+		map materials/
 		rgbGen exactVertex
 	}
 }
@@ -683,7 +683,7 @@ R"(
 R"(
 	cull none
 	{
-		map textures/
+		map materials/
 		alphaFunc GE128
 		depthWrite
 	}
@@ -694,7 +694,7 @@ R"(
 	}
 	{
 		// same texture once more
-		map textures/
+		map materials/
 		blendFunc GL_DST_COLOR GL_ZERO
 		rgbGen identity
 		depthFunc equal
@@ -708,7 +708,7 @@ R"(
 	surfaceparm nolightmap
 	cull none
 	{
-		map textures/
+		map materials/
 		alphaFunc GE128
 		depthWrite
 		rgbGen exactVertex
@@ -721,7 +721,7 @@ R"(
 R"(
 	cull none
 	{
-		map textures/
+		map materials/
 		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
 	}
 	{
@@ -737,9 +737,9 @@ R"(
 R"(
 	// compile time parameter
 	surfaceparm slick
-	qer_editorimage textures/
+	qer_editorimage materials/
 	// remap back to original shader
-	q3map_remapShader textures/
+	q3map_remapShader materials/
 }
 )"
 	},
@@ -2128,7 +2128,7 @@ private:
 								complete_tex_path( "" );
 							}
 							else if( tokens[i] == "%p" ){
-								push_token( "textures/" ); // isn't textures/ every time, but mostly
+								push_token( "materials/" ); // isn't textures/ every time, but mostly
 							}
 							else{
 								push_token( tokens[i] );
