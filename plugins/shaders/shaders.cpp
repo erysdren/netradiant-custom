@@ -67,6 +67,8 @@
 #include "archivelib.h"
 #include "imagelib.h"
 
+#include <kvpp/kvpp.h>
+
 const char* g_shadersExtension = "";
 const char* g_shadersDirectory = "";
 bool g_enableDefaultShaders = true;
@@ -1446,7 +1448,55 @@ void parseGuideFile( Tokeniser& tokeniser, const char* filename ){
 	}
 }
 
+void ParseSourceShaderFile( ArchiveFile* file, const char* filename ){
+	g_shaderFilenames.push_back( filename );
+	filename = g_shaderFilenames.back().c_str();
+
+	ScopedArchiveBuffer buffer(*file);
+
+	std::string_view kv1Data((char *)buffer.buffer, (char *)buffer.buffer + buffer.length);
+
+	kvpp::KV1 kv1(kv1Data);
+
+	bool foundBaseTexture = false;
+	std::string baseTextureName = "";
+
+	for (auto v : kv1[0]) {
+		auto key = v.getKey();
+		auto value = v.getValue();
+		if (string_equal_nocase(key.begin(), "%tooltexture") || string_equal_nocase(key.begin(), "$basetexture")) {
+			foundBaseTexture = true;
+			baseTextureName = value;
+			break;
+		}
+	}
+
+	if (!foundBaseTexture) {
+		globalOutputStream() << "Failed to determine basetexture in " << filename << '\n';
+		return;
+	}
+
+	auto baseTextureNameCleaned = StringStream<64>( PathCleaned( PathExtensionless( baseTextureName.c_str() ) ) );
+
+	ShaderTemplatePointer shaderTemplate( new ShaderTemplate() );
+	shaderTemplate->setName( baseTextureNameCleaned.c_str() );
+
+	g_shaders.insert( ShaderTemplateMap::value_type( shaderTemplate->getName(), shaderTemplate ) );
+
+	shaderTemplate->m_textureName = baseTextureNameCleaned.c_str();
+
+	g_shaderDefinitions.insert( ShaderDefinitionMap::value_type( shaderTemplate->getName(), ShaderDefinition( shaderTemplate.get(), ShaderArguments(), filename ) ) );
+}
+
 void LoadShaderFile( const char* filename ){
+	// we do something totally different with source vmts
+	if (g_shaderLanguage == SHADERLANGUAGE_SOURCE) {
+		ArchiveFile* f = GlobalFileSystem().openFile( filename );
+		ParseSourceShaderFile( f, filename );
+		f->release();
+		return;
+	}
+
 	ArchiveTextFile* file = GlobalFileSystem().openTextFile( filename );
 
 	if ( file != 0 ) {
