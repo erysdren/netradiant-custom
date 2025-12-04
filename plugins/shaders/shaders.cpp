@@ -40,6 +40,7 @@
 #include <cstdlib>
 #include <map>
 #include <list>
+#include <format>
 
 #include "ifilesystem.h"
 #include "ishaders.h"
@@ -1472,18 +1473,19 @@ void ParseSourceShaderFile( ArchiveFile* file, const char* filename ){
 	}
 
 	if (!foundBaseTexture) {
-		globalOutputStream() << "Failed to determine basetexture in " << filename << '\n';
+		globalWarningStream() << "Failed to determine basetexture in " << filename << '\n';
 		return;
 	}
 
+	auto shaderName = StringStream<64>( PathCleaned( PathExtensionless( filename ) ) );
 	auto baseTextureNameCleaned = StringStream<64>( PathCleaned( PathExtensionless( baseTextureName.c_str() ) ) );
 
 	ShaderTemplatePointer shaderTemplate( new ShaderTemplate() );
-	shaderTemplate->setName( baseTextureNameCleaned.c_str() );
+	shaderTemplate->setName( string_to_lowercase(shaderName.c_str()) );
 
 	g_shaders.insert( ShaderTemplateMap::value_type( shaderTemplate->getName(), shaderTemplate ) );
 
-	shaderTemplate->m_textureName = baseTextureNameCleaned.c_str();
+	shaderTemplate->m_textureName = std::format("materials/{}", string_to_lowercase(baseTextureNameCleaned.c_str()));
 
 	g_shaderDefinitions.insert( ShaderDefinitionMap::value_type( shaderTemplate->getName(), ShaderDefinition( shaderTemplate.get(), ShaderArguments(), filename ) ) );
 }
