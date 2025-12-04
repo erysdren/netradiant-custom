@@ -16,7 +16,7 @@
   modeltypes="mdl"
   soundtypes="wav"
   maptypes="mapq3"
-  shaders="quake3"
+  shaders="source"
   entityclass="quake3"
   entityclasstype="xml"
   entities="quake3"

@@ -73,7 +73,7 @@ bool g_enableDefaultShaders = true;
 ShaderLanguage g_shaderLanguage = SHADERLANGUAGE_QUAKE3;
 bool g_useShaderList = true;
 _QERPlugImageTable* g_bitmapModule = 0;
-const char* g_texturePrefix = "materials/";
+const char* g_texturePrefix = "";
 
 void ActiveShaders_IteratorBegin();
 bool ActiveShaders_IteratorAtEnd();

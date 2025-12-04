@@ -38,11 +38,13 @@ enum ShaderLanguage
 {
 	SHADERLANGUAGE_QUAKE3,
 	SHADERLANGUAGE_DOOM3,
-	SHADERLANGUAGE_QUAKE4
+	SHADERLANGUAGE_QUAKE4,
+	SHADERLANGUAGE_SOURCE
 };
 
 extern const char* g_shadersExtension;
 extern const char* g_shadersDirectory;
+extern const char* g_texturePrefix;
 extern ShaderLanguage g_shaderLanguage;
 extern bool g_enableDefaultShaders;
 extern bool g_useShaderList;

@@ -59,6 +59,7 @@ public:
 	ShadersQ3API( ShadersDependencies& dependencies ){
 		g_shadersExtension = "shader";
 		g_shadersDirectory = "scripts/";
+		g_texturePrefix = "textures/";
 		g_bitmapModule = dependencies.getBitmapModule().getTable();
 		Shaders_Construct();
 		m_shadersq3 = &GetShaderSystem();
@@ -85,7 +86,8 @@ public:
 
 	ShadersDoom3API( ShadersDependencies& dependencies ){
 		g_shadersExtension = "mtr";
-		g_shadersDirectory = "materials/";
+		g_shadersDirectory = "textures/";
+		g_texturePrefix = "textures/";
 		g_enableDefaultShaders = false;
 		g_shaderLanguage = SHADERLANGUAGE_DOOM3;
 		g_useShaderList = false;
@@ -115,7 +117,8 @@ public:
 
 	ShadersQuake4API( ShadersDependencies& dependencies ){
 		g_shadersExtension = "mtr";
-		g_shadersDirectory = "materials/";
+		g_shadersDirectory = "textures/";
+		g_texturePrefix = "textures/";
 		g_enableDefaultShaders = false;
 		g_shaderLanguage = SHADERLANGUAGE_QUAKE4;
 		g_useShaderList = false;
@@ -136,6 +139,37 @@ typedef SingletonModule<ShadersQuake4API, ShadersDependencies, DependenciesAPICo
 ShadersQuake4Module g_ShadersQuake4Module;
 
 
+class ShadersSourceAPI
+{
+	ShaderSystem* m_shaderssource;
+public:
+	typedef ShaderSystem Type;
+	STRING_CONSTANT( Name, "source" );
+
+	ShadersSourceAPI( ShadersDependencies& dependencies ){
+		g_shadersExtension = "vmt";
+		g_shadersDirectory = "materials/";
+		g_texturePrefix = "materials/";
+		g_enableDefaultShaders = false;
+		g_shaderLanguage = SHADERLANGUAGE_SOURCE;
+		g_useShaderList = false;
+		g_bitmapModule = dependencies.getBitmapModule().getTable();
+		Shaders_Construct();
+		m_shaderssource = &GetShaderSystem();
+	}
+	~ShadersSourceAPI(){
+		Shaders_Destroy();
+	}
+	ShaderSystem* getTable(){
+		return m_shaderssource;
+	}
+};
+
+typedef SingletonModule<ShadersSourceAPI, ShadersDependencies, DependenciesAPIConstructor<ShadersSourceAPI, ShadersDependencies> > ShadersSourceModule;
+
+ShadersSourceModule g_ShadersSourceModule;
+
+
 
 extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server ){
 	initialiseModule( server );
@@ -143,4 +177,5 @@ extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server 
 	g_ShadersQ3Module.selfRegister();
 	g_ShadersDoom3Module.selfRegister();
 	g_ShadersQuake4Module.selfRegister();
+	g_ShadersSourceModule.selfRegister();
 }
