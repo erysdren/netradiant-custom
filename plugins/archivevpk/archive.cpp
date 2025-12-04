@@ -39,6 +39,93 @@
 
 #include <vpkpp/vpkpp.h>
 
+class VpkFileInputStream : public InputStream
+{
+	std::vector<std::byte> m_data;
+	InputStream::size_type m_pos;
+public:
+	typedef InputStream::size_type size_type;
+	typedef InputStream::byte_type byte_type;
+
+	VpkFileInputStream( std::vector<std::byte>&& data ) : m_data( data ), m_pos( 0 ) { }
+
+	virtual size_type read( byte_type* buffer, size_type length ) {
+		for (size_type i = 0; i < length; i++) {
+			if (m_pos >= m_data.size()) {
+				return i;
+			}
+			buffer[i] = (byte_type)m_data[m_pos++];
+		}
+		return length;
+	}
+};
+
+class VpkArchiveFile final : public ArchiveFile
+{
+	CopiedString m_name;
+	FileInputStream::size_type m_size;
+	VpkFileInputStream m_istream;
+public:
+	typedef FileInputStream::size_type size_type;
+	typedef FileInputStream::position_type position_type;
+
+	VpkArchiveFile( const char* name, vpkpp::PackFile* vpk, vpkpp::Entry& entry ) : m_name( name ), m_size( entry.length ), m_istream( std::move(vpk->readEntry(name).value()) ) {
+
+	}
+
+	void release() override {
+		delete this;
+	}
+	size_type size() const override {
+		return m_size;
+	}
+	const char* getName() const override {
+		return m_name.c_str();
+	}
+	InputStream& getInputStream() override {
+		return m_istream;
+	}
+};
+
+class VpkTextInputStream : public TextInputStream
+{
+	std::vector<std::byte> m_data;
+	std::size_t m_pos;
+public:
+	VpkTextInputStream( std::vector<std::byte>&& data ) : m_data( data ), m_pos( 0 ) { }
+
+	virtual std::size_t read( char* buffer, std::size_t length ) {
+		for (std::size_t i = 0; i < length; i++) {
+			if (m_pos >= m_data.size()) {
+				return i;
+			}
+			buffer[i] = (char)m_data[m_pos++];
+		}
+		return length;
+	}
+};
+
+class VpkArchiveTextFile final : public ArchiveTextFile
+{
+	CopiedString m_name;
+	FileInputStream::size_type m_size;
+	VpkTextInputStream m_istream;
+public:
+	typedef FileInputStream::size_type size_type;
+	typedef FileInputStream::position_type position_type;
+
+	VpkArchiveTextFile( const char* name, vpkpp::PackFile* vpk, vpkpp::Entry& entry ) : m_name( name ), m_size( entry.length ), m_istream( std::move(vpk->readEntry(name).value()) ) {
+
+	}
+
+	void release() override {
+		delete this;
+	}
+	TextInputStream& getInputStream() override {
+		return m_istream;
+	}
+};
+
 class VpkArchive final : public Archive
 {
 	std::unique_ptr<vpkpp::PackFile> m_vpk;
@@ -60,7 +147,7 @@ public:
 		if ( m_vpk ) {
 			auto entry = m_vpk->findEntry( name );
 			if ( entry ) {
-				return StoredArchiveFile::create( name, m_name.c_str(), entry.value().offset, entry.value().length, entry.value().length );
+				return new VpkArchiveFile( name, m_vpk.get(), entry.value() );
 			}
 		}
 		return 0;
@@ -69,7 +156,7 @@ public:
 		if ( m_vpk ) {
 			auto entry = m_vpk->findEntry( name );
 			if ( entry ) {
-				return StoredArchiveTextFile::create( name, m_name.c_str(), entry.value().offset, entry.value().length );
+				return new VpkArchiveTextFile( name, m_vpk.get(), entry.value() );
 			}
 		}
 		return 0;
