@@ -134,6 +134,9 @@ class VpkArchive final : public Archive
 public:
 
 	VpkArchive( const char* name ) : m_name( name ) {
+		if (!strstr(name, "_dir.vpk")) {
+			return;
+		}
 		m_vpk = vpkpp::VPK::open(name);
 	}
 
