@@ -474,6 +474,8 @@ target_link_libraries(shaders PRIVATE commandlib)
 target_link_libraries(shaders PRIVATE LibXml2::LibXml2)
 target_link_libraries(shaders PRIVATE ${GLIB2_LIBRARIES})
 target_include_directories(shaders PRIVATE ${GLIB2_INCLUDE_DIRS})
+target_link_libraries(shaders PRIVATE sourcepp::kvpp)
+set_target_properties(sourcepp_kvpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_module(vfspk3
 	SOURCES
