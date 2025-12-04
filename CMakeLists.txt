@@ -440,6 +440,16 @@ add_module(imagevtf
 target_link_libraries(imagevtf PRIVATE sourcepp::vtfpp)
 set_target_properties(sourcepp_vtfpp sourcepp_compression PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+add_module(sourcemodel
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/sourcemodel/mdl.cpp
+		${PROJECT_SOURCE_DIR}/plugins/sourcemodel/model.cpp
+		${PROJECT_SOURCE_DIR}/plugins/sourcemodel/plugin.cpp
+)
+target_link_libraries(sourcemodel PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
+target_link_libraries(sourcemodel PRIVATE sourcepp::mdlpp)
+set_target_properties(sourcepp_mdlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 add_module(mapq3
 	SOURCES
 		${PROJECT_SOURCE_DIR}/plugins/mapq3/parse.cpp
