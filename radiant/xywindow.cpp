@@ -1146,7 +1146,7 @@ void BackgroundImage::render( const VIEWTYPE viewtype ){
 #include "qe3.h"
 #include "os/file.h"
 const char* BackgroundImage::background_image_dialog(){
-	auto buffer = StringStream( g_qeglobals.m_userGamePath, "textures/" );
+	auto buffer = StringStream( g_qeglobals.m_userGamePath, "materials/" );
 
 	if ( !file_readable( buffer ) ) {
 		// just go to fsmain

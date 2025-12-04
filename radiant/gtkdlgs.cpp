@@ -2049,7 +2049,7 @@ private:
 			}
 		};
 
-		Radiant_getImageModules().foreachModule( LoadTexturesByTypeVisitor( "textures/", m_texTree ) );
+		Radiant_getImageModules().foreachModule( LoadTexturesByTypeVisitor( "materials/", m_texTree ) );
 		Radiant_getImageModules().foreachModule( LoadTexturesByTypeVisitor( "models/", m_texTree ) );
 		Radiant_getImageModules().foreachModule( LoadTexturesByTypeVisitor( "env/", m_texTree ) );
 	}

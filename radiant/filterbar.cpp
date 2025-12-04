@@ -26,10 +26,10 @@ CopiedString GetCommonShader( const char* name ){
 			const char* commonDir = g_pGameDescription->getKeyValue( "common_shaders_dir" );
 			if( string_empty( commonDir ) )
 				commonDir = "common/";
-			return StringStream<64>( "textures/", commonDir, name ).c_str();
+			return StringStream<64>( "materials/", commonDir, name ).c_str();
 		}
 		else{
-			return StringStream<64>( "textures/", name ).c_str();
+			return StringStream<64>( "materials/", name ).c_str();
 		}
 	}
 }
