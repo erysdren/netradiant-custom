@@ -154,15 +154,9 @@ static void SubdivideFoliageTriangle_r( const foliage_t& foliage, const TriRef& 
    generates a foliage file for a bsp
  */
 
-void Foliage( mapDrawSurface_t& src, entity_t& entity ){
-	/* get shader */
-	shaderInfo_t *si = src.shaderInfo;
-	if ( si == nullptr || si->foliage.empty() ) {
-		return;
-	}
-
+void Foliage( const mapDrawSurface_t& src, entity_t& entity ){
 	/* do every foliage */
-	for ( const auto& foliage : si->foliage )
+	for ( const auto& foliage : src.shaderInfo->foliage )
 	{
 		/* zero out */
 		numFoliageInstances = 0;
@@ -186,21 +180,17 @@ void Foliage( mapDrawSurface_t& src, entity_t& entity ){
 		case ESurfaceType::Patch:
 		{
 			/* make a mesh from the drawsurf */
-			mesh_t srcMesh( src.patchWidth, src.patchHeight, src.verts.data() );
-			mesh_t subdivided = SubdivideMesh( srcMesh, 8, 512 );
+			mesh_t subdivided = SubdivideMesh( mesh_view_t( src.patchWidth, src.patchHeight, src.verts.data() ), 8, 512 );
 
 			/* fit it to the curve and remove colinear verts on rows/columns */
 			PutMeshOnCurve( subdivided );
-			mesh_t mesh = RemoveLinearMeshColumnsRows( subdivided );
-			subdivided.freeVerts();
+			const mesh_t mesh = RemoveLinearMeshColumnsRows( subdivided );
 
 			/* map the mesh quads */
 			for( MeshQuadIterator it( mesh ); it; ++it )
 				for( const TriRef& tri : it.tris() )
 					SubdivideFoliageTriangle_r( foliage, tri );
 
-			/* free the mesh */
-			mesh.freeVerts();
 			break;
 		}
 		default:
@@ -258,10 +248,7 @@ void Foliage( mapDrawSurface_t& src, entity_t& entity ){
 				dv.normal = fi.normal;
 
 				/* ydnar: set color */
-				for ( auto& color : dv.color )
-				{
-					color.set( 255 );
-				}
+				dv.color.fill( Color4b( 255 ) );
 			}
 		}
 	}

@@ -218,26 +218,25 @@ static void FixBrushSides( const entity_t& e ){
 	Sys_FPrintf( SYS_VRB, "--- FixBrushSides ---\n" );
 
 	/* walk list of drawsurfaces */
-	for ( int i = e.firstDrawSurf; i < numMapDrawSurfs; ++i )
+	for ( const mapDrawSurface_t& ds : Span( mapDrawSurfs + e.firstDrawSurf, mapDrawSurfs + numMapDrawSurfs ) )
 	{
-		/* get surface and try to early out */
-		const mapDrawSurface_t& ds = mapDrawSurfs[ i ];
+		/* try to early out */
 		if ( ds.outputNum < 0 ) {
 			continue;
 		}
 
 		/* walk sideref list */
-		for ( const sideRef_t *sideRef = ds.sideRef; sideRef != nullptr; sideRef = sideRef->next )
+		for ( const side_t *sideRef : ds.sideRefs )
 		{
 			/* get bsp brush side */
-			if ( sideRef->side.outputNum < 0 ) {
+			if ( sideRef->outputNum < 0 ) {
 				continue;
 			}
-			bspBrushSide_t& side = bspBrushSides[ sideRef->side.outputNum ];
+			bspBrushSide_t& side = bspBrushSides[ sideRef->outputNum ];
 
 			/* set drawsurface */
 			side.surfaceNum = ds.outputNum;
-			//%	Sys_FPrintf( SYS_VRB, "DS: %7d Side: %7d     ", ds.outputNum, sideRef->side->outputNum );
+			//%	Sys_FPrintf( SYS_VRB, "DS: %7d Side: %7d     ", ds.outputNum, sideRef->outputNum );
 
 			/* set shader */
 			if ( !strEqual( bspShaders[ side.shaderNum ].shader, ds.shaderInfo->shader ) ) {

@@ -252,7 +252,7 @@ struct AssModel
 					if( m_mesh->HasTextureCoords( 0 ) )
 						st[n] = { m_mesh->mTextureCoords[0][i].x, m_mesh->mTextureCoords[0][i].y };
 					else
-						st[n] = { 0, 0 };
+						st[n] = Vector2( 0 );
 				}
 				visitor( xyz, st );
 			}
@@ -1333,15 +1333,12 @@ void InsertModel( const char *name, const char *skin, int frame, const Matrix4& 
 			: ShaderInfoForShader( picoShaderName );
 
 		/* allocate a surface (ydnar: gs mods) */
-		mapDrawSurface_t& ds = AllocDrawSurface( ESurfaceType::Triangles );
+		mapDrawSurface_t& ds = AllocDrawSurface( ESurfaceType::Triangles, si );
 		ds.entityNum = entity.mapEntityNum;
 		ds.castShadows  = params.castShadows;
 		ds.recvShadows  = params.recvShadows;
 		ds.celShader    = params.celShader;
 		ds.ambientColor = params.ambientColor;
-
-		/* set shader */
-		ds.shaderInfo = &si;
 
 		/* force to meta? */
 		if ( si.forceMeta || ( spawnFlags & eForceMeta ) ) { /* 3rd bit */

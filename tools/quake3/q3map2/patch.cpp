@@ -196,7 +196,6 @@ static void ExpandMaxIterations( int *maxIterations, int maxError, const Vector3
 
 void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	float info[ 5 ];
-	mesh_t m;
 	bool degenerate;
 	float longestCurve;
 	int maxIterations;
@@ -208,10 +207,8 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	const String64 shader( "textures/", token );
 
 	Parse1DMatrix( 5, info );
-	m.width = info[0];
-	m.height = info[1];
+	mesh_t m( info[0], info[1] );
 	const int numVerts = m.numVerts();
-	bspDrawVert_t *verts = m.verts = safe_malloc( numVerts * sizeof( m.verts[0] ) );
 
 	if ( m.width < 0 || m.width > MAX_PATCH_SIZE || m.height < 0 || m.height > MAX_PATCH_SIZE ) {
 		Error( "ParsePatch: bad size" );
@@ -223,13 +220,10 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 		MatchToken( "(" );
 		for ( int i = 0; i < m.height; ++i )
 		{
-			Parse1DMatrix( 5, verts[ i * m.width + j ].xyz.data() );
+			Parse1DMatrix( 5, m[ i ][ j ].xyz.data() );
 
 			/* ydnar: fix colors */
-			for ( auto& color : verts[ i * m.width + j ].color )
-			{
-				color.set( 255 );
-			}
+			m[ i ][ j ].color.fill( Color4b( 255 ) );
 		}
 		MatchToken( ")" );
 	}
@@ -255,13 +249,13 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 
 
 	/* ydnar: delete and warn about degenerate patches */
-	Vector4 delta( 0, 0, 0, 0 );
+	Vector4 delta( 0 );
 	degenerate = true;
 
 	/* find first valid vector */
 	for ( int i = 1; i < numVerts && delta[ 3 ] == 0; ++i )
 	{
-		delta.vec3() = m.verts[ 0 ].xyz - m.verts[ i ].xyz;
+		delta.vec3() = m.verts()[ 0 ].xyz - m.verts()[ i ].xyz;
 		delta[ 3 ] = VectorNormalize( delta.vec3() );
 	}
 
@@ -274,7 +268,7 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 		/* if all vectors match this or are zero, then this is a degenerate patch */
 		for ( int i = 1; i < numVerts && degenerate; ++i )
 		{
-			Vector4 delta2( m.verts[ 0 ].xyz - m.verts[ i ].xyz, 0 );
+			Vector4 delta2( m.verts()[ 0 ].xyz - m.verts()[ i ].xyz, 0 );
 			delta2[ 3 ] = VectorNormalize( delta2.vec3() );
 			if ( delta2[ 3 ] != 0 ) {
 				/* create inverse vector */
@@ -292,7 +286,6 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	/* warn and select degenerate patch */
 	if ( degenerate ) {
 		xml_Select( "degenerate patch", mapEnt.mapEntityNum, mapPrimitiveNum, false );
-		m.freeVerts();
 		return;
 	}
 
@@ -303,10 +296,10 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	{
 		for ( int i = 0; i + 2 < m.height; i += 2 )
 		{
-			ExpandLongestCurve( &longestCurve, verts[ i * m.width + j ].xyz, verts[ i * m.width + ( j + 1 ) ].xyz, verts[ i * m.width + ( j + 2 ) ].xyz );      /* row */
-			ExpandLongestCurve( &longestCurve, verts[ i * m.width + j ].xyz, verts[ ( i + 1 ) * m.width + j ].xyz, verts[ ( i + 2 ) * m.width + j ].xyz );      /* col */
-			ExpandMaxIterations( &maxIterations, patchSubdivisions, verts[ i * m.width + j ].xyz, verts[ i * m.width + ( j + 1 ) ].xyz, verts[ i * m.width + ( j + 2 ) ].xyz );     /* row */
-			ExpandMaxIterations( &maxIterations, patchSubdivisions, verts[ i * m.width + j ].xyz, verts[ ( i + 1 ) * m.width + j ].xyz, verts[ ( i + 2 ) * m.width + j ].xyz  );    /* col */
+			ExpandLongestCurve( &longestCurve, m[ i ][ j ].xyz, m[ i ][ j + 1 ].xyz, m[ i ][ j + 2 ].xyz );      /* row */
+			ExpandLongestCurve( &longestCurve, m[ i ][ j ].xyz, m[ i + 1 ][ j ].xyz, m[ i + 2 ][ j ].xyz );      /* col */
+			ExpandMaxIterations( &maxIterations, patchSubdivisions, m[ i ][ j ].xyz, m[ i ][ j + 1 ].xyz, m[ i ][ j + 2 ].xyz );     /* row */
+			ExpandMaxIterations( &maxIterations, patchSubdivisions, m[ i ][ j ].xyz, m[ i + 1 ][ j ].xyz, m[ i + 2 ][ j ].xyz  );    /* col */
 		}
 	}
 
@@ -321,7 +314,7 @@ void ParsePatch( bool onlyLights, entity_t& mapEnt, int mapPrimitiveNum ){
 	pm.shaderInfo = &ShaderInfoForShader( shader );
 
 	/* set mesh */
-	pm.mesh = m;
+	pm.mesh = std::move( m );
 
 	/* set longest curve */
 	pm.longestCurve = longestCurve;
@@ -400,8 +393,8 @@ void PatchMapDrawSurfs( entity_t& e ){
 
 			meshes[m1].bordering[m2] =
 			meshes[m2].bordering[m1] =
-				std::ranges::any_of( Span( mesh1.verts, mesh1.numVerts() ), [mesh2]( const bspDrawVert_t& v1 ){
-					return std::ranges::any_of( Span( mesh2.verts, mesh2.numVerts() ), [v1]( const bspDrawVert_t& v2 ){
+				std::ranges::any_of( mesh1, [mesh2]( const bspDrawVert_t& v1 ){
+					return std::ranges::any_of( mesh2, [v1]( const bspDrawVert_t& v2 ){
 						return vector3_equal_epsilon( v1.xyz, v2.xyz, 1.f );
 					} );
 				} );
@@ -428,8 +421,8 @@ void PatchMapDrawSurfs( entity_t& e ){
 		{
 			if ( m.group ) {
 				m.grouped = true;
-				std::for_each_n( m.mesh.mesh.verts, m.mesh.mesh.numVerts(),
-					[&bounds]( const bspDrawVert_t& v ){ bounds.extend( v.xyz ); } );
+				for( const bspDrawVert_t& v : m.mesh.mesh )
+					bounds.extend( v.xyz );
 			}
 		}
 
@@ -437,8 +430,8 @@ void PatchMapDrawSurfs( entity_t& e ){
 		//%	Sys_Printf( "Longest curve: %f Iterations: %d\n", mesh.mesh.longestCurve, mesh.mesh.maxIterations );
 
 		/* create drawsurf */
-		mapDrawSurface_t *ds = DrawSurfaceForMesh( e, mesh.mesh, nullptr );   /* ydnar */
-		ds->bounds = bounds;
+		mapDrawSurface_t& ds = DrawSurfaceForMesh( e, mesh.mesh );   /* ydnar */
+		ds.bounds = bounds;
 	}
 
 	/* emit some statistics */

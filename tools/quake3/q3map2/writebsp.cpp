@@ -142,10 +142,8 @@ static void EmitLeaf( node_t *node ){
 
 	/* add the drawSurfRef_t drawsurfs */
 	leaf.firstBSPLeafSurface = bspLeafSurfaces.size();
-	for ( const drawSurfRef_t *dsr = node->drawSurfReferences; dsr; dsr = dsr->nextRef )
-	{
-		bspLeafSurfaces.push_back( dsr->outputNum );
-	}
+
+	bspLeafSurfaces.insert( bspLeafSurfaces.cend(), node->drawSurfReferences.cbegin(), node->drawSurfReferences.cend() );
 
 	leaf.numBSPLeafSurfaces = bspLeafSurfaces.size() - leaf.firstBSPLeafSurface;
 }
@@ -484,7 +482,7 @@ void BeginModel( const entity_t& e ){
 	/* bound patches */
 	for ( const parseMesh_t& p : e.patches )
 	{
-		for ( const bspDrawVert_t& vert : Span( p.mesh.verts, p.mesh.numVerts() ) )
+		for ( const bspDrawVert_t& vert : p.mesh )
 			minmax.extend( vert.xyz );
 	}
 

@@ -187,6 +187,7 @@ enum class EBrushType
 #define EXTERNAL_LIGHTMAP       "lm_%04d.tga"
 
 #define MAX_LIGHTMAPS           4           /* RBSP */
+#define LIGHTMAP_BY_VERTEX      -3
 #define MAX_SWITCHED_LIGHTS     32
 #define LS_NORMAL               0x00
 #define LS_UNUSED               0xFE
@@ -214,6 +215,25 @@ inline bool style_is_valid( int style ){ return LS_NORMAL <= style && style < LS
 
 #define LIGHTMAP_WIDTH          128
 #define LIGHTMAP_HEIGHT         128
+
+
+static_assert( MAX_LIGHTMAPS == 4 );
+
+template<class T>
+using Array4 = std::array<T, MAX_LIGHTMAPS>;
+
+template<class T>
+constexpr auto makeArray4( T&& value ){
+	return std::array<std::decay_t<T>, MAX_LIGHTMAPS>{ value, value, value, value };
+}
+
+template<std::size_t N, class T>
+constexpr auto make_array( T&& value ){
+	return [&]<std::size_t... Indices>( std::index_sequence<Indices...> ) {
+		return std::array<std::decay_t<T>, N> { ( void(Indices), value )... };
+	} ( std::make_index_sequence<N>() );
+}
+
 
 
 
@@ -304,18 +324,18 @@ struct bspDrawVert_t
 {
 	Vector3 xyz;
 	Vector2 st;
-	Vector2 lightmap[ MAX_LIGHTMAPS ];          /* RBSP */
+	Array4<Vector2> lightmap;          /* RBSP */
 	Vector3 normal;
-	Color4b color[ MAX_LIGHTMAPS ];             /* RBSP */
+	Array4<Color4b> color;             /* RBSP */
 };
 
 inline const bspDrawVert_t c_bspDrawVert_t0 =
 {
 	.xyz{ 0 },
-	.st{ 0, 0 },
-	.lightmap{ { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
+	.st{ 0 },
+	.lightmap = makeArray4( Vector2( 0 ) ),
 	.normal{ 0 },
-	.color{ { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }
+	.color = makeArray4( Color4b( 0 ) )
 };
 
 using TriRef = std::array<const bspDrawVert_t *, 3>;
@@ -338,9 +358,9 @@ enum bspSurfaceType_t
 
 struct bspGridPoint_t
 {
-	Vector3b ambient[ MAX_LIGHTMAPS ];    /* RBSP - array */
-	Vector3b directed[ MAX_LIGHTMAPS ];   /* RBSP - array */
-	byte styles[ MAX_LIGHTMAPS ];         /* RBSP - whole */
+	Array4<Vector3b> ambient;    /* RBSP - array */
+	Array4<Vector3b> directed;   /* RBSP - array */
+	Array4<byte> styles;         /* RBSP - whole */
 	byte latLong[ 2 ];
 };
 
@@ -357,14 +377,15 @@ struct bspDrawSurface_t
 	int firstIndex;
 	int numIndexes;
 
-	byte lightmapStyles[ MAX_LIGHTMAPS ];                               /* RBSP */
-	byte vertexStyles[ MAX_LIGHTMAPS ];                                 /* RBSP */
-	int lightmapNum[ MAX_LIGHTMAPS ];                                   /* RBSP */
-	int lightmapX[ MAX_LIGHTMAPS ], lightmapY[ MAX_LIGHTMAPS ];         /* RBSP */
+	Array4<byte> lightmapStyles;               /* RBSP */
+	Array4<byte> vertexStyles;                 /* RBSP */
+	Array4<int> lightmapNum;                   /* RBSP */
+	Array4<int> lightmapX;                     /* RBSP */
+	Array4<int> lightmapY;                     /* RBSP */
 	int lightmapWidth, lightmapHeight;
 
 	Vector3 lightmapOrigin;
-	Vector3 lightmapVecs[ 3 ];       /* on patches, [ 0 ] and [ 1 ] are lodbounds */
+	std::array<Vector3, 3> lightmapVecs;       /* on patches, [ 0 ] and [ 1 ] are lodbounds */
 
 	int patchWidth;
 	int patchHeight;
@@ -598,7 +619,7 @@ struct shaderInfo_t_data
 	int	skyIndex = -1;                                  /* shaders that are used and emit sun/skylight get unique emitter index */
 
 	Vector3 color{ 0 };                                 /* normalized color */
-	Color4f averageColor = { 0, 0, 0, 0 };
+	Color4f averageColor{ 0 };
 	byte lightStyle;
 
 	/* vortex: per-surface floodlight */
@@ -685,7 +706,7 @@ struct side_t
 	winding_t           winding;
 	winding_t           visibleHull;        /* convex hull of all visible fragments */
 
-	shaderInfo_t        *shaderInfo;
+	shaderInfo_t        *shaderInfo;        /* may be null */
 
 	int contentFlags;                       /* from shaderInfo */
 	int surfaceFlags;                       /* from shaderInfo */
@@ -694,15 +715,6 @@ struct side_t
 
 	bool bevel;                             /* don't ever use for bsp splitting, and don't bother making windings for it */
 	bool culled;                            /* ydnar: face culling */
-};
-
-
-struct sideRef_t
-{
-	sideRef_t           *next;
-	const side_t        &side;
-	sideRef_t( sideRef_t *next, const side_t &side ) : next( next ), side( side ){
-	}
 };
 
 
@@ -758,19 +770,62 @@ struct fog_t
 };
 
 
+struct mesh_view_t
+{
+	const int width, height;
+	const bspDrawVert_t * const verts;
+
+	mesh_view_t( int width, int height, const bspDrawVert_t *verts ) : width( width ), height( height ), verts( verts ){
+	}
+	const bspDrawVert_t* operator[]( int row ) const {
+		return verts + width * row;
+	}
+};
+
 struct mesh_t
 {
-	int width, height;
-	bspDrawVert_t       *verts;
-
-	mesh_t() = default;
-	mesh_t( int width, int height, bspDrawVert_t *verts ) : width( width ), height( height ), verts( verts ){}
-	size_t numVerts() const {
+	const int width, height;
+private:
+	bspDrawVert_t *m_verts;
+public:
+	mesh_t() : width( 0 ), height( 0 ), m_verts( nullptr ) {
+	}
+	mesh_t( int width, int height ) : width( width ), height( height ), m_verts( new bspDrawVert_t[ width * height ] ) {
+	}
+	mesh_t( int width, int height, const bspDrawVert_t *verts ) : mesh_t( width, height ) {
+		std::copy_n( verts, numVerts(), m_verts );
+	}
+	explicit mesh_t( const mesh_view_t& view ) : mesh_t( view.width, view.height, view.verts ) {
+	}
+	operator mesh_view_t() const {
+		return { width, height, m_verts };
+	}
+	explicit mesh_t( const mesh_t& other ) : mesh_t( other.width, other.height, other.m_verts ) {
+	}
+	mesh_t( mesh_t&& other ) noexcept : width( other.width ), height( other.height ), m_verts( std::exchange( other.m_verts, nullptr ) ) {
+	}
+	mesh_t& operator=( const mesh_t& ) = delete;
+	mesh_t& operator=( mesh_t&& other ) noexcept {
+		if( this != &other ){
+			std::destroy_at( this );
+			std::construct_at( this, std::move( other ) );
+		}
+		return *this;
+	};
+	~mesh_t(){
+		delete[] m_verts;
+	}
+	int numVerts() const {
 		return width * height;
 	}
-	void freeVerts(){
-		free( verts );
-	}
+	const bspDrawVert_t* operator[]( int row ) const { return m_verts + width * row; }
+	      bspDrawVert_t* operator[]( int row )       { return m_verts + width * row; }
+	const bspDrawVert_t* verts() const { return m_verts; }
+	      bspDrawVert_t* verts()       { return m_verts; }
+	const bspDrawVert_t* begin() const { return m_verts; }
+	      bspDrawVert_t* begin()       { return m_verts; }
+	const bspDrawVert_t* end() const { return m_verts + numVerts(); }
+	      bspDrawVert_t* end()       { return m_verts + numVerts(); }
 };
 
 
@@ -783,7 +838,7 @@ struct parseMesh_t
 	int recvShadows;
 
 	mesh_t mesh;
-	shaderInfo_t        *shaderInfo;
+	shaderInfo_t        *shaderInfo;            /* never null */
 	shaderInfo_t        *celShader;             /* :) */
 
 	/* ydnar: gs mods */
@@ -857,7 +912,7 @@ constexpr const char *surfaceTypeName( ESurfaceType type ){
 
 
 /* ydnar: this struct needs an overhaul (again, heh) */
-struct mapDrawSurface_t
+struct mapDrawSurface_t_params
 {
 	ESurfaceType type;
 	bool planar;
@@ -867,24 +922,15 @@ struct mapDrawSurface_t
 	bool skybox;                            /* ydnar: yet another fun hack */
 	bool backSide;                          /* ydnar: q3map_backShader support */
 
-	mapDrawSurface_t *parent;        /* ydnar: for cloned (skybox) surfaces to share lighting data */
-	mapDrawSurface_t *clone;         /* ydnar: for cloned surfaces */
-	mapDrawSurface_t *cel;           /* ydnar: for cloned cel surfaces */
+	class mapDrawSurface_t *parent;        /* ydnar: for cloned (skybox) surfaces to share lighting data */
+	class mapDrawSurface_t *clone;         /* ydnar: for cloned surfaces */
+	class mapDrawSurface_t *cel;           /* ydnar: for cloned cel surfaces */
 
-	shaderInfo_t        *shaderInfo;
+	shaderInfo_t        *shaderInfo;       /* never null */
 	shaderInfo_t        *celShader;
 	const brush_t       *mapBrush;
-	sideRef_t           *sideRef;
 
 	int fogNum;
-
-	/* vertexes and triangles */
-	DrawVerts verts;
-	DrawIndexes indexes;
-
-	int numVerts() const {
-		return verts.size();
-	};
 
 	int planeNum = -1;
 	Vector3 lightmapOrigin{ 0 };            /* also used for flares */
@@ -920,19 +966,29 @@ struct mapDrawSurface_t
 	/* ydnar: editor/useful numbering */
 	int entityNum;
 	int surfaceNum;
-
-	void addSideRef( const side_t *side ){
-		if ( side != nullptr ) {
-			sideRef = new sideRef_t( sideRef, *side );
-		}
-	}
 };
-
-
-struct drawSurfRef_t
+struct mapDrawSurface_t : public mapDrawSurface_t_params
 {
-	drawSurfRef_t    *nextRef;
-	int outputNum;
+	/* vertexes and triangles */
+	DrawVerts verts;
+	DrawIndexes indexes;
+
+	int numVerts() const {
+		return verts.size();
+	};
+
+	std::vector<const side_t*> sideRefs;
+
+	void addSideRef( const side_t *side ){ // note: might try to store only unique refs
+		if ( side != nullptr )
+			sideRefs.push_back( side );
+	}
+
+	void clearData(){
+		verts = DrawVerts(); // deallocate
+		indexes = DrawIndexes(); // deallocate
+		sideRefs = decltype( sideRefs )(); // deallocate
+	}
 };
 
 
@@ -1030,7 +1086,7 @@ struct node_t
 	int cluster;                        /* for portalfile writing */
 	int area;                           /* for areaportals */
 	brushlist_t          brushlist;     /* fragments of all brushes in this leaf */
-	drawSurfRef_t       *drawSurfReferences;
+	std::vector<int>     drawSurfReferences; /* int outputNum of bspDrawSurface_t*/
 
 	int occupied;                       /* 1 or greater can reach entity */
 	const entity_t      *occupant;      /* for leak file testing */
@@ -1240,19 +1296,20 @@ struct rawLightmap_t
 	Plane3f                   *plane;
 	int w, h, sw, sh, used;
 
-	bool solid[ MAX_LIGHTMAPS ];
-	Vector3 solidColor[ MAX_LIGHTMAPS ];
+	Array4<bool> solid;
+	Array4<Vector3> solidColor;
 
 	int numStyledTwins;
-	rawLightmap_t           *twins[ MAX_LIGHTMAPS ];
+	Array4<rawLightmap_t*>           twins;
 
-	int outLightmapNums[ MAX_LIGHTMAPS ];
-	int twinNums[ MAX_LIGHTMAPS ];
-	int lightmapX[ MAX_LIGHTMAPS ], lightmapY[ MAX_LIGHTMAPS ];
-	byte styles[ MAX_LIGHTMAPS ];
-	Vector3                 *bspLuxels[ MAX_LIGHTMAPS ];
-	Vector3                 *radLuxels[ MAX_LIGHTMAPS ];
-	SuperLuxel              *superLuxels[ MAX_LIGHTMAPS ];
+	Array4<int> outLightmapNums;
+	Array4<int> twinNums;
+	Array4<int> lightmapX;
+	Array4<int> lightmapY;
+	Array4<byte> styles;
+	Array4<Vector3*>         bspLuxels;
+	Array4<Vector3*>         radLuxels;
+	Array4<SuperLuxel*>      superLuxels;
 	byte                    *superFlags;
 	Vector3                 *superOrigins;
 	Vector3                 *superNormals;
@@ -1333,10 +1390,10 @@ struct rawLightmap_t
 
 struct rawGridPoint_t
 {
-	Vector3 ambient[ MAX_LIGHTMAPS ];
-	Vector3 directed[ MAX_LIGHTMAPS ];
+	Array4<Vector3> ambient;
+	Array4<Vector3> directed;
 	Vector3 dir;
-	byte styles[ MAX_LIGHTMAPS ];
+	Array4<byte> styles;
 };
 
 
@@ -1431,6 +1488,24 @@ public:
 };
 
 
+template<int printf_flag = SYS_STD>
+class Pacifier
+{
+	const int jobs;
+	int jobs_counter;
+	int counter;
+public:
+	Pacifier( int jobs ) : jobs( jobs ), jobs_counter( jobs ), counter( 0 ){
+	}
+	void operator++(){
+		if ( ( jobs_counter += 10 ) > jobs ) {
+			jobs_counter -= jobs;
+			Sys_FPrintf( printf_flag, "%d...", counter++ );
+		}
+	}
+};
+
+
 /* -------------------------------------------------------------------------------
 
    prototypes
@@ -1495,22 +1570,22 @@ bool                        WindingIsTiny( const winding_t& w );
 
 /* mesh.c */
 bspDrawVert_t               LerpDrawVert( const bspDrawVert_t& a, const bspDrawVert_t& b );
-void                        LerpDrawVertAmount( bspDrawVert_t *a, bspDrawVert_t *b, float amount, bspDrawVert_t *out );
-mesh_t                      CopyMesh( const mesh_t m );
-void                        PrintMesh( const mesh_t m );
+void                        LerpDrawVertAmount( const bspDrawVert_t& a, const bspDrawVert_t& b, float amount, bspDrawVert_t& out );
+void                        PrintMesh( const mesh_t& m );
 void                        TransposeMesh( mesh_t& m );
+void                        RotateMesh( mesh_t& m );
 void                        InvertMesh( mesh_t& m );
-mesh_t                      SubdivideMesh( const mesh_t in, float maxError, float minLength );
+mesh_t                      SubdivideMesh( const mesh_view_t in, float maxError, float minLength );
 int                         IterationsForCurve( float len, int subdivisions );
-mesh_t                      SubdivideMesh2( const mesh_t in, int iterations );
-mesh_t                      RemoveLinearMeshColumnsRows( const mesh_t in );
-mesh_t                      TessellatedMesh( const mesh_t in, int iterations );
+mesh_t                      SubdivideMesh2( const mesh_view_t in, int iterations );
+mesh_t                      RemoveLinearMeshColumnsRows( const mesh_t& in );
+mesh_t                      TessellatedMesh( const mesh_view_t in, int iterations );
 void                        MakeMeshNormals( mesh_t& in );
 void                        PutMeshOnCurve( mesh_t& in );
 
 class MeshQuadIterator
 {
-	const mesh_t m;
+	const mesh_view_t m;
 	int y, x;
 	std::array<int, 4> _idx;
 	void update_idx(){
@@ -1531,7 +1606,7 @@ class MeshQuadIterator
 		         pw[ r + 3 ] };
 	}
 public:
-	MeshQuadIterator( const mesh_t m ) : m( m ), y( 0 ), x( 0 ) {
+	MeshQuadIterator( const mesh_view_t m ) : m( m ), y( 0 ), x( 0 ) {
 		update_idx();
 	}
 	void operator++(){
@@ -1657,17 +1732,18 @@ void                        AddTriangleModels( entity_t& eparent );
 
 
 /* surface.c */
-mapDrawSurface_t&           AllocDrawSurface( ESurfaceType type );
+mapDrawSurface_t&           AllocDrawSurface( ESurfaceType type, shaderInfo_t& si );
+mapDrawSurface_t&           AllocDrawSurface( const mapDrawSurface_t& src );
 void                        StripFaceSurface( mapDrawSurface_t& ds );
 void                        MaxAreaFaceSurface( mapDrawSurface_t& ds );
 Vector3                     CalcLightmapAxis( const Vector3& normal );
 void                        ClassifySurface( mapDrawSurface_t& ds );
 void                        ClassifyEntitySurfaces( const entity_t& e );
 void                        TidyEntitySurfaces( const entity_t& e );
-mapDrawSurface_t            *CloneSurface( const mapDrawSurface_t& src, shaderInfo_t *si );
+mapDrawSurface_t&           CloneSurface( const mapDrawSurface_t& src, shaderInfo_t& si );
 void                        ClearSurface( mapDrawSurface_t& ds );
 mapDrawSurface_t            *DrawSurfaceForSide( const entity_t& e, const brush_t& b, const side_t& s, const winding_t& w );
-mapDrawSurface_t            *DrawSurfaceForMesh( const entity_t& e, parseMesh_t& p, mesh_t *mesh );
+mapDrawSurface_t&           DrawSurfaceForMesh( const entity_t& e, parseMesh_t& p );
 mapDrawSurface_t            *DrawSurfaceForFlare( int entNum, const Vector3& origin, const Vector3& normal, const Vector3& color, const char *flareShader, int lightStyle );
 void                        ClipSidesIntoTree( entity_t& e, const tree_t& tree );
 void                        MakeDebugPortalSurfs( const tree_t& tree );
@@ -1682,7 +1758,7 @@ void                        Fur( mapDrawSurface_t& src );
 
 
 /* surface_foliage.c */
-void                        Foliage( mapDrawSurface_t& src, entity_t& entity );
+void                        Foliage( const mapDrawSurface_t& src, entity_t& entity );
 
 
 /* ydnar: surface_meta.c */
@@ -1716,7 +1792,7 @@ int                         VisMain( Args& args );
 /* light.c  */
 float                       PointToPolygonFormFactor( const Vector3& point, const Vector3& normal, const winding_t& w );
 int                         LightContributionToSample( trace_t *trace );
-void                        LightingAtSample( trace_t * trace, byte (&styles)[ MAX_LIGHTMAPS ], Vector3 (&colors)[ MAX_LIGHTMAPS ], const Vector3& ambientColor );
+void                        LightingAtSample( trace_t * trace, Array4<byte>& styles, Array4<Vector3>& colors, const Vector3& ambientColor );
 int                         LightMain( Args& args );
 
 
@@ -2179,8 +2255,8 @@ inline rawLightmap_t      *rawLightmaps;
 inline int                *sortLightmaps;
 
 /* vertex luxels */
-inline Vector3            *vertexLuxels[ MAX_LIGHTMAPS ];
-inline Vector3            *radVertexLuxels[ MAX_LIGHTMAPS ];
+inline Array4<Vector3*>    vertexLuxels;
+inline Array4<Vector3*>    radVertexLuxels;
 
 inline Vector3& getVertexLuxel( int lightmapNum, int vertexNum ){
 	return vertexLuxels[lightmapNum][vertexNum];

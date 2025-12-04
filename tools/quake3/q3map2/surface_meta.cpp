@@ -53,7 +53,7 @@ std::list<metaVertex_t>>; // must be maintained non empty
 /* ydnar: metasurfaces are constructed from lists of metatriangles so they can be merged in the best way */
 struct metaTriangle_t
 {
-	shaderInfo_t        *si;
+	shaderInfo_t        *si; // only null when triangle has already been merged
 	const side_t        *side; // can be nullptr
 	int entityNum, surfaceNum, planeNum, fogNum, sampleSize, castShadows, recvShadows;
 	float shadeAngleDegrees;
@@ -305,7 +305,7 @@ static void SurfaceToMetaTriangles( mapDrawSurface_t& ds ){
 			/* build a metatriangle */
 			metaTriangle_t src;
 			src.si                = ds.shaderInfo;
-			src.side = ( ds.sideRef != nullptr ? &ds.sideRef->side : nullptr );
+			src.side = ( ds.sideRefs.empty()? nullptr : ds.sideRefs.front() );
 			src.entityNum         = ds.entityNum;
 			src.surfaceNum        = ds.surfaceNum;
 			src.planeNum          = ds.planeNum;
@@ -355,11 +355,10 @@ static void TriangulatePatchSurface( const entity_t& e, mapDrawSurface_t& ds ){
 		iterations = IterationsForCurve( ds.longestCurve, patchSubdivisions / ( patchQuality == 0? 1 : patchQuality ) );
 	}
 	/* make a mesh from the drawsurf */
-	mesh_t mesh = TessellatedMesh( mesh_t( ds.patchWidth, ds.patchHeight, ds.verts.data() ), iterations ); //%	ds.maxIterations
+	const mesh_t mesh = TessellatedMesh( mesh_view_t( ds.patchWidth, ds.patchHeight, ds.verts.data() ), iterations ); //%	ds.maxIterations
 
 	/* make a copy of the drawsurface */
-	mapDrawSurface_t& dsNew = AllocDrawSurface( ESurfaceType::Meta );
-	dsNew = ds;
+	mapDrawSurface_t& dsNew = AllocDrawSurface( ds );
 
 	/* if the patch is nonsolid, then discard it */
 	if ( !( ds.shaderInfo->compileFlags & C_SOLID ) && !( ds.shaderInfo->contentFlags & GetRequiredSurfaceParm<"playerclip">().contentFlags ) ) {
@@ -368,11 +367,10 @@ static void TriangulatePatchSurface( const entity_t& e, mapDrawSurface_t& ds ){
 
 	/* basic transmogrification */
 	dsNew.type = ESurfaceType::Meta;
-	dsNew.indexes.clear();
 	dsNew.indexes.reserve( ( mesh.width - 1 ) * ( mesh.height - 1 ) * 6 );
 
 	/* copy the verts in */
-	dsNew.verts.assign( mesh.verts, mesh.verts + mesh.numVerts() );
+	dsNew.verts.assign( mesh.begin(), mesh.end() );
 
 	/* iterate through the mesh quads */
 	for( MeshQuadIterator it( mesh ); it; ++it ){
@@ -386,8 +384,6 @@ static void TriangulatePatchSurface( const entity_t& e, mapDrawSurface_t& ds ){
 		dsNew.indexes.push_back( it.idx()[2] );
 		dsNew.indexes.push_back( it.idx()[3] );
 	}
-
-	mesh.freeVerts();
 
 	/* add to count */
 	numPatchMetaSurfaces++;
@@ -606,9 +602,7 @@ static void FanFaceSurface( mapDrawSurface_t& ds ){
 		return;
 	}
 
-	Color4f color[ MAX_LIGHTMAPS ];
-	for ( auto& co : color )
-		co.set( 0 );
+	Array4<Color4f> color = makeArray4( Color4f( 0 ) );
 
 	/* add up the drawverts to create a centroid */
 	DoubleVector3 cnt( 0 );
@@ -686,7 +680,7 @@ void StripFaceSurface( mapDrawSurface_t& ds ){
 	{
 		/* ydnar: find smallest coordinate */
 		int least = 0;
-		if ( ds.shaderInfo != nullptr && !ds.shaderInfo->autosprite ) {
+		if ( !ds.shaderInfo->autosprite ) {
 			for ( size_t i = 0; i < ds.verts.size(); ++i )
 			{
 				/* get points */
@@ -794,17 +788,14 @@ void MakeEntityMetaTriangles( const entity_t& e ){
 	Sys_FPrintf( SYS_VRB, "--- MakeEntityMetaTriangles ---\n" );
 
 	/* init pacifier */
-	int fOld = -1;
+	Pacifier<SYS_VRB> pacifier( numMapDrawSurfs - e.firstDrawSurf );
 	Timer timer;
 
-	/* walk the list of surfaces in the entity */
+	/* walk the list of surfaces in the entity */ /* numMapDrawSurfs increases if patchMeta */
 	for ( int i = e.firstDrawSurf; i < numMapDrawSurfs; ++i )
 	{
 		/* print pacifier */
-		if ( const int f = 10 * ( i - e.firstDrawSurf ) / ( numMapDrawSurfs - e.firstDrawSurf ); f != fOld ) {
-			fOld = f;
-			Sys_FPrintf( SYS_VRB, "%d...", f );
-		}
+		++pacifier;
 
 		/* get surface */
 		mapDrawSurface_t& ds = mapDrawSurfs[ i ];
@@ -919,7 +910,7 @@ static void CreateEdge( const Plane3f& plane, const Vector3& a, const Vector3& b
 
 void FixMetaTJunctions(){
 #if 0
-	int i, j, k, fOld, vertIndex, triIndex, numTJuncs;
+	int i, j, k, vertIndex, triIndex, numTJuncs;
 	metaTriangle_t  *tri, *newTri;
 	shaderInfo_t    *si;
 	bspDrawVert_t   *a, *b, *c, junc;
@@ -935,7 +926,7 @@ void FixMetaTJunctions(){
 	Sys_FPrintf( SYS_VRB, "--- FixMetaTJunctions ---\n" );
 
 	/* init pacifier */
-	fOld = -1;
+	Pacifier<SYS_VRB> pacifier( numMetaTriangles );
 	Timer timer;
 
 	/* walk triangle list */
@@ -946,10 +937,7 @@ void FixMetaTJunctions(){
 		tri = &metaTriangles[ i ];
 
 		/* print pacifier */
-		if ( const int f = 10 * i / numMetaTriangles; f != fOld ) {
-			fOld = f;
-			Sys_FPrintf( SYS_VRB, "%d...", f );
-		}
+		++pacifier;
 
 		/* attempt to early out */
 		si = tri->si;
@@ -1376,9 +1364,9 @@ static int AddMetaTriangleToSurface( mapDrawSurface_t& ds, const metaTriangle_t&
 	/* check texture range overflow */
 	MinMax newTexMinMax( texMinMax );
 	{
-		newTexMinMax.extend( Vector3( tri.m_vertices[ 0 ]->st ) );
-		newTexMinMax.extend( Vector3( tri.m_vertices[ 1 ]->st ) );
-		newTexMinMax.extend( Vector3( tri.m_vertices[ 2 ]->st ) );
+		newTexMinMax.extend( Vector3( tri.m_vertices[ 0 ]->st, 0 ) );
+		newTexMinMax.extend( Vector3( tri.m_vertices[ 1 ]->st, 0 ) );
+		newTexMinMax.extend( Vector3( tri.m_vertices[ 2 ]->st, 0 ) );
 		if( numVerts_original == 0 || texMinMax.surrounds( newTexMinMax ) ){
 			score += 4 * ST_SCORE;
 		}
@@ -1450,10 +1438,12 @@ static int AddMetaTriangleToSurface( mapDrawSurface_t& ds, const metaTriangle_t&
    creates map drawsurface(s) from the list of possibles
  */
 
-static void MetaTrianglesToSurface( int *fOld, int *numAdded ){
+static void MetaTrianglesToSurface(){
 	/* allocate arrays */
 	DrawVerts verts;
 	DrawIndexes indexes;
+
+	Pacifier<SYS_VRB> pacifier( metaTriangles.size() );
 
 	/* walk the list of triangles */
 	for ( auto& seed : metaTriangles )
@@ -1468,13 +1458,12 @@ static void MetaTrianglesToSurface( int *fOld, int *numAdded ){
 		   ----------------------------------------------------------------- */
 
 		/* start a new drawsurface */
-		mapDrawSurface_t& ds = AllocDrawSurface( ESurfaceType::Meta );
+		mapDrawSurface_t& ds = AllocDrawSurface( ESurfaceType::Meta, *seed.si );
 		ds.entityNum         = seed.entityNum;
 		ds.surfaceNum        = seed.surfaceNum;
 		ds.castShadows       = seed.castShadows;
 		ds.recvShadows       = seed.recvShadows;
 
-		ds.shaderInfo        = seed.si;
 		ds.planeNum          = seed.planeNum;
 		ds.fogNum            = seed.fogNum;
 		ds.sampleSize        = seed.sampleSize;
@@ -1528,7 +1517,7 @@ static void MetaTrianglesToSurface( int *fOld, int *numAdded ){
 
 		/* add the first triangle */
 		if ( AddMetaTriangleToSurface( ds, seed, verts, indexes, texMinMax, sorted_indices, false ) ) {
-			( *numAdded )++;
+			++pacifier;
 		}
 		expand_cloud( seed );
 
@@ -1539,12 +1528,6 @@ static void MetaTrianglesToSurface( int *fOld, int *numAdded ){
 		/* progressively walk the list until no more triangles can be added */
 		for( bool added = true; added; )
 		{
-			/* print pacifier */
-			if ( const int f = 10 * *numAdded / metaTriangles.size(); f > *fOld ) {
-				*fOld = f;
-				Sys_FPrintf( SYS_VRB, "%d...", f );
-			}
-
 			/* reset best score */
 			metaTriangle_t *best = nullptr;
 			int bestScore = 0;
@@ -1575,7 +1558,7 @@ static void MetaTrianglesToSurface( int *fOld, int *numAdded ){
 			/* add best candidate */
 			if ( best != nullptr && bestScore > ADEQUATE_SCORE ) {
 				if ( AddMetaTriangleToSurface( ds, *best, verts, indexes, texMinMax, sorted_indices, false ) ) {
-					( *numAdded )++;
+					++pacifier;
 					expand_cloud( *best );
 				}
 
@@ -1618,9 +1601,7 @@ void MergeMetaTriangles(){
 	Sys_FPrintf( SYS_VRB, "--- MergeMetaTriangles ---\n" );
 
 	/* init pacifier */
-	int fOld = -1;
 	Timer timer;
-	int numAdded = 0;
 #if 1
 	for( metaTriangle_t& tri : metaTriangles ){
 		for( const metaVertex_t *vert : tri.m_vertices ){
@@ -1629,7 +1610,7 @@ void MergeMetaTriangles(){
 	}
 	metaTriangles.sort( CompareMetaTriangles<true>() );
 #endif
-	MetaTrianglesToSurface( &fOld, &numAdded );
+	MetaTrianglesToSurface();
 
 	/* clear meta triangle list */
 	ClearMetaTriangles();

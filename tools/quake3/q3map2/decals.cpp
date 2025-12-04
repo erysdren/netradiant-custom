@@ -38,7 +38,7 @@
 
 struct decalProjector_t
 {
-	shaderInfo_t            *si;
+	shaderInfo_t            *si; // never null
 	MinMax minmax;
 	Vector3 center;
 	float radius, radius2;
@@ -248,34 +248,29 @@ static bool MakeTextureMatrix( decalProjector_t& dp, const Plane3f& projection, 
    note: non-normalized axes will screw up the plane transform
  */
 
-static void TransformDecalProjector( decalProjector_t *in, const Vector3 (&axis)[ 3 ], const Vector3& origin, decalProjector_t *out ){
+static void TransformDecalProjector( const decalProjector_t& in, const Vector3& origin, decalProjector_t& out ){
 	/* copy misc stuff */
-	out->si = in->si;
-	out->numPlanes = in->numPlanes;
+	out.si = in.si;
+	out.numPlanes = in.numPlanes;
 
 	/* translate bounding box and sphere (note: rotated projector bounding box will be invalid!) */
-	out->minmax.mins = in->minmax.mins - origin;
-	out->minmax.maxs = in->minmax.maxs - origin;
-	out->center      = in->center - origin;
-	out->radius      = in->radius;
-	out->radius2     = in->radius2;
+	out.minmax.mins = in.minmax.mins - origin;
+	out.minmax.maxs = in.minmax.maxs - origin;
+	out.center      = in.center - origin;
+	out.radius      = in.radius;
+	out.radius2     = in.radius2;
 
 	/* translate planes */
-	for ( int i = 0; i < in->numPlanes; ++i )
+	for ( int i = 0; i < in.numPlanes; ++i )
 	{
-		out->planes[ i ].a = vector3_dot( in->planes[ i ].normal(), axis[ 0 ] );
-		out->planes[ i ].b = vector3_dot( in->planes[ i ].normal(), axis[ 1 ] );
-		out->planes[ i ].c = vector3_dot( in->planes[ i ].normal(), axis[ 2 ] );
-		out->planes[ i ].d = in->planes[ i ].dist() - vector3_dot( out->planes[ i ].normal(), origin );
+		out.planes[ i ] = plane3_translated( in.planes[ i ], -origin );
 	}
 
 	/* translate texture matrix */
 	for ( int i = 0; i < 2; ++i )
 	{
-		out->texMat[ i ][ 0 ] = vector3_dot( in->texMat[ i ].vec3(), axis[ 0 ] );
-		out->texMat[ i ][ 1 ] = vector3_dot( in->texMat[ i ].vec3(), axis[ 1 ] );
-		out->texMat[ i ][ 2 ] = vector3_dot( in->texMat[ i ].vec3(), axis[ 2 ] );
-		out->texMat[ i ][ 3 ] = vector3_dot( out->texMat[ i ].vec3(), origin ) + in->texMat[ i ][ 3 ];
+		out.texMat[ i ] = in.texMat[ i ];
+		out.texMat[ i ].w() += vector3_dot( in.texMat[ i ].vec3(), origin );
 	}
 }
 
@@ -286,7 +281,7 @@ static void TransformDecalProjector( decalProjector_t *in, const Vector3 (&axis)
    creates a new decal projector from a triangle
  */
 
-static int MakeDecalProjector( shaderInfo_t *si, const Plane3f& projection, float distance, const TriRef& tri ){
+static int MakeDecalProjector( shaderInfo_t& si, const Plane3f& projection, float distance, const TriRef& tri ){
 	/* limit check */
 	if ( numProjectors >= MAX_PROJECTORS ) {
 		Sys_Warning( "MAX_PROJECTORS (%d) exceeded, no more decal projectors available.\n", MAX_PROJECTORS );
@@ -298,7 +293,7 @@ static int MakeDecalProjector( shaderInfo_t *si, const Plane3f& projection, floa
 	memset( &dp, 0, sizeof( dp ) );
 
 	/* basic setup */
-	dp.si = si;
+	dp.si = &si;
 	dp.numPlanes = tri.size() + 2;
 
 	/* make texture matrix */
@@ -406,7 +401,7 @@ void ProcessDecals(){
 				mesh_t mesh = TessellatedMesh( p.mesh, IterationsForCurve( p.longestCurve, patchSubdivisions ) );
 
 				/* offset by projector origin */
-				for ( bspDrawVert_t& vert : Span( mesh.verts, mesh.numVerts() ) )
+				for ( bspDrawVert_t& vert : mesh )
 					vert.xyz += e.origin;
 
 				/* iterate through the mesh quads */
@@ -414,7 +409,7 @@ void ProcessDecals(){
 #if 0
 					/* planar? (nuking this optimization as it doesn't work on non-rectangular quads) */
 					if ( 0 && PlaneFromPoints( plane, dv[ 0 ]->xyz, dv[ 1 ]->xyz, dv[ 2 ]->xyz ) &&
-					     std::fabs( plane3_distance_to_point( plane, dv[ 1 ]->xyz ) ) <= PLANAR_EPSILON ) {
+					     std::fabs( plane3_distance_to_point( plane, dv[ 3 ]->xyz ) ) <= PLANAR_EPSILON ) {
 						/* make a quad projector */
 						MakeDecalProjector( p.shaderInfo, projection, distance, 4, dv );
 					}
@@ -422,12 +417,9 @@ void ProcessDecals(){
 #endif
 					{
 						for( const TriRef& tri : it.tris() )
-							MakeDecalProjector( p.shaderInfo, projection, distance, tri );
+							MakeDecalProjector( *p.shaderInfo, projection, distance, tri );
 					}
 				}
-
-				/* clean up */
-				mesh.freeVerts();
 			}
 		}
 		/* remove patches from entity */
@@ -450,7 +442,7 @@ void ProcessDecals(){
    projects a decal onto a winding
  */
 
-static void ProjectDecalOntoWinding( decalProjector_t& dp, const mapDrawSurface_t& ds, winding_t& w ){
+static void ProjectDecalOntoWinding( const decalProjector_t& dp, const mapDrawSurface_t& ds, winding_t& w ){
 	/* dummy check */
 	if ( w.size() < 3 ) {
 		return;
@@ -496,13 +488,12 @@ static void ProjectDecalOntoWinding( decalProjector_t& dp, const mapDrawSurface_
 	numDecalSurfaces++;
 
 	/* make a new surface */
-	mapDrawSurface_t& ds2 = AllocDrawSurface( ESurfaceType::Decal );
+	mapDrawSurface_t& ds2 = AllocDrawSurface( ESurfaceType::Decal, *dp.si );
 
 	/* set it up */
 	ds2.entityNum         = ds.entityNum;
 	ds2.castShadows       = ds.castShadows;
 	ds2.recvShadows       = ds.recvShadows;
-	ds2.shaderInfo = dp.si;
 	ds2.fogNum            = ds.fogNum;   /* why was this -1? */
 	ds2.lightmapScale     = ds.lightmapScale;
 	ds2.shadeAngleDegrees = ds.shadeAngleDegrees;
@@ -527,10 +518,7 @@ static void ProjectDecalOntoWinding( decalProjector_t& dp, const mapDrawSurface_
 		dv.st[ 1 ] = vector3_dot( dv.xyz, dp.texMat[ 1 ].vec3() ) + dp.texMat[ 1 ][ 3 ];
 
 		/* set color */
-		for ( int j = 0; j < MAX_LIGHTMAPS; ++j )
-		{
-			dv.color[ j ] = { 255, 255, 255, color_to_byte( alpha ) };
-		}
+		dv.color.fill( Color4b( 255, 255, 255, color_to_byte( alpha ) ) );
 	}
 }
 
@@ -541,9 +529,9 @@ static void ProjectDecalOntoWinding( decalProjector_t& dp, const mapDrawSurface_
    projects a decal onto a brushface surface
  */
 
-static void ProjectDecalOntoFace( decalProjector_t& dp, const mapDrawSurface_t& ds ){
+static void ProjectDecalOntoFace( const decalProjector_t& dp, const mapDrawSurface_t& ds ){
 	/* dummy check */
-	if ( ds.sideRef == nullptr ) {
+	if ( ds.sideRefs.empty() ) {
 		return;
 	}
 
@@ -566,14 +554,14 @@ static void ProjectDecalOntoFace( decalProjector_t& dp, const mapDrawSurface_t& 
    projects a decal onto a patch surface
  */
 
-static void ProjectDecalOntoPatch( decalProjector_t& dp, mapDrawSurface_t& ds ){
+static void ProjectDecalOntoPatch( const decalProjector_t& dp, const mapDrawSurface_t& ds ){
 	/* backface check */
 	if ( ds.planar )
 		if ( vector3_dot( dp.planes[ 0 ].normal(), mapplanes[ ds.planeNum ].normal() ) < -0.0001f )
 			return;
 
 	/* tesselate the patch */
-	mesh_t mesh = TessellatedMesh( mesh_t( ds.patchWidth, ds.patchHeight, ds.verts.data() ), IterationsForCurve( ds.longestCurve, patchSubdivisions ) );
+	const mesh_t mesh = TessellatedMesh( mesh_view_t( ds.patchWidth, ds.patchHeight, ds.verts.data() ), IterationsForCurve( ds.longestCurve, patchSubdivisions ) );
 
 	/* iterate through the mesh quads */
 	for( MeshQuadIterator it( mesh ); it; ++it ){
@@ -586,9 +574,6 @@ static void ProjectDecalOntoPatch( decalProjector_t& dp, mapDrawSurface_t& ds ){
 			ProjectDecalOntoWinding( dp, ds, w );
 		}
 	}
-
-	/* clean up */
-	mesh.freeVerts();
 }
 
 
@@ -598,7 +583,7 @@ static void ProjectDecalOntoPatch( decalProjector_t& dp, mapDrawSurface_t& ds ){
    projects a decal onto a triangle surface
  */
 
-static void ProjectDecalOntoTriangles( decalProjector_t& dp, const mapDrawSurface_t& ds ){
+static void ProjectDecalOntoTriangles( const decalProjector_t& dp, const mapDrawSurface_t& ds ){
 
 	/* triangle surfaces without shaders don't get marks by default */
 	if ( ds.type == ESurfaceType::Triangles && ds.shaderInfo->shaderText == nullptr ) {
@@ -632,7 +617,6 @@ static void ProjectDecalOntoTriangles( decalProjector_t& dp, const mapDrawSurfac
  */
 
 void MakeEntityDecals( const entity_t& e ){
-	int i, j, fOld;
 	decalProjector_t dp;
 
 
@@ -643,26 +627,22 @@ void MakeEntityDecals( const entity_t& e ){
 	entityOrigin.set( 0 );
 
 	/* init pacifier */
-	fOld = -1;
+	Pacifier<SYS_VRB> pacifier( numProjectors );
 	Timer timer;
 
 	/* walk the list of decal projectors */
-	for ( i = 0; i < numProjectors; ++i )
+	for ( const decalProjector_t& projector : Span( projectors, numProjectors ) )
 	{
 		/* print pacifier */
-		if ( const int f = 10 * i / numProjectors; f != fOld ) {
-			fOld = f;
-			Sys_FPrintf( SYS_VRB, "%d...", f );
-		}
+		++pacifier;
 
 		/* get projector */
-		TransformDecalProjector( &projectors[ i ], g_vector3_axes, e.origin, &dp );
+		TransformDecalProjector( projector, e.origin, dp );
 
 		/* walk the list of surfaces in the entity */
-		for ( j = e.firstDrawSurf; j < numMapDrawSurfs; ++j )
+		for ( const mapDrawSurface_t& ds : Span( mapDrawSurfs + e.firstDrawSurf, mapDrawSurfs + numMapDrawSurfs ) )
 		{
 			/* get surface */
-			mapDrawSurface_t& ds = mapDrawSurfs[ j ];
 			if ( ds.verts.empty() ) {
 				continue;
 			}

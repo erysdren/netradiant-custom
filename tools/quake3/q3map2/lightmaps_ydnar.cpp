@@ -331,9 +331,7 @@ static void FinishRawLightmap( rawLightmap_t& lm ){
 	}
 
 	/* set styles */
-	lm.styles[ 0 ] = LS_NORMAL;
-	for ( i = 1; i < MAX_LIGHTMAPS; ++i )
-		lm.styles[ i ] = LS_NONE;
+	lm.styles = { LS_NORMAL, LS_NONE, LS_NONE, LS_NONE };
 
 	/* set supersampling size */
 	lm.sw = lm.w * superSample;
@@ -452,7 +450,7 @@ static void FinishRawLightmap( rawLightmap_t& lm ){
  */
 
 static bool AddPatchToRawLightmap( int num, rawLightmap_t& lm ){
-	float sBasis, tBasis, s, t;
+	float sBasis, tBasis;
 	float length, widthTable[ MAX_EXPANDED_AXIS ] = {0}, heightTable[ MAX_EXPANDED_AXIS ] = {0};
 
 
@@ -464,7 +462,7 @@ static bool AddPatchToRawLightmap( int num, rawLightmap_t& lm ){
 	const surfaceInfo_t& info = surfaceInfos[ num ];
 
 	/* make a temporary mesh from the drawsurf */
-	mesh_t mesh = TessellatedMesh( mesh_t( ds.patchWidth, ds.patchHeight, &yDrawVerts[ ds.firstVert ] ), info.patchIterations );
+	const mesh_t mesh = TessellatedMesh( mesh_view_t( ds.patchWidth, ds.patchHeight, &yDrawVerts[ ds.firstVert ] ), info.patchIterations );
 
 	/* find the longest distance on each row/column */
 	for ( int y = 0; y < mesh.height; ++y )
@@ -473,15 +471,15 @@ static bool AddPatchToRawLightmap( int num, rawLightmap_t& lm ){
 		{
 			/* get width */
 			if ( x + 1 < mesh.width ) {
-				const bspDrawVert_t& a = mesh.verts[ ( y * mesh.width ) + x ];
-				const bspDrawVert_t& b = mesh.verts[ ( y * mesh.width ) + x + 1 ];
+				const bspDrawVert_t& a = mesh[ y ][ x ];
+				const bspDrawVert_t& b = mesh[ y ][ x + 1 ];
 				value_maximize( widthTable[ x ], (float)vector3_length( a.xyz - b.xyz ) );
 			}
 
 			/* get height */
 			if ( y + 1 < mesh.height ) {
-				const bspDrawVert_t& a = mesh.verts[ ( y * mesh.width ) + x ];
-				const bspDrawVert_t& b = mesh.verts[ ( ( y + 1 ) * mesh.width ) + x ];
+				const bspDrawVert_t& a = mesh[ y ][ x ];
+				const bspDrawVert_t& b = mesh[ y + 1 ][ x ];
 				value_maximize( heightTable[ y ], (float)vector3_length( a.xyz - b.xyz ) );
 			}
 		}
@@ -505,19 +503,16 @@ static bool AddPatchToRawLightmap( int num, rawLightmap_t& lm ){
 	value_minimize( lm.h, lm.customHeight );
 	tBasis = (float) ( lm.h - 1 ) / ( ds.patchHeight - 1 );
 
-	/* free the temporary mesh */
-	mesh.freeVerts();
-
 	/* set the lightmap texture coordinates in yDrawVerts */
 	lm.wrap[ 0 ] = true;
 	lm.wrap[ 1 ] = true;
 	bspDrawVert_t *verts = &yDrawVerts[ ds.firstVert ];
 	for ( int y = 0; y < ds.patchHeight; ++y )
 	{
-		t = ( tBasis * y ) + 0.5f;
+		const float t = ( tBasis * y ) + 0.5f;
 		for ( int x = 0; x < ds.patchWidth; ++x )
 		{
-			s = ( sBasis * x ) + 0.5f;
+			const float s = ( sBasis * x ) + 0.5f;
 			verts[ ( y * ds.patchWidth ) + x ].lightmap[ 0 ][ 0 ] = s * superSample;
 			verts[ ( y * ds.patchWidth ) + x ].lightmap[ 0 ][ 1 ] = t * superSample;
 
@@ -555,8 +550,8 @@ static bool AddPatchToRawLightmap( int num, rawLightmap_t& lm ){
 
 static bool AddSurfaceToRawLightmap( int num, rawLightmap_t& lm ){
 	int axisNum;
-	float s, t, len, sampleSize;
-	Vector3 mins, maxs, origin, faxis, size, delta, normalized, vecs[ 2 ];
+	float len, sampleSize;
+	Vector3 mins, maxs, origin, faxis, size, normalized, vecs[ 2 ];
 	Plane3f plane;
 	bspDrawVert_t       *verts;
 
@@ -736,9 +731,9 @@ static bool AddSurfaceToRawLightmap( int num, rawLightmap_t& lm ){
 		/* set the lightmap texture coordinates in yDrawVerts in [0, superSample * lm.customWidth] space */
 		for ( int i = 0; i < ds2.numVerts; ++i )
 		{
-			delta = verts[ i ].xyz - origin;
-			s = vector3_dot( delta, vecs[ 0 ] ) + 0.5f;
-			t = vector3_dot( delta, vecs[ 1 ] ) + 0.5f;
+			const Vector3 delta = verts[ i ].xyz - origin;
+			const float s = vector3_dot( delta, vecs[ 0 ] ) + 0.5f;
+			const float t = vector3_dot( delta, vecs[ 1 ] ) + 0.5f;
 			verts[ i ].lightmap[ 0 ][ 0 ] = s * superSample;
 			verts[ i ].lightmap[ 0 ][ 1 ] = t * superSample;
 
@@ -1170,7 +1165,7 @@ void SetupSurfaceLightmaps(){
 
 void StitchSurfaceLightmaps(){
 	int i, j, x, y, x2, y2,
-	    numStitched, numCandidates, numLuxels, fOld;
+	    numStitched, numCandidates, numLuxels;
 	rawLightmap_t   *lm, *a, *b, *c[ MAX_STITCH_CANDIDATES ];
 	float           sampleSize, totalColor;
 
@@ -1182,7 +1177,7 @@ void StitchSurfaceLightmaps(){
 	Sys_Printf( "--- StitchSurfaceLightmaps ---\n" );
 
 	/* init pacifier */
-	fOld = -1;
+	Pacifier pacifier( numRawLightmaps );
 	Timer timer;
 
 	/* walk the list of raw lightmaps */
@@ -1190,10 +1185,7 @@ void StitchSurfaceLightmaps(){
 	for ( i = 0; i < numRawLightmaps; ++i )
 	{
 		/* print pacifier */
-		if ( const int f = 10 * i / numRawLightmaps; f != fOld ) {
-			fOld = f;
-			Sys_Printf( "%i...", f );
-		}
+		++pacifier;
 
 		/* get lightmap a */
 		a = &rawLightmaps[ i ];
@@ -1663,7 +1655,7 @@ static bool ApproximateLightmap( rawLightmap_t *lm ){
 		case MST_PATCH:
 		{
 			/* make a mesh from the drawsurf */
-			mesh_t mesh = TessellatedMesh( mesh_t( ds.patchWidth, ds.patchHeight, &yDrawVerts[ ds.firstVert ] ), info.patchIterations );
+			const mesh_t mesh = TessellatedMesh( mesh_view_t( ds.patchWidth, ds.patchHeight, &yDrawVerts[ ds.firstVert ] ), info.patchIterations );
 
 			/* map the mesh quads */
 			info.approximated = true;
@@ -1675,9 +1667,6 @@ static bool ApproximateLightmap( rawLightmap_t *lm ){
 					}
 				}
 			}
-
-			/* free the mesh */
-			mesh.freeVerts();
 			break;
 		}
 		default:
@@ -1765,7 +1754,7 @@ static void SetupOutLightmap( rawLightmap_t *lm, outLightmap_t *olm ){
 		}
 	}
 	else{
-		olm->lightmapNum = -3;
+		olm->lightmapNum = LIGHTMAP_BY_VERTEX;
 	}
 
 	/* set external lightmap number */
@@ -1802,9 +1791,8 @@ static void FindOutLightmaps( rawLightmap_t *lm, bool fastAllocate ){
 	int xIncrement, yIncrement;
 
 
-	/* set default lightmap number (-3 = LIGHTMAP_BY_VERTEX) */
-	for ( lightmapNum = 0; lightmapNum < MAX_LIGHTMAPS; ++lightmapNum )
-		lm->outLightmapNums[ lightmapNum ] = -3;
+	/* set default lightmap number */
+	lm->outLightmapNums.fill( LIGHTMAP_BY_VERTEX );
 
 	/* can this lightmap be approximated with vertex color? */
 	if ( ApproximateLightmap( lm ) ) {
@@ -2267,14 +2255,12 @@ static void FillOutLightmap( outLightmap_t *olm ){
 
 void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 	int i, j, k, x, y, lx, ly, sx, sy, mappedSamples;
-	int style, lightmapNum, lightmapNum2;
+	int lightmapNum, lightmapNum2;
 	float               samples, occludedSamples;
 	Vector3 sample, occludedSample, dirSample;
 	byte                *lb;
 	int numUsed, numTwins, numTwinLuxels, numStored;
 	float lmx, lmy, efficiency;
-	bspDrawSurface_t    *ds, *parent, dsTemp;
-	surfaceInfo_t       *info;
 	rawLightmap_t       *lm, *lm2;
 	outLightmap_t       *olm;
 	bspDrawVert_t       *dv, *ydv, *dvParent;
@@ -2753,12 +2739,9 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 		/* set all twin refs to null */
 		for ( i = 0; i < numRawLightmaps; ++i )
 		{
-			for ( lightmapNum = 0; lightmapNum < MAX_LIGHTMAPS; ++lightmapNum )
-			{
-				rawLightmaps[ i ].twins[ lightmapNum ] = nullptr;
-				rawLightmaps[ i ].twinNums[ lightmapNum ] = -1;
-				rawLightmaps[ i ].numStyledTwins = 0;
-			}
+			rawLightmaps[ i ].twins.fill( nullptr );
+			rawLightmaps[ i ].twinNums.fill( -1 );
+			rawLightmaps[ i ].numStyledTwins = 0;
 		}
 
 		/* walk the list of raw lightmaps */
@@ -3009,33 +2992,32 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 		for ( size_t i = 0; i < bspDrawSurfaces.size(); ++i )
 		{
 			/* get the surface and info */
-			ds = &bspDrawSurfaces[ i ];
-			info = &surfaceInfos[ i ];
-			lm = info->lm;
+			bspDrawSurface_t& ds = bspDrawSurfaces[ i ];
+			const surfaceInfo_t& info = surfaceInfos[ i ];
+			lm = info.lm;
 			olm = nullptr;
 
 			/* handle surfaces with identical parent */
-			if ( info->parentSurfaceNum >= 0 ) {
+			if ( info.parentSurfaceNum >= 0 ) {
 				/* preserve original data and get parent */
-				parent = &bspDrawSurfaces[ info->parentSurfaceNum ];
-				memcpy( &dsTemp, ds, sizeof( *ds ) );
-
+				const bspDrawSurface_t dsTemp( ds );
+				const bspDrawSurface_t& parent = bspDrawSurfaces[ info.parentSurfaceNum ];
 				/* overwrite child with parent data */
-				memcpy( ds, parent, sizeof( *ds ) );
+				ds = parent;
 
 				/* restore key parts */
-				ds->fogNum = dsTemp.fogNum;
-				ds->firstVert = dsTemp.firstVert;
-				ds->firstIndex = dsTemp.firstIndex;
-				memcpy( ds->lightmapVecs, dsTemp.lightmapVecs, sizeof( dsTemp.lightmapVecs ) );
+				ds.fogNum = dsTemp.fogNum;
+				ds.firstVert = dsTemp.firstVert;
+				ds.firstIndex = dsTemp.firstIndex;
+				ds.lightmapVecs = dsTemp.lightmapVecs;
 
 				/* set vertex data */
-				dv = &bspDrawVerts[ ds->firstVert ];
-				dvParent = &bspDrawVerts[ parent->firstVert ];
-				for ( j = 0; j < ds->numVerts; ++j )
+				dv = &bspDrawVerts[ ds.firstVert ];
+				dvParent = &bspDrawVerts[ parent.firstVert ];
+				for ( j = 0; j < ds.numVerts; ++j )
 				{
-					memcpy( dv[ j ].lightmap, dvParent[ j ].lightmap, sizeof( dv[ j ].lightmap ) );
-					memcpy( dv[ j ].color, dvParent[ j ].color, sizeof( dv[ j ].color ) );
+					dv[ j ].lightmap = dvParent[ j ].lightmap;
+					dv[ j ].color = dvParent[ j ].color;
 				}
 
 				/* skip the rest */
@@ -3044,11 +3026,8 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 
 			/* handle vertex lit or approximated surfaces */
 			else if ( lm == nullptr || lm->outLightmapNums[ 0 ] < 0 ) {
-				for ( lightmapNum = 0; lightmapNum < MAX_LIGHTMAPS; ++lightmapNum )
-				{
-					ds->lightmapNum[ lightmapNum ] = -3;
-					ds->lightmapStyles[ lightmapNum ] = ds->vertexStyles[ lightmapNum ];
-				}
+				ds.lightmapStyles = ds.vertexStyles;
+				ds.lightmapNum.fill( LIGHTMAP_BY_VERTEX );
 			}
 
 			/* handle lightmapped surfaces */
@@ -3058,11 +3037,11 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 				for ( lightmapNum = 0; lightmapNum < MAX_LIGHTMAPS; ++lightmapNum )
 				{
 					/* set style */
-					ds->lightmapStyles[ lightmapNum ] = lm->styles[ lightmapNum ];
+					ds.lightmapStyles[ lightmapNum ] = lm->styles[ lightmapNum ];
 
 					/* handle unused style */
 					if ( lm->styles[ lightmapNum ] == LS_NONE || lm->outLightmapNums[ lightmapNum ] < 0 ) {
-						ds->lightmapNum[ lightmapNum ] = -3;
+						ds.lightmapNum[ lightmapNum ] = LIGHTMAP_BY_VERTEX;
 						continue;
 					}
 
@@ -3070,11 +3049,11 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 					olm = &outLightmaps[ lm->outLightmapNums[ lightmapNum ] ];
 
 					/* set bsp lightmap number */
-					ds->lightmapNum[ lightmapNum ] = olm->lightmapNum;
+					ds.lightmapNum[ lightmapNum ] = olm->lightmapNum;
 
 					/* deluxemap debugging makes the deluxemap visible */
 					if ( deluxemap && debugDeluxemap && lightmapNum == 0 ) {
-						ds->lightmapNum[ lightmapNum ]++;
+						ds.lightmapNum[ lightmapNum ]++;
 					}
 
 					/* calc lightmap origin in texture space */
@@ -3082,9 +3061,9 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 					lmy = (float) lm->lightmapY[ lightmapNum ] / olm->customHeight;
 
 					/* calc lightmap st coords */
-					dv = &bspDrawVerts[ ds->firstVert ];
-					ydv = &yDrawVerts[ ds->firstVert ];
-					for ( j = 0; j < ds->numVerts; ++j )
+					dv = &bspDrawVerts[ ds.firstVert ];
+					ydv = &yDrawVerts[ ds.firstVert ];
+					for ( j = 0; j < ds.numVerts; ++j )
 					{
 						if ( lm->solid[ lightmapNum ] ) {
 							dv[ j ].lightmap[ lightmapNum ][ 0 ] = lmx + ( 0.5f / olm->customWidth );
@@ -3100,21 +3079,21 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 			}
 
 			/* store vertex colors */
-			dv = &bspDrawVerts[ ds->firstVert ];
-			for ( j = 0; j < ds->numVerts; ++j )
+			dv = &bspDrawVerts[ ds.firstVert ];
+			for ( j = 0; j < ds.numVerts; ++j )
 			{
 				/* walk lightmaps */
 				for ( lightmapNum = 0; lightmapNum < MAX_LIGHTMAPS; ++lightmapNum )
 				{
 					Vector3 color;
 					/* handle unused style */
-					if ( ds->vertexStyles[ lightmapNum ] == LS_NONE ) {
+					if ( ds.vertexStyles[ lightmapNum ] == LS_NONE ) {
 						color.set( 0 );
 					}
 					else
 					{
 						/* get vertex color */
-						color = getVertexLuxel( lightmapNum, ds->firstVert + j );
+						color = getVertexLuxel( lightmapNum, ds.firstVert + j );
 
 						/* set minimum light */
 						if ( lightmapNum == 0 ) {
@@ -3124,29 +3103,29 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 					}
 
 					/* store to bytes */
-					if ( !info->si->noVertexLight ) {
-						dv[ j ].color[ lightmapNum ].rgb() = ColorToBytes( color, info->si->vertexScale );
+					if ( !info.si->noVertexLight ) {
+						dv[ j ].color[ lightmapNum ].rgb() = ColorToBytes( color, info.si->vertexScale );
 					}
 				}
 			}
 
 			/* surfaces with styled lightmaps and a style marker get a custom generated shader (fixme: make this work with external lightmaps) */
-			if ( olm != nullptr && lm != nullptr && lm->styles[ 1 ] != LS_NONE && g_game->load != LoadRBSPFile ) { //%	info->si->styleMarker > 0 )
+			if ( olm != nullptr && lm != nullptr && lm->styles[ 1 ] != LS_NONE && g_game->load != LoadRBSPFile ) { //%	info.si->styleMarker > 0 )
 				char key[ 32 ], styleStage[ 512 ], styleStages[ 4096 ], rgbGen[ 128 ], alphaGen[ 128 ];
 
 
 				/* setup */
 				sprintf( styleStages, "\n\t// Q3Map2 custom lightstyle stage(s)\n" );
-				dv = &bspDrawVerts[ ds->firstVert ];
+				dv = &bspDrawVerts[ ds.firstVert ];
 
 				/* depthFunc equal? */
-				const bool dfEqual = ( info->si->styleMarker == 2 || info->si->implicitMap == EImplicitMap::Masked );
+				const bool dfEqual = ( info.si->styleMarker == 2 || info.si->implicitMap == EImplicitMap::Masked );
 
 				/* generate stages for styled lightmaps */
 				for ( lightmapNum = 1; lightmapNum < MAX_LIGHTMAPS; ++lightmapNum )
 				{
 					/* early out */
-					style = lm->styles[ lightmapNum ];
+					const int style = lm->styles[ lightmapNum ];
 					if ( style == LS_NONE || lm->outLightmapNums[ lightmapNum ] < 0 ) {
 						continue;
 					}
@@ -3231,16 +3210,16 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 				}
 
 				/* create custom shader */
-				const shaderInfo_t& csi = CustomShader( info->si, info->si->styleMarker == 2? "q3map_styleMarker2" : "q3map_styleMarker", styleStages );
+				const shaderInfo_t& csi = CustomShader( info.si, info.si->styleMarker == 2? "q3map_styleMarker2" : "q3map_styleMarker", styleStages );
 
 				/* emit remap command */
-				//%	EmitVertexRemapShader( csi.shader, info->si->shader );
+				//%	EmitVertexRemapShader( csi.shader, info.si->shader );
 
 				/* store it */
 				//%	Sys_Printf( "Emitting: %s (%d", csi.shader, strlen( csi.shader ) );
-				const int cont = bspShaders[ ds->shaderNum ].contentFlags;
-				const int surf = bspShaders[ ds->shaderNum ].surfaceFlags;
-				ds->shaderNum = EmitShader( csi.shader, &cont, &surf );
+				const int cont = bspShaders[ ds.shaderNum ].contentFlags;
+				const int surf = bspShaders[ ds.shaderNum ].surfaceFlags;
+				ds.shaderNum = EmitShader( csi.shader, &cont, &surf );
 				//%	Sys_Printf( ")\n" );
 			}
 
@@ -3254,21 +3233,21 @@ void StoreSurfaceLightmaps( bool fastAllocate, bool storeForReal ){
 				sprintf( lightmapName, "maps/%s/" EXTERNAL_LIGHTMAP "\n\t\ttcgen lightmap", mapName.c_str(), olm->extLightmapNum );
 
 				/* create custom shader */
-				const shaderInfo_t& csi = CustomShader( info->si, "$lightmap", lightmapName );
+				const shaderInfo_t& csi = CustomShader( info.si, "$lightmap", lightmapName );
 
 				/* store it */
 				//%	Sys_Printf( "Emitting: %s (%d", csi.shader, strlen( csi.shader ) );
-				const int cont = bspShaders[ ds->shaderNum ].contentFlags;
-				const int surf = bspShaders[ ds->shaderNum ].surfaceFlags;
-				ds->shaderNum = EmitShader( csi.shader, &cont, &surf );
+				const int cont = bspShaders[ ds.shaderNum ].contentFlags;
+				const int surf = bspShaders[ ds.shaderNum ].surfaceFlags;
+				ds.shaderNum = EmitShader( csi.shader, &cont, &surf );
 				//%	Sys_Printf( ")\n" );
 			}
 
 			/* use the normal plain-jane shader */
 			else{
-				const int cont = bspShaders[ ds->shaderNum ].contentFlags;
-				const int surf = bspShaders[ ds->shaderNum ].surfaceFlags;
-				ds->shaderNum = EmitShader( info->si->shader, &cont, &surf );
+				const int cont = bspShaders[ ds.shaderNum ].contentFlags;
+				const int surf = bspShaders[ ds.shaderNum ].surfaceFlags;
+				ds.shaderNum = EmitShader( info.si->shader, &cont, &surf );
 			}
 		}
 

@@ -37,9 +37,17 @@ struct radVert_t
 {
 	Vector3 xyz;
 	Vector2 st;
-	Vector2 lightmap[ MAX_LIGHTMAPS ];
+	Array4<Vector2> lightmap;
 	Vector3 normal;
-	Color4f color[ MAX_LIGHTMAPS ];
+	Array4<Color4f> color;
+
+	radVert_t() = default;
+	radVert_t( const bspDrawVert_t& dv )
+	:	xyz( dv.xyz ),
+		st( dv.st ),
+		lightmap( dv.lightmap ),
+		normal( dv.normal )
+	{}
 };
 
 
@@ -64,7 +72,6 @@ static void RadClipWindingEpsilon( const radWinding_t& in, const Vector3& normal
 	float dists[ MAX_POINTS_ON_WINDING + 4 ];
 	EPlaneSide sides[ MAX_POINTS_ON_WINDING + 4 ];
 	int counts[ 3 ] = { 0 };
-	float dot;                  /* ydnar: changed from static b/c of threading */ /* VC 4.2 optimizer bug if not static? */
 
 
 	/* determine sides for each point */
@@ -128,7 +135,7 @@ static void RadClipWindingEpsilon( const radWinding_t& in, const Vector3& normal
 		/* generate a split vertex */
 		const radVert_t& v2 = in.verts[ ( i + 1 ) % in.numVerts ];
 
-		dot = dists[ i ] / ( dists[ i ] - dists[ i + 1 ] );
+		const float dot = dists[ i ] / ( dists[ i ] - dists[ i + 1 ] );
 
 		/* average vertex values */
 		radVert_t mid;
@@ -285,8 +292,8 @@ static void RadSample( int lightmapNum, const bspDrawSurface_t& ds, const rawLig
 						blend *= 1.0 / ( blend[ 0 ] + blend[ 1 ] + blend[ 2 ] );
 
 						/* create a blended sample */
-						Vector2 st( 0, 0 );
-						Vector2 lightmap( 0, 0 );
+						Vector2 st( 0 );
+						Vector2 lightmap( 0 );
 						alphaI = 0;
 						for ( l = 0; l < 3; ++l )
 						{
@@ -550,8 +557,8 @@ static void RadSubdivideDiffuseLight( int lightmapNum, const bspDrawSurface_t& d
 
 			/* create a regular winding */
 			splash.w = AllocWinding( rw.numVerts );
-			for ( int i = 0; i < rw.numVerts; ++i )
-				splash.w.push_back( rw.verts[rw.numVerts - 1 - i].xyz + normal * si.backsplashDistance );
+			for ( int i = rw.numVerts; i-- != 0; )
+				splash.w.push_back( rw.verts[i].xyz + normal * si.backsplashDistance );
 
 			splash.origin = normal * si.backsplashDistance + light.origin;
 			splash.normal = -normal;
@@ -617,7 +624,7 @@ void RadLightForTriangles( int num, int lightmapNum, const rawLightmap_t *lm, co
 			const int v = ds.firstVert + bspDrawIndexes[ ds.firstIndex + i + j ];
 
 			/* get most everything */
-			memcpy( &rw.verts[ j ], &yDrawVerts[ v ], sizeof( bspDrawVert_t ) );
+			rw.verts[ j ] = yDrawVerts[ v ];
 
 			/* fix colors */
 			for ( int k = 0; k < MAX_LIGHTMAPS; ++k )
@@ -647,20 +654,19 @@ void RadLightForPatch( int num, int lightmapNum, const rawLightmap_t *lm, const 
 	const surfaceInfo_t& info = surfaceInfos[ num ];
 
 	/* construct a bogus vert list with color index stuffed into color[ 0 ] */
-	bspDrawVert_t *bogus = safe_malloc( ds.numVerts * sizeof( bspDrawVert_t ) );
-	memcpy( bogus, &yDrawVerts[ ds.firstVert ], ds.numVerts * sizeof( bspDrawVert_t ) );
+	mesh_t bogus( ds.patchWidth, ds.patchHeight );
+	std::copy_n( &yDrawVerts[ ds.firstVert ], ds.numVerts, bogus.verts() );
 	for ( int i = 0; i < ds.numVerts; ++i )
-		bogus[ i ].color[ 0 ][ 0 ] = i;
+		bogus.verts()[ i ].color[ 0 ][ 0 ] = i;
 
 	/* build a subdivided mesh identical to shadow facets for this patch */
 	/* this MUST MATCH FacetsForPatch() identically! */
-	mesh_t mesh = TessellatedMesh( mesh_t( ds.patchWidth, ds.patchHeight, bogus ), info.patchIterations );
-	free( bogus );
+	mesh_t mesh = TessellatedMesh( bogus, info.patchIterations );
 
 	/* FIXME: build interpolation table into color[ 1 ] */
 
 	/* fix up color indexes */
-	for ( bspDrawVert_t& vert : Span( mesh.verts, mesh.numVerts() ) )
+	for ( bspDrawVert_t& vert : mesh )
 	{
 		if ( vert.color[ 0 ][ 0 ] >= ds.numVerts ) {
 			vert.color[ 0 ][ 0 ] = ds.numVerts - 1;
@@ -674,7 +680,7 @@ void RadLightForPatch( int num, int lightmapNum, const rawLightmap_t *lm, const 
 		/* planar? */
 		Plane3f plane;
 		const bool planar = PlaneFromPoints( plane, quad[ 0 ]->xyz, quad[ 1 ]->xyz, quad[ 2 ]->xyz )
-		                    && std::fabs( plane3_distance_to_point( plane, quad[ 1 ]->xyz ) ) < PLANAR_EPSILON;
+		                    && std::fabs( plane3_distance_to_point( plane, quad[ 3 ]->xyz ) ) < PLANAR_EPSILON;
 		/* generate a quad */
 		if ( planar ) {
 			radWinding_t rw;
@@ -682,7 +688,7 @@ void RadLightForPatch( int num, int lightmapNum, const rawLightmap_t *lm, const 
 			for ( int v = 0; v < 4; ++v )
 			{
 				/* get most everything */
-				memcpy( &rw.verts[ v ], quad[ v ], sizeof( bspDrawVert_t ) );
+				rw.verts[ v ] = *quad[ v ];
 
 				/* fix colors */
 				for ( int i = 0; i < MAX_LIGHTMAPS; ++i )
@@ -706,7 +712,7 @@ void RadLightForPatch( int num, int lightmapNum, const rawLightmap_t *lm, const 
 				for ( int v = 0; v < 3; ++v )
 				{
 					/* get most everything */
-					memcpy( &rw.verts[ v ], tri[ v ], sizeof( bspDrawVert_t ) );
+					rw.verts[ v ] = *tri[ v ];
 
 					/* fix colors */
 					for ( int i = 0; i < MAX_LIGHTMAPS; ++i )
@@ -721,9 +727,6 @@ void RadLightForPatch( int num, int lightmapNum, const rawLightmap_t *lm, const 
 			}
 		}
 	}
-
-	/* free the mesh */
-	mesh.freeVerts();
 }
 
 
