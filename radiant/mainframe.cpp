@@ -670,7 +670,6 @@ void Restart(){
 
 
 void OpenUpdateURL(){
-	Sys_Print(SYS_WRN, "OpenUpdateURL(): Not implemented\n");
 	// OpenURL( "https://github.com/Garux/netradiant-custom/releases/latest" );
 #if 0
 	// build the URL
@@ -696,7 +695,6 @@ void OpenHelpURL(){
 }
 
 void OpenBugReportURL(){
-	Sys_Print(SYS_WRN, "OpenBugReportURL(): Not implemented\n");
 	// OpenURL( "http://www.icculus.org/netradiant/?cmd=bugs" );
 	// OpenURL( "https://github.com/Garux/netradiant-custom/issues" );
 }
