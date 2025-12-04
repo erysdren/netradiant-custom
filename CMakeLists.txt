@@ -432,6 +432,14 @@ add_module(imageq2
 		${PROJECT_SOURCE_DIR}/plugins/imageq2/wal.cpp
 )
 
+add_module(imagevtf
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/imagevtf/imagevtf.cpp
+		${PROJECT_SOURCE_DIR}/plugins/imagevtf/vtf.cpp
+)
+target_link_libraries(imagevtf PRIVATE sourcepp::vtfpp)
+set_target_properties(sourcepp_vtfpp sourcepp_compression PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 add_module(mapq3
 	SOURCES
 		${PROJECT_SOURCE_DIR}/plugins/mapq3/parse.cpp
