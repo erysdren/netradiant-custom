@@ -465,6 +465,12 @@ add_module(mapxml
 )
 target_link_libraries(mapxml PRIVATE LibXml2::LibXml2)
 
+add_module(mapvmf
+	SOURCES
+		${PROJECT_SOURCE_DIR}/plugins/mapvmf/plugin.cpp
+)
+target_link_libraries(mapvmf PRIVATE sourcepp::kvpp)
+
 add_module(shaders
 	SOURCES
 		${PROJECT_SOURCE_DIR}/plugins/shaders/plugin.cpp

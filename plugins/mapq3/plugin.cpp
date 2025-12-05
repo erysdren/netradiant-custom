@@ -504,7 +504,7 @@ typedef SingletonModule<MapQ2API, MapDependencies> MapQ2Module;
 MapQ2Module g_MapQ2Module;
 
 
-
+#if 0
 #define PARSE_ERROR "error parsing VMF"
 
 inline void parseToken( Tokeniser& tokeniser, const char* token ){
@@ -641,7 +641,7 @@ public:
 typedef SingletonModule<MapVMFAPI, MapDependencies> MapVMFModule;
 
 MapVMFModule g_MapVMFModule;
-
+#endif
 
 
 extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server ){
@@ -653,5 +653,7 @@ extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server 
 	g_MapQ1Module.selfRegister();
 	g_MapQ2Module.selfRegister();
 	g_MapHalfLifeModule.selfRegister();
+#if 0
 	g_MapVMFModule.selfRegister();
+#endif
 }

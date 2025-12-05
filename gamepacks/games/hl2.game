@@ -15,7 +15,7 @@
   texturetypes="vtf"
   modeltypes="mdl"
   soundtypes="wav"
-  maptypes="mapq3"
+  maptypes="mapvmf"
   shaders="source"
   entityclass="quake3"
   entityclasstype="xml"
