@@ -37,6 +37,8 @@
 
 #include "imap.h"
 
+#include <kvpp/kvpp.h>
+
 
 class MapDependencies :
 	public GlobalRadiantModuleRef,
