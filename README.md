@@ -1,23 +1,17 @@
-NetRadiant-custom
+SourceRadiant
 =================
 
-The open-source, cross-platform level editor for id Tech based games.
+The open-source, cross-platform level editor for Source Engine based games.
 
-NetRadiant-custom is a fork of NetRadiant (GtkRadiant 1.4&rarr;massive rewrite&rarr;1.5&rarr;NetRadiant&rarr;this)
+SourceRadiant is a fork of NetRadiant-custom (GtkRadiant 1.4&rarr;massive rewrite&rarr;1.5&rarr;NetRadiant&rarr;NetRadiant-custom&rarr;this)
 
 ---
-![screenshot](/../readme_files/radDarkShot.png?raw=true)
+![screenshot](.github/screenshot.png)
 ---
-
-## Downloads
-
-Ready-to-use packages are available in the [Releases section](/../../releases).
 
 ## Supported games
 
-Main focus is on Quake, Quake3 and Quake Live.
-
-Though other normally supported games should work too. Releases include configs for the following games: Alien Arena, Darkplaces, Doom 3, Doombringer, Wolfenstein: Enemy Territory, Heretic II, Half-Life, Jedi Knight Jedi Academy, Jedi Knight II: Jedi Outcast, Kingpin, Neverball, Nexuiz, Open Arena, Project::OSiRiON, Prey, Quake II, Q3Rally, Quake 4, Quetoo, Smokin' Guns, Soldier of Fortune II - Double Helix, Star Trek Voyager : Elite Force, Tremulous, Turtle Arena, UFO:Alien Invasion, Unreal Arena, Unvanquished, Urban Terror, Warfork, Warsow, Return To Castle Wolfenstein, World of Padman, Xonotic, ZEQ2 Lite.
+Main focus is on Half-Life 2.
 
 ## Features
 
@@ -76,35 +70,3 @@ Development is focused on smoothing and tweaking editing process.
 * New bbox styled manipulator, allowing any affine transform (move, rotate, scale, skew)
 * rendering of Q3 shader based skyboxes
 * Incredible number of fixes and options
-
-
-#### Q3Map2:
-
-* q3map_remapshader remaps anything fine, on all stages
-* Automatic map packager (complete Q3 support)
-* Report full / full pk3 path on file syntax errors
-* Allowed simultaneous samples+filter use, makes sense
-* -brightness 0..alot, def 1: mimics q3map_lightmapBrightness globally
-* -contrast -255..255, def 0: lighting contrast
-* -saturation light option
-* -bouncecolorratio 0..1 (ratio of colorizing light sample by texture)
-* -nolm - no lightmaps
-* -novertex works, (0..1) sets globally
-* -vertexscale
-* New area lights backsplash algorithm (utilizing area lights instead of point ones)
-* -backsplash (float)scale (float)distance: adjust area lights globally (real area lights have no backsplash)
-* New slightly less careful, but much faster lightmaps packing algorithm (allocating... process)
-* -extlmhacksize zero effort external lightmaps for Q3
-* Valve220 mapformat autodetection and support
-* Consistent brush content deduction with mixed face parameters
-* Model shaders paths deduction
-* Fixed model autoclip, added 20 new clipping modes
-* Support negative misc_model scale
-* Assimp model loading library (40+ formats)
-* -json bsp export/import
-* -mergebsp injects one bsp to another
-* No shaderlist.txt mode: load all shaders
-
-###### see changelog-custom.txt for more
-
-## [COMPILING](/COMPILING)
