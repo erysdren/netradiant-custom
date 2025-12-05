@@ -5,11 +5,16 @@ The open-source, cross-platform level editor for Source Engine based games.
 
 SourceRadiant is a fork of NetRadiant-custom (GtkRadiant 1.4&rarr;massive rewrite&rarr;1.5&rarr;NetRadiant&rarr;[NetRadiant-custom](https://github.com/Garux/netradiant-custom)&rarr;this)
 
-SourceRadiant makes heavy use of the [sourcepp](https://github.com/craftablescience/sourcepp) library.
-
 ---
 ![screenshot](.github/screenshot.png)
 ---
+
+## Credits
+
+- [sourcepp](https://github.com/craftablescience/sourcepp)
+- [NetRadiant-custom](https://github.com/Garux/netradiant-custom)
+- [MRVN-Radiant](https://github.com/MRVN-Radiant/MRVN-Radiant)
+- [GtkRadiant](https://icculus.org/gtkradiant/)
 
 ## Supported games
 
@@ -73,9 +78,12 @@ Development is focused on smoothing and tweaking editing process.
 * rendering of Q3 shader based skyboxes
 * Incredible number of fixes and options
 
-## COMPILING
+## Compiling
 
 ```bash
 cmake -Bbuild -S. -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
+
+A fully prepared copy of the editor will be placed under the `install`
+directory.
