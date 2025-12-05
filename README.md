@@ -73,4 +73,9 @@ Development is focused on smoothing and tweaking editing process.
 * rendering of Q3 shader based skyboxes
 * Incredible number of fixes and options
 
-## [COMPILING](COMPILING.md)
+## COMPILING
+
+```bash
+cmake -Bbuild -S. -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+```
