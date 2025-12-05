@@ -72,3 +72,5 @@ Development is focused on smoothing and tweaking editing process.
 * New bbox styled manipulator, allowing any affine transform (move, rotate, scale, skew)
 * rendering of Q3 shader based skyboxes
 * Incredible number of fixes and options
+
+## [COMPILING](COMPILING.md)
