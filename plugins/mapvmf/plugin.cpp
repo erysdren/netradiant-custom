@@ -27,6 +27,9 @@
 #include "ifiletypes.h"
 #include "ieclass.h"
 #include "qerplugin.h"
+#include "eclasslib.h"
+#include "ientity.h"
+#include "layers.h"
 
 #include "scenelib.h"
 #include "string/string.h"
@@ -39,6 +42,9 @@
 
 #include <kvpp/kvpp.h>
 
+#include <format>
+
+NodeSmartReference g_nullNode( NewNullNode() );
 
 class MapDependencies :
 	public GlobalRadiantModuleRef,
@@ -71,6 +77,80 @@ public:
 	}
 
 	void readGraph( scene::Node& root, TextInputStream& inputStream, EntityCreator& entityTable ) const override {
+		char buffer[2048];
+		size_t len = 0;
+		std::string kv1Data = "";
+
+		GlobalBrushCreator().toggleFormat(eBrushTypeValve220);
+
+		while ( ( len = inputStream.read(buffer, sizeof(buffer)) ) > 0 ) {
+			kv1Data.append(buffer, len);
+		}
+
+		kvpp::KV1 kv1(kv1Data);
+
+		for ( auto elem : kv1 ) {
+			auto key = elem.getKey();
+			if (string_equal_nocase(key.begin(), "versioninfo")) {
+				// FIXME
+			} else if (string_equal_nocase(key.begin(), "cameras")) {
+				// FIXME
+			} else if (string_equal_nocase(key.begin(), "cordon")) {
+				// FIXME
+			} else if (string_equal_nocase(key.begin(), "world") || string_equal_nocase(key.begin(), "entity")) {
+				bool hasSolids = false;
+				EntityClass* entityClass;
+				for ( auto e : elem ) {
+					if (string_equal_nocase(e.getKey().begin(), "solid")) {
+						hasSolids = true;
+						break;
+					}
+				}
+				for ( auto e : elem ) {
+					if (string_equal_nocase(e.getKey().begin(), "classname")) {
+						entityClass = GlobalEntityClassManager().findOrInsert( e.getValue().begin(), hasSolids );
+					}
+				}
+				scene::Node& entity( entityTable.createEntity( entityClass ) );
+				for ( auto e : elem ) {
+					if (string_equal_nocase(e.getKey().begin(), "id")) {
+						// FIXME
+					} else if (string_equal_nocase(e.getKey().begin(), "solid")) {
+						scene::Node& solid( GlobalBrushCreator().createBrush() );
+						for ( auto solidelem : e ) {
+							if (string_equal_nocase(solidelem.getKey().begin(), "side")) {
+								auto material = solidelem["material"];
+								auto plane = solidelem["plane"];
+								auto uaxis = solidelem["uaxis"];
+								auto vaxis = solidelem["vaxis"];
+								auto rotation = solidelem["rotation"];
+
+								std::string shader = std::format("materials/{}", material.getValue());
+
+								_QERFaceData faceData;
+								faceData.m_shader = shader.c_str();
+								faceData.m_texdef.rotate = std::stof(rotation.getValue().begin());
+
+								float dummy;
+								sscanf(plane.getValue().begin(), "(%lf %lf %lf) (%lf %lf %lf) (%lf %lf %lf)", &faceData.m_p0[0], &faceData.m_p0[1], &faceData.m_p0[2], &faceData.m_p1[0], &faceData.m_p1[1], &faceData.m_p1[2], &faceData.m_p2[0], &faceData.m_p2[1], &faceData.m_p2[2]);
+								sscanf(uaxis.getValue().begin(), "[%f %f %f %f] %f", &dummy, &dummy, &dummy, &dummy, &faceData.m_texdef.scale[0]);
+								sscanf(vaxis.getValue().begin(), "[%f %f %f %f] %f", &dummy, &dummy, &dummy, &dummy, &faceData.m_texdef.scale[1]);
+
+								GlobalBrushCreator().Brush_addFace(solid, faceData);
+							}
+						}
+						NodeSmartReference solidnode( solid );
+						Node_getTraversable( entity )->insert( solidnode );
+					} else if (string_equal_nocase(e.getKey().begin(), "editor")) {
+						// FIXME
+					} else {
+						Node_getEntity( entity )->setKeyValue( e.getKey().begin(), e.getValue().begin() );
+					}
+				}
+				NodeSmartReference node( entity );
+				Node_getTraversable( root )->insert( node );
+			}
+		}
 	}
 	void writeGraph( scene::Node& root, GraphTraversalFunc traverse, TextOutputStream& outputStream ) const override {
 	}
