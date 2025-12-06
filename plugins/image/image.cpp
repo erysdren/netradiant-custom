@@ -30,6 +30,8 @@
 #include "pcx.h"
 #include "dds.h"
 #include "ktx.h"
+#include "crn.h"
+#include "webp.h"
 
 
 #include "modulesystem/singletonmodule.h"
@@ -158,6 +160,46 @@ typedef SingletonModule<ImageKTXAPI, ImageDependencies> ImageKTXModule;
 ImageKTXModule g_ImageKTXModule;
 
 
+class ImageCRNAPI
+{
+	_QERPlugImageTable m_imagecrn;
+public:
+	typedef _QERPlugImageTable Type;
+	STRING_CONSTANT( Name, "crn" );
+
+	ImageCRNAPI(){
+		m_imagecrn.loadImage = LoadCRN;
+	}
+	_QERPlugImageTable* getTable(){
+		return &m_imagecrn;
+	}
+};
+
+typedef SingletonModule<ImageCRNAPI, ImageDependencies> ImageCRNModule;
+
+ImageCRNModule g_ImageCRNModule;
+
+
+class ImageWebpAPI
+{
+	_QERPlugImageTable m_imagewebp;
+public:
+	typedef _QERPlugImageTable Type;
+	STRING_CONSTANT( Name, "webp" );
+
+	ImageWebpAPI(){
+		m_imagewebp.loadImage = LoadWebp;
+	}
+	_QERPlugImageTable* getTable(){
+		return &m_imagewebp;
+	}
+};
+
+typedef SingletonModule<ImageWebpAPI, ImageDependencies> ImageWebpModule;
+
+ImageWebpModule g_ImageWebpModule;
+
+
 extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server ){
 	initialiseModule( server );
 
@@ -167,4 +209,6 @@ extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server 
 	g_ImagePCXModule.selfRegister();
 	g_ImageDDSModule.selfRegister();
 	g_ImageKTXModule.selfRegister();
+	g_ImageCRNModule.selfRegister();
+	g_ImageWebpModule.selfRegister();
 }

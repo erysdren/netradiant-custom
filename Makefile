@@ -90,11 +90,11 @@ ASSIMP_INTERNAL    ?= no
 CPPFLAGS_ASSIMP    ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) assimp --cflags $(STDERR_TO_DEVNULL))
 LIBS_ASSIMP        ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) assimp --libs-only-L --libs-only-l $(STDERR_TO_DEVNULL))
 ifneq ($(ASSIMP_INTERNAL),yes)
-CPPFLAGS_ASSIMP    := $(CPPFLAGS_ASSIMP)
+CPPFLAGS_ASSIMP    := $(CPPFLAGS_ASSIMP) -DASSIMP_INCLUDE\(x\)=\<x\>
 LIBS_ASSIMP        := $(LIBS_ASSIMP)
 else
-CPPFLAGS_ASSIMP    := -Ilibs/assimp/include
-LIBS_ASSIMP        := -lassimp_
+CPPFLAGS_ASSIMP    := -Ilibs/assimp/include -DASSIMP_INCLUDE\(x\)=\#x
+LIBS_ASSIMP        := -lassimp_ -L$(INSTALLDIR)
 endif
 CPPFLAGS_GL        ?=
 LIBS_GL            ?= -lGL # -lopengl32 on Win32
@@ -108,10 +108,11 @@ DEPEND_ON_MAKEFILE ?= yes
 # yes = download; all = even download undistributable gamepacks; no = disable; allinone = dl all-in-one compact fixed archive
 DOWNLOAD_GAMEPACKS ?= allinone
 INSTALL_DLLS       ?= yes
+INSTALL_DATA       ?= yes
 
-# Support CHECK_DEPENDENCIES with DOWNLOAD_GAMEPACKS semantics
-ifneq ($(CHECK_DEPENDENCIES),)
-DEPENDENCIES_CHECK = $(patsubst yes,quiet,$(patsubst no,off,$(CHECK_DEPENDENCIES)))
+# Support DEPENDENCIES_CHECK with DOWNLOAD_GAMEPACKS semantics
+ifneq ($(DEPENDENCIES_CHECK),)
+override DEPENDENCIES_CHECK := $(patsubst yes,quiet,$(patsubst no,off,$(DEPENDENCIES_CHECK)))
 else
 DEPENDENCIES_CHECK ?= quiet
 # or: off, verbose
@@ -138,11 +139,11 @@ CXXFLAGS_COMMON = -std=c++20 -Wreorder -fno-exceptions -fno-rtti
 
 ifeq ($(BUILD),debug)
 ifeq ($(findstring -g,$(CFLAGS)),)
-	CFLAGS_COMMON += -g
+	CFLAGS_COMMON += -ggdb
 	# only add -g if no -g flag is in $(CFLAGS)
 endif
 ifeq ($(findstring -O,$(CFLAGS)),)
-	CFLAGS_COMMON += -O
+	CFLAGS_COMMON += -Og
 	# only add -O if no -O flag is in $(CFLAGS)
 endif
 	CPPFLAGS_COMMON +=
@@ -151,7 +152,7 @@ else
 
 ifeq ($(BUILD),extradebug)
 ifeq ($(findstring -g,$(CFLAGS)),)
-	CFLAGS_COMMON += -g3
+	CFLAGS_COMMON += -ggdb3
 	# only add -g3 if no -g flag is in $(CFLAGS)
 endif
 	CPPFLAGS_COMMON += -D_DEBUG
@@ -160,7 +161,7 @@ else
 
 ifeq ($(BUILD),extradebug_quicker)
 ifeq ($(findstring -g,$(CFLAGS)),)
-	CFLAGS_COMMON += -g3
+	CFLAGS_COMMON += -ggdb3
 	# only add -g3 if no -g flag is in $(CFLAGS)
 endif
 	CPPFLAGS_COMMON += -D_DEBUG -D_DEBUG_QUICKER
@@ -542,7 +543,7 @@ ifeq ($(ASSIMP_INTERNAL),yes)
 $(INSTALLDIR)/q3map2.$(EXE): LDFLAGS_EXTRA += -Wl,-rpath '-Wl,$$ORIGIN'
 endif
 endif
-$(INSTALLDIR)/q3map2.$(EXE): LIBS_EXTRA := $(LIBS_XML) $(LIBS_GLIB) $(LIBS_PNG) $(LIBS_JPEG) $(LIBS_ZLIB) $(LIBS_ASSIMP) -L$(INSTALLDIR)
+$(INSTALLDIR)/q3map2.$(EXE): LIBS_EXTRA := $(LIBS_XML) $(LIBS_GLIB) $(LIBS_PNG) $(LIBS_JPEG) $(LIBS_ZLIB) $(LIBS_ASSIMP)
 $(INSTALLDIR)/q3map2.$(EXE): CPPFLAGS_EXTRA := $(CPPFLAGS_XML) $(CPPFLAGS_GLIB) $(CPPFLAGS_PNG) $(CPPFLAGS_JPEG) -Itools/quake3/common -Ilibs -Iinclude $(CPPFLAGS_ASSIMP)
 $(INSTALLDIR)/q3map2.$(EXE): \
 	tools/quake3/common/cmdlib.o \
@@ -601,10 +602,12 @@ $(INSTALLDIR)/q3map2.$(EXE): \
 	tools/quake3/q3map2/visflow.o \
 	tools/quake3/q3map2/vis.o \
 	tools/quake3/q3map2/writebsp.o \
+	libcrnlib.$(A) \
 	libddslib.$(A) \
 	libetclib.$(A) \
 	libfilematch.$(A) \
 	libl_net.$(A) \
+	libwebplib.$(A) \
 	$(if $(findstring Win32,$(OS)),icons/q3map2.o,) \
 	| $(if $(findstring yes,$(ASSIMP_INTERNAL)),$(INSTALLDIR)/libassimp_.$(DLL),) \
 
@@ -850,6 +853,10 @@ $(INSTALLDIR)/libassimp_.$(DLL): \
 	libs/assimp/contrib/Open3DGC/o3dgcTriangleFans.o \
 	libs/assimp/contrib/zip/src/zip.o \
 
+libcrnlib.$(A): CPPFLAGS_EXTRA := -Ilibs
+libcrnlib.$(A): \
+	libs/crnlib/crnlib.o \
+
 libddslib.$(A): CPPFLAGS_EXTRA := -Ilibs
 libddslib.$(A): \
 	libs/ddslib/ddslib.o \
@@ -857,6 +864,10 @@ libddslib.$(A): \
 libetclib.$(A): CPPFLAGS_EXTRA := -Ilibs
 libetclib.$(A): \
 	libs/etclib.o \
+
+libwebplib.$(A): CPPFLAGS_EXTRA := -Ilibs
+libwebplib.$(A): \
+	libs/webplib/webplib.o \
 
 $(INSTALLDIR)/radiant.$(EXE): LDFLAGS_EXTRA := $(MWINDOWS)
 $(INSTALLDIR)/radiant.$(EXE): LIBS_EXTRA := $(LIBS_GL) $(LIBS_DL) $(LIBS_XML) $(LIBS_GLIB) $(LIBS_QTWIDGETS) $(LIBS_QTSVG) $(LIBS_ZLIB)
@@ -1039,14 +1050,18 @@ $(INSTALLDIR)/modules/image.$(DLL): LIBS_EXTRA := $(LIBS_JPEG)
 $(INSTALLDIR)/modules/image.$(DLL): CPPFLAGS_EXTRA := $(CPPFLAGS_JPEG) -Ilibs -Iinclude
 $(INSTALLDIR)/modules/image.$(DLL): \
 	plugins/image/bmp.o \
+	plugins/image/crn.o \
 	plugins/image/dds.o \
 	plugins/image/image.o \
 	plugins/image/jpeg.o \
 	plugins/image/ktx.o \
 	plugins/image/pcx.o \
 	plugins/image/tga.o \
+	plugins/image/webp.o \
+	libcrnlib.$(A) \
 	libddslib.$(A) \
 	libetclib.$(A) \
+	libwebplib.$(A) \
 
 $(INSTALLDIR)/modules/imageq2.$(DLL): CPPFLAGS_EXTRA := -Ilibs -Iinclude
 $(INSTALLDIR)/modules/imageq2.$(DLL): \
@@ -1084,7 +1099,7 @@ ifeq ($(ASSIMP_INTERNAL),yes)
 $(INSTALLDIR)/modules/assmodel.$(DLL): LDFLAGS_EXTRA := -Wl,-rpath '-Wl,$$ORIGIN/..'
 endif
 endif
-$(INSTALLDIR)/modules/assmodel.$(DLL): LIBS_EXTRA := $(LIBS_ASSIMP) -L$(INSTALLDIR)
+$(INSTALLDIR)/modules/assmodel.$(DLL): LIBS_EXTRA := $(LIBS_ASSIMP)
 $(INSTALLDIR)/modules/assmodel.$(DLL): CPPFLAGS_EXTRA := -Ilibs -Iinclude $(CPPFLAGS_ASSIMP) $(CPPFLAGS_QTGUI)
 $(INSTALLDIR)/modules/assmodel.$(DLL): \
 	plugins/assmodel/mdlimage.o \
@@ -1359,6 +1374,7 @@ $(INSTALLDIR)/mbspc.$(EXE): \
 
 .PHONY: install-data
 install-data: binaries
+ifeq ($(INSTALL_DATA),yes)
 	$(MKDIR) $(INSTALLDIR)/gamepacks/games
 	$(FIND) $(INSTALLDIR_BASE)/ -name .svn -exec $(RM_R) {} \; -prune
 	DOWNLOAD_GAMEPACKS="$(DOWNLOAD_GAMEPACKS)" GIT="$(GIT)" SVN="$(SVN)" WGET="$(WGET)" RM_R="$(RM_R)" MV="$(MV)" UNZIPPER="$(UNZIPPER)" ECHO="$(ECHO)" SH="$(SH)" CP="$(CP)" CP_R="$(CP_R)" $(SH) install-gamepacks.sh "$(INSTALLDIR)/gamepacks"
@@ -1368,6 +1384,7 @@ install-data: binaries
 	$(MKDIR) $(INSTALLDIR)/docs
 	$(CP_R) docs/* $(INSTALLDIR)/docs/
 	$(FIND) $(INSTALLDIR_BASE)/ -name .svn -exec $(RM_R) {} \; -prune
+endif
 
 .PHONY: install-dll
 ifeq ($(OS),Win32)
