@@ -152,7 +152,54 @@ public:
 			}
 		}
 	}
+	class MapVMFWriteKeyValue : public Entity::Visitor
+	{
+		kvpp::KV1ElementWritable<std::string>& m_element;
+	public:
+		MapVMFWriteKeyValue( kvpp::KV1ElementWritable<std::string>& element ) : m_element( element ) {
+		}
+		void visit( const char* key, const char* value ) override {
+			m_element[key] = value;
+		}
+	};
+	class MapVMFWalker : public scene::Traversable::Walker
+	{
+		kvpp::KV1Writer<std::string>& m_writer;
+	public:
+		MapVMFWalker( kvpp::KV1Writer<std::string>& writer ) : m_writer( writer ) {
+		}
+		virtual bool pre( scene::Node& node ) const {
+			Entity* entity = Node_getEntity( node );
+			if ( entity ) {
+				if ( string_equal( entity->getClassName(), "worldspawn" ) ) {
+					MapVMFWriteKeyValue visitor( m_writer["world"] );
+					entity->forEachKeyValue( visitor );
+				} else {
+					MapVMFWriteKeyValue visitor( m_writer.addChild("entity") );
+					entity->forEachKeyValue( visitor );
+				}
+			}
+
+			return true;
+		}
+	};
 	void writeGraph( scene::Node& root, GraphTraversalFunc traverse, TextOutputStream& outputStream ) const override {
+		kvpp::KV1Writer writer;
+
+		// make up some shit
+		writer["versioninfo"]["editorextension"] = "sourceradiant"; // strata checks this
+		writer["versioninfo"]["editorversion"] = RADIANT_VERSION; // probably should be a single number
+		writer["versioninfo"]["editorbuild"] = 0; // not tracked in radiant
+		writer["versioninfo"]["mapversion"] = 0; // not tracked in radiant
+		writer["versioninfo"]["formatversion"] = 100; // not sure what this corresponds to
+		writer["versioninfo"]["prefab"] = 0; // TODO: make configurable
+
+		// traverse tree
+		traverse(root, MapVMFWalker( writer ));
+
+		// bake and write
+		auto baked = writer.bake();
+		outputStream.write(baked.c_str(), baked.length());
 	}
 };
 
