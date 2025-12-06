@@ -10,7 +10,7 @@ include(FetchContent)
 FetchContent_Declare(
 	sourcepp
 	GIT_REPOSITORY https://github.com/craftablescience/sourcepp.git
-	GIT_TAG v2025.11.05
+	GIT_TAG "v2025.12.4"
 	EXCLUDE_FROM_ALL
 )
 
