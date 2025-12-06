@@ -41,7 +41,6 @@ set(RADIANT_VERSION "1.6.0n" CACHE STRING "")
 set(RADIANT_MAJOR_VERSION "6" CACHE STRING "")
 set(RADIANT_MINOR_VERSION "0" CACHE STRING "")
 set(RADIANT_ABOUTMSG "Custom build" CACHE STRING "")
-set(Q3MAP_VERSION "2.5.17n" CACHE STRING "")
 
 # commandlib
 
@@ -167,7 +166,7 @@ target_include_directories(etclib PRIVATE
 
 # radiant
 
-add_executable(radiant
+add_executable(radiant WIN32
 	${PROJECT_SOURCE_DIR}/radiant/autosave.cpp
 	${PROJECT_SOURCE_DIR}/radiant/brushmanip.cpp
 	${PROJECT_SOURCE_DIR}/radiant/brushmodule.cpp
