@@ -24,6 +24,22 @@ Main focus is on Half-Life 2.
 
 Development is focused on smoothing and tweaking editing process.
 
+### Can Do
+
+- Load VMFs
+- Load VMTs
+- Load VTFs
+- Load VPKs
+
+### Can't Do (yet):
+
+- Save VMFs
+- Load brush texture coordinates
+- Load MDLs
+- Load FGDs
+- Displacements
+- Entity I/O
+
 #### Random feature highlights
 
 * WASD camera binds
