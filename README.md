@@ -9,6 +9,11 @@ SourceRadiant is a fork of NetRadiant-custom (GtkRadiant 1.4&rarr;massive rewrit
 ![screenshot](.github/screenshot.png)
 ---
 
+## Goals
+
+- Become a viable Source Engine level editor beyond the novelty of making levels outside of Windows
+- Stay in step with general editor changes from upstream [NetRadiant-custom](https://github.com/Garux/netradiant-custom)
+
 ## Credits
 
 - [sourcepp](https://github.com/craftablescience/sourcepp)
@@ -18,29 +23,40 @@ SourceRadiant is a fork of NetRadiant-custom (GtkRadiant 1.4&rarr;massive rewrit
 
 ## Supported games
 
-Main focus is on Half-Life 2.
+The main focus is on the Source Engine games of the Half-Life 2 era:
+
+- Half-Life 2 (2004)
+- Counter-Strike: Source (2004)
+- Half-Life 2: Episode One (2006)
+- Half-Life 2: Episode Two (2007)
+- Portal (2007)
+- Team Fortress 2 (2007)
+
+But if the [sourcepp](https://github.com/craftablescience/sourcepp) library can
+load the assets, then supporting a lot more Source Engine games is probably
+feasible.
 
 ## Features
 
-Development is focused on smoothing and tweaking editing process.
-
 ### Can Do
 
-- Load VMFs
-- Load VMTs
-- Load VTFs
-- Load VPKs
+- Load VMF maps
+- Load VMT materials
+- Load VTF textures
+- Load files from VPKs
 
 ### Can't Do (yet):
 
 - Save VMFs
 - Load brush texture coordinates
-- Load MDLs
+- Load MDL models
 - Load FGDs
 - Displacements
-- Entity I/O
+- Source Entity I/O
 
-#### Random feature highlights
+### Random feature highlights
+
+(Note that this feature list is copied entirely from [NetRadiant-custom](https://github.com/Garux/netradiant-custom))
 
 * WASD camera binds
 * Fully supported editing in 3D view (brush and entity creation, all manipulating tools)
@@ -97,7 +113,7 @@ Development is focused on smoothing and tweaking editing process.
 ## Compiling
 
 ```bash
-cmake -Bbuild -S. -DCMAKE_BUILD_TYPE=Debug
+cmake -Bbuild -S.
 cmake --build build
 ```
 
