@@ -92,11 +92,11 @@ public:
 		for ( auto elem : kv1 ) {
 			auto key = elem.getKey();
 			if (string_equal_nocase(key.begin(), "versioninfo")) {
-				// FIXME
+				// FIXME: do we care about any of this?
 			} else if (string_equal_nocase(key.begin(), "cameras")) {
-				// FIXME
+				// FIXME: do we care about any of this?
 			} else if (string_equal_nocase(key.begin(), "cordon")) {
-				// FIXME
+				// FIXME: do we care about any of this?
 			} else if (string_equal_nocase(key.begin(), "world") || string_equal_nocase(key.begin(), "entity")) {
 				bool hasSolids = false;
 				EntityClass* entityClass;
@@ -114,7 +114,7 @@ public:
 				scene::Node& entity( entityTable.createEntity( entityClass ) );
 				for ( auto e : elem ) {
 					if (string_equal_nocase(e.getKey().begin(), "id")) {
-						// FIXME
+						// FIXME: do we need to keep track of this?
 					} else if (string_equal_nocase(e.getKey().begin(), "solid")) {
 						scene::Node& solid( GlobalBrushCreator().createBrush() );
 						for ( auto solidelem : e ) {
@@ -142,7 +142,7 @@ public:
 						NodeSmartReference solidnode( solid );
 						Node_getTraversable( entity )->insert( solidnode );
 					} else if (string_equal_nocase(e.getKey().begin(), "editor")) {
-						// FIXME
+						// FIXME: do we care about any of this?
 					} else {
 						Node_getEntity( entity )->setKeyValue( e.getKey().begin(), e.getValue().begin() );
 					}
@@ -154,9 +154,11 @@ public:
 	}
 	class MapVMFWriteKeyValue : public Entity::Visitor
 	{
+		int64_t& m_childID;
 		kvpp::KV1ElementWritable<std::string>& m_element;
 	public:
-		MapVMFWriteKeyValue( kvpp::KV1ElementWritable<std::string>& element ) : m_element( element ) {
+		MapVMFWriteKeyValue( kvpp::KV1ElementWritable<std::string>& element, int64_t& childID ) : m_childID( childID ), m_element( element ) {
+			m_element["id"] = m_childID++;
 		}
 		void visit( const char* key, const char* value ) override {
 			m_element[key] = value;
@@ -164,20 +166,57 @@ public:
 	};
 	class MapVMFWalker : public scene::Traversable::Walker
 	{
+		mutable int64_t m_childID; // global element index, seems to be shared between entities and solids
+		mutable int64_t m_childIndex;
+		int64_t m_worldIndex;
 		kvpp::KV1Writer<std::string>& m_writer;
 	public:
-		MapVMFWalker( kvpp::KV1Writer<std::string>& writer ) : m_writer( writer ) {
+		MapVMFWalker( kvpp::KV1Writer<std::string>& writer, int64_t worldIndex ) : m_childID( 1 ), m_childIndex( worldIndex ), m_worldIndex( worldIndex ), m_writer( writer ) {
+		}
+		struct MapVMFWriteFaceEnv {
+			int64_t& childID;
+			kvpp::KV1ElementWritable<std::string>& solid;
+			MapVMFWriteFaceEnv(int64_t& childID, kvpp::KV1ElementWritable<std::string>& solid) : childID( childID ), solid( solid ) {
+			}
+		};
+		static void writeSide( int64_t& childID, kvpp::KV1ElementWritable<std::string>& side, const _QERFaceData& faceData ) {
+			side["id"] = childID++;
+			side["plane"] = std::format("({} {} {}) ({} {} {}) ({} {} {})", faceData.m_p0[0], faceData.m_p0[1], faceData.m_p0[2], faceData.m_p1[0], faceData.m_p1[1], faceData.m_p1[2], faceData.m_p2[0], faceData.m_p2[1], faceData.m_p2[2]);
+			std::string material(faceData.m_shader);
+			if ( material.rfind( "materials/", 0 ) == 0 ) {
+				side["material"] = faceData.m_shader + string_length("materials/");
+			} else {
+				side["material"] = faceData.m_shader;
+			}
+			side["uaxis"] = std::format("[{} {} {} {}] {}", 0, 0, 0, 0, faceData.m_texdef.scale[0]); // FIXME: convert from texdef_t
+			side["vaxis"] = std::format("[{} {} {} {}] {}", 0, 0, 0, 0, faceData.m_texdef.scale[1]); // FIXME: convert from texdef_t
+			side["rotation"] = faceData.m_texdef.rotate;
+			side["lightmapscale"] = 16; // FIXME: make configurable
+			side["smoothing_groups"] = 0; // FIXME: make configurable
+		}
+		static void writeFace( void *environment, const _QERFaceData& faceData ) {
+			MapVMFWriteFaceEnv *env = (MapVMFWriteFaceEnv *)environment;
+			writeSide(env->childID, env->solid.addChild("side"), faceData);
+		}
+		void writeSolid( scene::Node& node, kvpp::KV1ElementWritable<std::string>& solid ) const {
+			solid["id"] = m_childID++;
+			MapVMFWriteFaceEnv env(m_childID, solid);
+			GlobalBrushCreator().Brush_forEachFace( node, BrushFaceDataCallback(&env, writeFace) );
 		}
 		virtual bool pre( scene::Node& node ) const {
 			Entity* entity = Node_getEntity( node );
 			if ( entity ) {
 				if ( string_equal( entity->getClassName(), "worldspawn" ) ) {
-					MapVMFWriteKeyValue visitor( m_writer["world"] );
+					MapVMFWriteKeyValue visitor( m_writer["world"], m_childID );
 					entity->forEachKeyValue( visitor );
+					m_childIndex = m_worldIndex;
 				} else {
-					MapVMFWriteKeyValue visitor( m_writer.addChild("entity") );
+					MapVMFWriteKeyValue visitor( m_writer.addChild("entity"), m_childID );
 					entity->forEachKeyValue( visitor );
+					m_childIndex = m_writer.getChildCount() - 1;
 				}
+			} else if ( Node_isBrush( node ) ) {
+				writeSolid( node, m_writer[m_childIndex].addChild("solid") );
 			}
 
 			return true;
@@ -192,10 +231,14 @@ public:
 		writer["versioninfo"]["editorbuild"] = 0; // not tracked in radiant
 		writer["versioninfo"]["mapversion"] = 0; // not tracked in radiant
 		writer["versioninfo"]["formatversion"] = 100; // not sure what this corresponds to
-		writer["versioninfo"]["prefab"] = 0; // TODO: make configurable
+		writer["versioninfo"]["prefab"] = 0; // FIXME: make configurable
 
 		// traverse tree
-		traverse(root, MapVMFWalker( writer ));
+		traverse(root, MapVMFWalker( writer, writer.getChildCount() ));
+
+		// extra garbage
+		writer["cameras"]["activecamera"] = -1; // shrug
+		writer["cordons"]["active"] = 0;
 
 		// bake and write
 		auto baked = writer.bake();
