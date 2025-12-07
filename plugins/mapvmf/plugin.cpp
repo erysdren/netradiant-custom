@@ -30,6 +30,7 @@
 #include "eclasslib.h"
 #include "ientity.h"
 #include "layers.h"
+#include "script/scripttokeniser.h"
 
 #include "scenelib.h"
 #include "string/string.h"
@@ -43,6 +44,10 @@
 #include <kvpp/kvpp.h>
 
 #include <format>
+
+inline MapImporter* Node_getMapImporter( scene::Node& node ){
+	return NodeTypeCast<MapImporter>::cast( node );
+}
 
 inline MapExporter* Node_getMapExporter( scene::Node& node ){
 	return NodeTypeCast<MapExporter>::cast( node );
@@ -79,7 +84,23 @@ public:
 	MapFormat* getTable(){
 		return this;
 	}
-
+	class MapVMFTextInputStream : public TextInputStream
+	{
+		std::string m_string;
+		std::size_t m_pos;
+	public:
+		MapVMFTextInputStream( std::string& string ) : m_string( string ), m_pos( 0 ) {
+		}
+		virtual std::size_t read( char* buffer, std::size_t length ) {
+			for ( std::size_t i = 0; i < length; i++ ) {
+				if ( m_pos >= m_string.length() ) {
+					return i;
+				}
+				buffer[i] = m_string[m_pos++];
+			}
+			return length;
+		}
+	};
 	void readGraph( scene::Node& root, TextInputStream& inputStream, EntityCreator& entityTable ) const override {
 		char buffer[2048];
 		size_t len = 0;
@@ -123,24 +144,25 @@ public:
 						scene::Node& solid( GlobalBrushCreator().createBrush() );
 						for ( auto solidelem : e ) {
 							if (string_equal_nocase(solidelem.getKey().begin(), "side")) {
-								auto material = solidelem["material"];
-								auto plane = solidelem["plane"];
+
+								float uvaxis[2][4];
+								float scale[2];
 								auto uaxis = solidelem["uaxis"];
 								auto vaxis = solidelem["vaxis"];
-								auto rotation = solidelem["rotation"];
+								sscanf(uaxis.getValue().begin(), "[%f %f %f %f] %f", &uvaxis[0][0], &uvaxis[0][1], &uvaxis[0][2], &uvaxis[0][3], &scale[0]);
+								sscanf(vaxis.getValue().begin(), "[%f %f %f %f] %f", &uvaxis[1][0], &uvaxis[1][1], &uvaxis[1][2], &uvaxis[1][3], &scale[1]);
 
-								std::string shader = std::format("materials/{}", material.getValue());
+								std::string faceData = std::format("{} {} [{} {} {} {}] [{} {} {} {}] {} {} {}\n}}\n",
+									solidelem["plane"].getValue(), solidelem["material"].getValue(),
+									uvaxis[0][0], uvaxis[0][1], uvaxis[0][2], uvaxis[0][3],
+									uvaxis[1][0], uvaxis[1][1], uvaxis[1][2], uvaxis[1][3],
+									solidelem["rotation"].getValue(),
+									scale[0], scale[1]
+								);
 
-								_QERFaceData faceData;
-								faceData.m_shader = shader.c_str();
-								faceData.m_texdef.rotate = std::stof(rotation.getValue().begin());
-
-								float dummy;
-								sscanf(plane.getValue().begin(), "(%lf %lf %lf) (%lf %lf %lf) (%lf %lf %lf)", &faceData.m_p0[0], &faceData.m_p0[1], &faceData.m_p0[2], &faceData.m_p1[0], &faceData.m_p1[1], &faceData.m_p1[2], &faceData.m_p2[0], &faceData.m_p2[1], &faceData.m_p2[2]);
-								sscanf(uaxis.getValue().begin(), "[%f %f %f %f] %f", &dummy, &dummy, &dummy, &dummy, &faceData.m_texdef.scale[0]);
-								sscanf(vaxis.getValue().begin(), "[%f %f %f %f] %f", &dummy, &dummy, &dummy, &dummy, &faceData.m_texdef.scale[1]);
-
-								GlobalBrushCreator().Brush_addFace(solid, faceData);
+								MapImporter* importer = Node_getMapImporter( solid );
+								MapVMFTextInputStream istream( faceData );
+								importer->importTokens( NewScriptTokeniser( istream ) );
 							}
 						}
 						NodeSmartReference solidnode( solid );
