@@ -3,7 +3,7 @@ SourceRadiant
 
 The open-source, cross-platform level editor for Source Engine based games.
 
-SourceRadiant is a fork of NetRadiant-custom (GtkRadiant 1.4&rarr;massive rewrite&rarr;1.5&rarr;NetRadiant&rarr;[NetRadiant-custom](https://github.com/Garux/netradiant-custom)&rarr;this)
+SourceRadiant is a fork of NetRadiant-custom ([GtkRadiant](https://icculus.org/gtkradiant/) 1.4&rarr;massive rewrite&rarr;1.5&rarr;[NetRadiant](https://netradiant.gitlab.io/)&rarr;[NetRadiant-custom](https://github.com/Garux/netradiant-custom)&rarr;this)
 
 | ![testroom_standards.vmf](.github/testroom_standards.png) | ![d1_trainstation_02.vmf](.github/d1_trainstation_02.png) |
 |-----------------------------------------------------------|-----------------------------------------------------------|
@@ -21,6 +21,7 @@ SourceRadiant is a fork of NetRadiant-custom (GtkRadiant 1.4&rarr;massive rewrit
 - [NetRadiant-custom](https://github.com/Garux/netradiant-custom)
 - [MRVN-Radiant](https://github.com/MRVN-Radiant/MRVN-Radiant)
 - [GtkRadiant](https://icculus.org/gtkradiant/)
+- [FTEQW](https://github.com/fte-team/fteqw)
 
 ## Supported games
 
