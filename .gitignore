@@ -8,3 +8,4 @@
 /.clang*
 /compile_commands.json
 /build*/
+/untracked*/
