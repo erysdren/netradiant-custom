@@ -42,14 +42,13 @@ feasible.
 ### Can Do
 
 - Load VMF maps
+- Save VMF maps
 - Load VMT materials
 - Load VTF textures
 - Load files from VPKs
 
 ### Can't Do (yet):
 
-- Save VMFs
-- Load brush texture coordinates
 - Load MDL models
 - Load FGDs
 - Displacements
