@@ -47,11 +47,10 @@ feasible.
 - Load VMT materials
 - Load VTF textures
 - Load files from VPKs
+- Load MDL models
 
 ### Can't Do (yet):
 
-- Load MDLs
-	- Only requires hooking up the appropriate sourcepp library.
 - Load FGDs
 	- Mostly a convenience thing, to help end users know which keys are available for each entity.
 - Displacements
