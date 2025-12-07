@@ -31,302 +31,160 @@
 
 #include <mdlpp/mdlpp.h>
 
-#if 0
-// the maximum size of game relative pathnames
-#define MAX_QPATH       64
-
-/*
-   ========================================================================
-
-   .MD3 triangle model file format
-
-   ========================================================================
- */
-
-const unsigned char MD3_IDENT[4] = { 'I', 'D', 'P', '3', };
-#define MD3_VERSION         15
-
-// limits
-#define MD3_MAX_LODS        4
-#define MD3_MAX_TRIANGLES   8192    // per surface
-#define MD3_MAX_VERTS       4096    // per surface
-#define MD3_MAX_SHADERS     256     // per surface
-#define MD3_MAX_FRAMES      1024    // per model
-#define MD3_MAX_SURFACES    32      // per model
-#define MD3_MAX_TAGS        16      // per frame
-
-// vertex scales
-#define MD3_XYZ_SCALE       ( 1.f / 64 )
-
-typedef float float3[3];
-
-void istream_read_float3( PointerInputStream& inputStream, float3 f ){
-	f[0] = istream_read_float32_le( inputStream );
-	f[1] = istream_read_float32_le( inputStream );
-	f[2] = istream_read_float32_le( inputStream );
-}
-
-typedef struct md3Frame_s {
-	float3 bounds[2];
-	float3 localOrigin;
-	float radius;
-	char name[16];
-} md3Frame_t;
-
-void istream_read_md3Frame( PointerInputStream& inputStream, md3Frame_t& frame ){
-	istream_read_float3( inputStream, frame.bounds[0] );
-	istream_read_float3( inputStream, frame.bounds[1] );
-	istream_read_float3( inputStream, frame.localOrigin );
-	frame.radius = istream_read_float32_le( inputStream );
-	inputStream.read( reinterpret_cast<unsigned char*>( frame.name ), 16 );
-}
-
-typedef struct md3Tag_s {
-	char name[MAX_QPATH];           // tag name
-	float3 origin;
-	float3 axis[3];
-} md3Tag_t;
-
-void istream_read_md3Shader( PointerInputStream& inputStream, md3Tag_t& tag ){
-	inputStream.read( reinterpret_cast<unsigned char*>( tag.name ), MAX_QPATH );
-	istream_read_float3( inputStream, tag.origin );
-	istream_read_float3( inputStream, tag.axis[0] );
-	istream_read_float3( inputStream, tag.axis[1] );
-	istream_read_float3( inputStream, tag.axis[2] );
-}
-
-/*
-** md3Surface_t
-**
-** CHUNK			SIZE
-** header			sizeof( md3Surface_t )
-** shaders			sizeof( md3Shader_t ) * numShaders
-** triangles[0]		sizeof( md3Triangle_t ) * numTriangles
-** st				sizeof( md3St_t ) * numVerts
-** XyzNormals		sizeof( md3XyzNormal_t ) * numVerts * numFrames
-*/
-typedef struct {
-	char ident[4];              //
-
-	char name[MAX_QPATH]; // polyset name
-
-	int flags;
-	int numFrames; // all surfaces in a model should have the same
-
-	int numShaders; // all surfaces in a model should have the same
-	int numVerts;
-
-	int numTriangles;
-	int ofsTriangles;
-
-	int ofsShaders; // offset from start of md3Surface_t
-	int ofsSt; // texture coords are common for all frames
-	int ofsXyzNormals; // numVerts * numFrames
-
-	int ofsEnd; // next surface follows
-} md3Surface_t;
-
-void istream_read_md3Surface( PointerInputStream& inputStream, md3Surface_t& surface ){
-	inputStream.read( reinterpret_cast<unsigned char*>( surface.ident ), 4 );
-	inputStream.read( reinterpret_cast<unsigned char*>( surface.name ), MAX_QPATH );
-	surface.flags = istream_read_int32_le( inputStream );
-	surface.numFrames = istream_read_int32_le( inputStream );
-	surface.numShaders = istream_read_int32_le( inputStream );
-	surface.numVerts = istream_read_int32_le( inputStream );
-	surface.numTriangles = istream_read_int32_le( inputStream );
-	surface.ofsTriangles = istream_read_int32_le( inputStream );
-	surface.ofsShaders = istream_read_int32_le( inputStream );
-	surface.ofsSt = istream_read_int32_le( inputStream );
-	surface.ofsXyzNormals = istream_read_int32_le( inputStream );
-	surface.ofsEnd = istream_read_int32_le( inputStream );
-}
-
-typedef struct {
-	char name[MAX_QPATH];
-	int shaderIndex;                // for in-game use
-} md3Shader_t;
-
-void istream_read_md3Shader( PointerInputStream& inputStream, md3Shader_t& shader ){
-	inputStream.read( reinterpret_cast<unsigned char*>( shader.name ), MAX_QPATH );
-	shader.shaderIndex = istream_read_int32_le( inputStream );
-}
-
-typedef struct {
-	int indexes[3];
-} md3Triangle_t;
-
-void istream_read_md3Triangle( PointerInputStream& inputStream, md3Triangle_t& triangle ){
-	triangle.indexes[0] = istream_read_int32_le( inputStream );
-	triangle.indexes[1] = istream_read_int32_le( inputStream );
-	triangle.indexes[2] = istream_read_int32_le( inputStream );
-}
-
-typedef struct {
-	float st[2];
-} md3St_t;
-
-void istream_read_md3St( PointerInputStream& inputStream, md3St_t& st ){
-	st.st[0] = istream_read_float32_le( inputStream );
-	st.st[1] = istream_read_float32_le( inputStream );
-}
-
-typedef struct {
-	short xyz[3];
-	short normal;
-} md3XyzNormal_t;
-
-void istream_read_md3XyzNormal( PointerInputStream& inputStream, md3XyzNormal_t& xyz ){
-	xyz.xyz[0] = istream_read_int16_le( inputStream );
-	xyz.xyz[1] = istream_read_int16_le( inputStream );
-	xyz.xyz[2] = istream_read_int16_le( inputStream );
-	xyz.normal = istream_read_int16_le( inputStream );
-}
-
-typedef struct {
-	char ident[4];
-	int version;
-
-	char name[MAX_QPATH];           // model name
-
-	int flags;
-
-	int numFrames;
-	int numTags;
-	int numSurfaces;
-
-	int numSkins;
-
-	int ofsFrames;                  // offset for first frame
-	int ofsTags;                    // numFrames * numTags
-	int ofsSurfaces;                // first surface, others follow
-
-	int ofsEnd;                     // end of file
-} md3Header_t;
-
-void istream_read_md3Header( PointerInputStream& inputStream, md3Header_t& header ){
-	inputStream.read( reinterpret_cast<unsigned char*>( header.ident ), 4 );
-	header.version = istream_read_int32_le( inputStream );
-	inputStream.read( reinterpret_cast<unsigned char*>( header.name ), MAX_QPATH );
-	header.flags = istream_read_int32_le( inputStream );
-	header.numFrames = istream_read_int32_le( inputStream );
-	header.numTags = istream_read_int32_le( inputStream );
-	header.numSurfaces = istream_read_int32_le( inputStream );
-	header.numSkins = istream_read_int32_le( inputStream );
-	header.ofsFrames = istream_read_int32_le( inputStream );
-	header.ofsTags = istream_read_int32_le( inputStream );
-	header.ofsSurfaces = istream_read_int32_le( inputStream );
-	header.ofsEnd = istream_read_int32_le( inputStream );
-}
-
-int MD3Surface_read( Surface& surface, unsigned char* buffer ){
-	md3Surface_t md3Surface;
-	{
-		PointerInputStream inputStream( buffer );
-		istream_read_md3Surface( inputStream, md3Surface );
-	}
-
-	{
-		surface.vertices().reserve( md3Surface.numVerts );
-
-		PointerInputStream xyzNormalStream( buffer + md3Surface.ofsXyzNormals );
-		PointerInputStream stStream( buffer + md3Surface.ofsSt );
-
-		// read verts into vertex array - xyz, st, normal
-		for ( int i = 0; i < md3Surface.numVerts; ++i )
-		{
-			md3XyzNormal_t md3Xyz;
-			istream_read_md3XyzNormal( xyzNormalStream, md3Xyz );
-
-			md3St_t md3St;
-			istream_read_md3St( stStream, md3St );
-
-			surface.vertices().push_back(
-			    ArbitraryMeshVertex(
-			        Vertex3f( md3Xyz.xyz[0] * MD3_XYZ_SCALE, md3Xyz.xyz[1] * MD3_XYZ_SCALE, md3Xyz.xyz[2] * MD3_XYZ_SCALE ),
-			        DecodeNormal( reinterpret_cast<byte*>( &md3Xyz.normal ) ),
-			        TexCoord2f( md3St.st[0], md3St.st[1] )
-			    )
-			);
+static std::string findMaterialPath( std::vector<std::string>& paths, std::string& name ) {
+	std::string material = "";
+	for ( auto path : paths ) {
+		std::string filename = std::format("materials/{}{}.vmt", path, name);
+		for ( char& c : filename ) {
+			if ( c == '\\' ) {
+				c = '/';
+			} else {
+				c = std::tolower( c );
+			}
+		}
+		ArchiveFile* file = GlobalFileSystem().openFile( filename.c_str() );
+		if ( file ) {
+			material = std::format("materials/{}{}", path, name);
+			for ( char& c : material ) {
+				if ( c == '\\' ) {
+					c = '/';
+				} else {
+					c = std::tolower( c );
+				}
+			}
+			file->release();
+			break;
 		}
 	}
+	return material;
+}
 
-	{
-		surface.indices().reserve( md3Surface.numTriangles * 3 );
+static void processMesh(mdlpp::StudioModel& mdl, mdlpp::BakedModel& baked, mdlpp::BakedModel::Mesh& mesh, Model& model) {
 
-		PointerInputStream inputStream( buffer + md3Surface.ofsTriangles );
-		for ( int i = 0; i < md3Surface.numTriangles; ++i )
-		{
-			md3Triangle_t md3Triangle;
-			istream_read_md3Triangle( inputStream, md3Triangle );
-			surface.indices().insert( md3Triangle.indexes[0] );
-			surface.indices().insert( md3Triangle.indexes[1] );
-			surface.indices().insert( md3Triangle.indexes[2] );
-		}
+	if ( !mesh.indices.size() || !baked.vertices.size() ) {
+		return;
 	}
 
-	{
-		md3Shader_t md3Shader;
-		{
-			PointerInputStream inputStream( buffer + md3Surface.ofsShaders );
-			istream_read_md3Shader( inputStream, md3Shader );
-		}
-		surface.setShader( md3Shader.name );
+	Surface& surface = model.newSurface();
+
+	// vertices
+	// FIXME: this adds the vertices from *every* mesh to *each* surface
+	for ( auto vertex : baked.vertices ) {
+		surface.vertices().push_back(
+			ArbitraryMeshVertex(
+				Vertex3f( vertex.position[0], vertex.position[1], vertex.position[2] ),
+				Normal3f( vertex.normal[0], vertex.normal[1], vertex.normal[2] ),
+				TexCoord2f( vertex.uv[0], vertex.uv[1] )
+			)
+		);
 	}
 
+	// indices
+	for ( size_t i = 0; i < mesh.indices.size(); i += 3 ) {
+		surface.indices().insert( mesh.indices[i + 2] );
+		surface.indices().insert( mesh.indices[i + 1] );
+		surface.indices().insert( mesh.indices[i + 0] );
+	}
+
+	// material
+	bool foundShader = false;
+	if ( mesh.materialIndex >= 0 ) {
+		std::string material = findMaterialPath( mdl.mdl.materialDirectories, mdl.mdl.materials[mesh.materialIndex].name );
+		if ( material.length() > 0 ) {
+			surface.setShader( material.c_str() );
+			foundShader = true;
+		}
+	}
+	if ( !foundShader ) {
+		surface.setShader( "nomodel" );
+	}
+
+	// update aabb
 	surface.updateAABB();
-
-	return md3Surface.ofsEnd;
-}
-
-void MD3Model_read( Model& model, unsigned char* buffer ){
-	md3Header_t md3Header;
-	{
-		PointerInputStream inputStream( buffer );
-		istream_read_md3Header( inputStream, md3Header );
-	}
-
-	unsigned char* surfacePosition = buffer + md3Header.ofsSurfaces;
-
-	for ( int i = 0; i != md3Header.numSurfaces; ++i )
-	{
-		surfacePosition += MD3Surface_read( model.newSurface(), surfacePosition );
-	}
-
 	model.updateAABB();
 }
 
-scene::Node& MD3Model_new( unsigned char* buffer ){
-	auto *modelNode = new ModelNode();
-	MD3Model_read( modelNode->model(), buffer );
-	return modelNode->node();
-}
+scene::Node& loadSourceModel( ArchiveFile& mdlFile ) {
+	auto modelNode = new ModelNode();
 
-scene::Node& MD3Model_default(){
-	auto *modelNode = new ModelNode();
-	Model_constructNull( modelNode->model() );
-	return modelNode->node();
-}
+	char vtxFilename[PATH_MAX];
+	char vvdFilename[PATH_MAX];
+	const char *mdlFilename = mdlFile.getName();
 
-scene::Node& MD3Model_fromBuffer( unsigned char* buffer ){
-	if ( !ident_equal( buffer, MD3_IDENT ) ) {
-		globalErrorStream() << "MD3 read error: incorrect ident\n";
-		return MD3Model_default();
+	// glean base filename
+	bool appendExtOnly = false;
+	const char *mdlFilenameExtPtr = NULL;
+	size_t mdlFilenameExtPos = 0;
+	if ( !( mdlFilenameExtPtr = std::strrchr( mdlFilename, '.' ) ) ) {
+		appendExtOnly = true;
+	} else {
+		mdlFilenameExtPos = mdlFilenameExtPtr - mdlFilename;
 	}
-	else
-	{
-		return MD3Model_new( buffer );
-	}
-}
 
-scene::Node& loadMD3Model( ArchiveFile& file ){
-	ScopedArchiveBuffer buffer( file );
-	return MD3Model_fromBuffer( buffer.buffer );
-}
+	// find a vtx file
+	// these suffixes are ordered in terms of priority
+	const char *vtxSuffixes[4] = {
+		".dx90.vtx",
+		".dx80.vtx",
+		".vtx",
+		".sw.vtx"
+	};
+	ArchiveFile *vtxFile = NULL;
+	for ( size_t i = 0; i < 4; i++ ) {
+		if ( appendExtOnly ) {
+			std::snprintf( vtxFilename, sizeof(vtxFilename), "%s%s", mdlFilename, vtxSuffixes[i] );
+		} else {
+			std::strncpy( vtxFilename, mdlFilename, sizeof(vtxFilename) );
+			std::strncpy( vtxFilename + mdlFilenameExtPos, vtxSuffixes[i], sizeof(vtxFilename) - mdlFilenameExtPos );
+		}
+		vtxFile = GlobalFileSystem().openFile( vtxFilename );
+		if ( vtxFile ) {
+			break;
+		}
+	}
+	if ( !vtxFile ) {
+		Model_constructNull( modelNode->model() );
+		return modelNode->node();
+	}
+
+	// find the vvd file
+	if ( appendExtOnly ) {
+		std::snprintf( vvdFilename, sizeof(vvdFilename), "%s%s", mdlFilename, ".vvd" );
+	} else {
+		std::strncpy( vvdFilename, mdlFilename, sizeof(vvdFilename) );
+		std::strncpy( vvdFilename + mdlFilenameExtPos, ".vvd", sizeof(vvdFilename) - mdlFilenameExtPos );
+	}
+	ArchiveFile *vvdFile = GlobalFileSystem().openFile( vvdFilename );
+	if ( !vvdFile ) {
+		Model_constructNull( modelNode->model() );
+		return modelNode->node();
+	}
+
+	// get data
+	ScopedArchiveBuffer mdlBuffer( mdlFile );
+	ScopedArchiveBuffer vtxBuffer( *vtxFile );
+	ScopedArchiveBuffer vvdBuffer( *vvdFile );
+
+	// parse data
+	mdlpp::StudioModel mdl;
+	if ( !mdl.open( mdlBuffer.buffer, mdlBuffer.length, vtxBuffer.buffer, vtxBuffer.length, vvdBuffer.buffer, vvdBuffer.length ) ) {
+		Model_constructNull( modelNode->model() );
+		return modelNode->node();
+	}
+
+	// bake and read in
+	mdlpp::BakedModel baked = mdl.processModelData();
+	if ( !baked.meshes.size() ) {
+		Model_constructNull( modelNode->model() );
+		return modelNode->node();
+	}
+	// FIXME: only the first mesh for now to prevent a segfault in Surface::updateAABB()
+	processMesh( mdl, baked, baked.meshes[0], modelNode->model() );
+#if 0
+	for ( size_t i = 0; i < baked.meshes.size(); i++ ) {
+		processMesh( mdl, baked, baked.meshes[i], modelNode->model() );
+	}
 #endif
 
-scene::Node& loadSourceModel( ArchiveFile& file ){
-	ScopedArchiveBuffer buffer( file );
-	auto modelNode = new ModelNode();
-	Model_constructNull( modelNode->model() );
 	return modelNode->node();
 }
