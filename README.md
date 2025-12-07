@@ -5,9 +5,9 @@ The open-source, cross-platform level editor for Source Engine based games.
 
 SourceRadiant is a fork of NetRadiant-custom (GtkRadiant 1.4&rarr;massive rewrite&rarr;1.5&rarr;NetRadiant&rarr;[NetRadiant-custom](https://github.com/Garux/netradiant-custom)&rarr;this)
 
----
-![screenshot](.github/screenshot.png)
----
+| ![testroom_standards.vmf](.github/testroom_standards.png) | ![d1_trainstation_02.vmf](.github/d1_trainstation_02.png) |
+|-----------------------------------------------------------|-----------------------------------------------------------|
+| ![ep1_citadel_02b.vmf](.github/ep1_citadel_02b.png)       | ![testchmb_a_00.vmf](.github/testchmb_a_00.png)           |
 
 ## Goals
 
@@ -49,10 +49,16 @@ feasible.
 
 ### Can't Do (yet):
 
-- Load MDL models
+- Load MDLs
+	- Only requires hooking up the appropriate sourcepp library.
 - Load FGDs
+	- Mostly a convenience thing, to help end users know which keys are available for each entity.
 - Displacements
+	- Might be a tough challenge to modify Patch support into Displacement support. I was told that [FTEQW](https://github.com/fte-team/fteqw) has code for converting Displacements into Q3-style bezier curves.
 - Source Entity I/O
+	- Mostly a UI issue. In the short term it will be better to just document the plaintext format of I/O strings, and make sure they don't get merged in the saved VMF.
+- Visgroups
+	- May require some restructuring of Radiant internals to achieve. Radiant's "layers" system doesn't seem to be the same.
 
 ### Random feature highlights
 
