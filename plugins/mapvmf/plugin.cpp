@@ -80,6 +80,7 @@ public:
 
 	MapVMFAPI(){
 		GlobalFiletypesModule::getTable().addType( Type::Name, Name, filetype_t( "vmf maps", "*.vmf" ) );
+		GlobalFiletypesModule::getTable().addType( Type::Name, Name, filetype_t( "vmf region", "*.reg" ) );
 	}
 	MapFormat* getTable(){
 		return this;
