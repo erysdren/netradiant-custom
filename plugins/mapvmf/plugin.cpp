@@ -44,6 +44,10 @@
 
 #include <format>
 
+inline MapExporter* Node_getMapExporter( scene::Node& node ){
+	return NodeTypeCast<MapExporter>::cast( node );
+}
+
 NodeSmartReference g_nullNode( NewNullNode() );
 
 class MapDependencies :
@@ -173,35 +177,70 @@ public:
 	public:
 		MapVMFWalker( kvpp::KV1Writer<std::string>& writer, int64_t worldIndex ) : m_childID( 1 ), m_childIndex( worldIndex ), m_worldIndex( worldIndex ), m_writer( writer ) {
 		}
-		struct MapVMFWriteFaceEnv {
-			int64_t& childID;
-			kvpp::KV1ElementWritable<std::string>& solid;
-			MapVMFWriteFaceEnv(int64_t& childID, kvpp::KV1ElementWritable<std::string>& solid) : childID( childID ), solid( solid ) {
+		class MapVMFTokenWriter : public TokenWriter
+		{
+			std::vector<std::string> m_lines;
+		public:
+			MapVMFTokenWriter() {
+				m_lines.push_back("");
+			}
+			virtual void release() {
+			}
+			virtual void nextLine() {
+				m_lines.push_back("");
+			}
+			virtual void writeToken( const char* token ) {
+				m_lines.back().append( std::format( "{} ", token ) );
+			}
+			virtual void writeString( const char* string ) {
+				m_lines.back().append( std::format( "\"{}\" ", string ) );
+			}
+			virtual void writeInteger( int i ) {
+				m_lines.back().append( std::format( "{} ", i ) );
+			}
+			virtual void writeUnsigned( std::size_t i ) {
+				m_lines.back().append( std::format( "{} ", i ) );
+			}
+			virtual void writeFloat( double f ) {
+				m_lines.back().append( std::format( "{} ", f ) );
+			}
+			void forEachLine( int64_t& childID, kvpp::KV1ElementWritable<std::string>& solid, std::function<void(int64_t& childID, std::string& line, kvpp::KV1ElementWritable<std::string>& side)> func ) {
+				for ( auto line : m_lines ) {
+					if ( line[0] == '(' ) {
+						func( childID, line, solid.addChild("side") );
+					}
+				}
 			}
 		};
-		static void writeSide( int64_t& childID, kvpp::KV1ElementWritable<std::string>& side, const _QERFaceData& faceData ) {
-			side["id"] = childID++;
-			side["plane"] = std::format("({} {} {}) ({} {} {}) ({} {} {})", faceData.m_p0[0], faceData.m_p0[1], faceData.m_p0[2], faceData.m_p1[0], faceData.m_p1[1], faceData.m_p1[2], faceData.m_p2[0], faceData.m_p2[1], faceData.m_p2[2]);
-			std::string material(faceData.m_shader);
-			if ( material.rfind( "materials/", 0 ) == 0 ) {
-				side["material"] = faceData.m_shader + string_length("materials/");
-			} else {
-				side["material"] = faceData.m_shader;
-			}
-			side["uaxis"] = std::format("[{} {} {} {}] {}", 0, 0, 0, 0, faceData.m_texdef.scale[0]); // FIXME: convert from texdef_t
-			side["vaxis"] = std::format("[{} {} {} {}] {}", 0, 0, 0, 0, faceData.m_texdef.scale[1]); // FIXME: convert from texdef_t
-			side["rotation"] = faceData.m_texdef.rotate;
-			side["lightmapscale"] = 16; // FIXME: make configurable
-			side["smoothing_groups"] = 0; // FIXME: make configurable
-		}
-		static void writeFace( void *environment, const _QERFaceData& faceData ) {
-			MapVMFWriteFaceEnv *env = (MapVMFWriteFaceEnv *)environment;
-			writeSide(env->childID, env->solid.addChild("side"), faceData);
-		}
 		void writeSolid( scene::Node& node, kvpp::KV1ElementWritable<std::string>& solid ) const {
 			solid["id"] = m_childID++;
-			MapVMFWriteFaceEnv env(m_childID, solid);
-			GlobalBrushCreator().Brush_forEachFace( node, BrushFaceDataCallback(&env, writeFace) );
+
+			MapExporter* exporter = Node_getMapExporter( node );
+
+			// since VMFs are a different beast from MAP files, we need to use Radiant's normal exporter and then do our own thing with it
+			// FIXME: this sucks and could surely be done better.
+			MapVMFTokenWriter writer;
+			exporter->exportTokens( writer );
+			writer.forEachLine( m_childID, solid, [](int64_t& childID, std::string& line, kvpp::KV1ElementWritable<std::string>& side){
+				double points[3][3];
+				char material[128];
+				double uaxis[4];
+				double vaxis[4];
+				double rotation;
+				double scale[2];
+				sscanf(line.c_str(), "( %lf %lf %lf ) ( %lf %lf %lf ) ( %lf %lf %lf ) %128s [ %lf %lf %lf %lf ] [ %lf %lf %lf %lf ] %lf %lf %lf",
+					&points[0][0], &points[0][1], &points[0][2], &points[1][0], &points[1][1], &points[1][2], &points[2][0], &points[2][1], &points[2][2],
+					material, &uaxis[0], &uaxis[1], &uaxis[2], &uaxis[3], &vaxis[0], &vaxis[1], &vaxis[2], &vaxis[3], &rotation, &scale[0], &scale[1]
+				);
+				side["id"] = childID++;
+				side["plane"] = std::format( "({} {} {}) ({} {} {}) ({} {} {})", points[0][0], points[0][1], points[0][2], points[1][0], points[1][1], points[1][2], points[2][0], points[2][1], points[2][2] );
+				side["material"] = material;
+				side["uaxis"] = std::format( "[{} {} {} {}] {}", uaxis[0], uaxis[1], uaxis[2], uaxis[3], scale[0] );
+				side["vaxis"] = std::format( "[{} {} {} {}] {}", vaxis[0], vaxis[1], vaxis[2], vaxis[3], scale[1] );
+				side["rotation"] = std::format( "{}", rotation );
+				side["lightmapscale"] = 16; // FIXME: make configurable
+				side["smoothing_groups"] = 0; // FIXME: make configurable
+			});
 		}
 		virtual bool pre( scene::Node& node ) const {
 			Entity* entity = Node_getEntity( node );
