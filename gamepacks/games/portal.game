@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <game
-  type="q3"
+  type="source"
   index="1"
   name="Portal"
   engine_win32="hl2.exe"
