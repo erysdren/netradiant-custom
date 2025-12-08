@@ -1,0 +1,31 @@
+{
+	"version": 10,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 21,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "Default",
+			"displayName": "Default",
+			"binaryDir": "build"
+		},
+		{
+			"name": "DefaultNinja",
+			"displayName": "DefaultNinja",
+			"generator": "Ninja",
+			"binaryDir": "build"
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "Default",
+			"configurePreset": "Default"
+		},
+		{
+			"name": "DefaultNinja",
+			"configurePreset": "DefaultNinja"
+		}
+	]
+}
