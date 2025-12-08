@@ -14,6 +14,7 @@ SourceRadiant is a fork of NetRadiant-custom ([GtkRadiant](https://icculus.org/g
 - Become a viable Source Engine level editor beyond the novelty of making levels outside of Windows
 - Stay in step with general editor changes from upstream [NetRadiant-custom](https://github.com/Garux/netradiant-custom)
 - Disable any Radiant feature that is unrelated to Source Engine level editing
+- Attempt to upstream any editor changes that are related to code cleanup and general usability improvements.
 
 ## Credits
 
