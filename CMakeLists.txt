@@ -146,28 +146,6 @@ target_include_directories(mathlib PRIVATE
 	${PROJECT_SOURCE_DIR}/libs
 )
 
-# ddslib
-
-add_library(ddslib STATIC
-	${PROJECT_SOURCE_DIR}/libs/ddslib/ddslib.c
-)
-
-target_include_directories(ddslib PRIVATE
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_SOURCE_DIR}/libs
-)
-
-# etclib
-
-add_library(etclib STATIC
-	${PROJECT_SOURCE_DIR}/libs/etclib.c
-)
-
-target_include_directories(etclib PRIVATE
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_SOURCE_DIR}/libs
-)
-
 # radiant
 
 add_executable(radiant WIN32
@@ -351,28 +329,6 @@ function(add_module name)
 	)
 endfunction()
 
-add_module(archivepak
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/archivepak/archive.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivepak/pak.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivepak/plugin.cpp
-)
-
-add_module(archivewad
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/archivewad/archive.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivewad/plugin.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivewad/wad.cpp
-)
-
-add_module(archivezip
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/archivezip/archive.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivezip/pkzip.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivezip/plugin.cpp
-		${PROJECT_SOURCE_DIR}/plugins/archivezip/zlibstream.cpp
-)
-
 add_module(archivevpk
 	SOURCES
 		${PROJECT_SOURCE_DIR}/plugins/archivevpk/archive.cpp
@@ -406,36 +362,9 @@ add_module(entity
 )
 target_link_libraries(entity PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
-add_module(image
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/image/bmp.cpp
-		${PROJECT_SOURCE_DIR}/plugins/image/dds.cpp
-		${PROJECT_SOURCE_DIR}/plugins/image/image.cpp
-		${PROJECT_SOURCE_DIR}/plugins/image/jpeg.cpp
-		${PROJECT_SOURCE_DIR}/plugins/image/ktx.cpp
-		${PROJECT_SOURCE_DIR}/plugins/image/pcx.cpp
-		${PROJECT_SOURCE_DIR}/plugins/image/tga.cpp
-)
-target_link_libraries(image PRIVATE ddslib etclib)
-
-add_module(imagehl
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/imagehl/hlw.cpp
-		${PROJECT_SOURCE_DIR}/plugins/imagehl/imagehl.cpp
-		${PROJECT_SOURCE_DIR}/plugins/imagehl/mip.cpp
-		${PROJECT_SOURCE_DIR}/plugins/imagehl/sprite.cpp
-)
-
 add_module(imagepng
 	SOURCES
 		${PROJECT_SOURCE_DIR}/plugins/imagepng/plugin.cpp
-)
-
-add_module(imageq2
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/imageq2/imageq2.cpp
-		${PROJECT_SOURCE_DIR}/plugins/imageq2/wal32.cpp
-		${PROJECT_SOURCE_DIR}/plugins/imageq2/wal.cpp
 )
 
 add_module(imagevtf
@@ -455,21 +384,6 @@ add_module(sourcemodel
 target_link_libraries(sourcemodel PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(sourcemodel PRIVATE sourcepp::mdlpp)
 set_target_properties(sourcepp_mdlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-add_module(mapq3
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/mapq3/parse.cpp
-		${PROJECT_SOURCE_DIR}/plugins/mapq3/plugin.cpp
-		${PROJECT_SOURCE_DIR}/plugins/mapq3/write.cpp
-)
-
-add_module(mapxml
-	SOURCES
-		${PROJECT_SOURCE_DIR}/plugins/mapxml/plugin.cpp
-		${PROJECT_SOURCE_DIR}/plugins/mapxml/xmlparse.cpp
-		${PROJECT_SOURCE_DIR}/plugins/mapxml/xmlwrite.cpp
-)
-target_link_libraries(mapxml PRIVATE LibXml2::LibXml2)
 
 add_module(mapvmf
 	SOURCES
