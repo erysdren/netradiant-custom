@@ -24,6 +24,7 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <array>
 
 #include "preferencesystem.h"
 

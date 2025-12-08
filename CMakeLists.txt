@@ -257,8 +257,10 @@ endif()
 
 set_target_properties(radiant commandlib gtkutil xmllib PROPERTIES CXX_STANDARD_REQUIRED ON CXX_STANDARD 20)
 
-target_compile_options(radiant PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
-target_compile_options(radiant PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	target_compile_options(radiant PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
+	target_compile_options(radiant PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+endif()
 
 set_target_properties(radiant
 	PROPERTIES
@@ -314,8 +316,10 @@ function(add_module name)
 	else()
 		target_compile_definitions(${name} PRIVATE POSIX XWINDOWS)
 	endif()
-	target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
-	target_compile_options(${name} PRIVATE -Wreorder -fno-rtti)
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
+		target_compile_options(${name} PRIVATE -Wreorder -fno-rtti)
+	endif()
 	target_include_directories(${name} PRIVATE
 		${PROJECT_SOURCE_DIR}/include
 		${PROJECT_SOURCE_DIR}/libs
@@ -428,8 +432,10 @@ function(add_plugin name)
 	else()
 		target_compile_definitions(${name} PRIVATE POSIX XWINDOWS)
 	endif()
-	target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
-	target_compile_options(${name} PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
+		target_compile_options(${name} PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+	endif()
 	target_include_directories(${name} PRIVATE
 		${PROJECT_SOURCE_DIR}/include
 		${PROJECT_SOURCE_DIR}/libs

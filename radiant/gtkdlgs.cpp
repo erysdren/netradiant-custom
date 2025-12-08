@@ -257,9 +257,13 @@ void Game_constructPreferences( PreferencesPage& page ){
 	} );
 
 	if( globalMappingMode().do_mapping_mode ){
+		const char *modes[] = {
+			globalMappingMode().sp_mapping_mode,
+			globalMappingMode().mp_mapping_mode
+		};
 		page.appendCombo(
 			"Mapping mode",
-			(const char*[]){ globalMappingMode().sp_mapping_mode, globalMappingMode().mp_mapping_mode },
+			modes,
 			IntImportCallback( GameModeImportCaller() ),
 			IntExportCallback( GameModeExportCaller() )
 		);
