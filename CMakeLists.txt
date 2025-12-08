@@ -14,6 +14,13 @@ FetchContent_Declare(
 	EXCLUDE_FROM_ALL
 )
 
+FetchContent_Declare(
+	libxml2
+	GIT_REPOSITORY https://gitlab.gnome.org/GNOME/libxml2.git
+	GIT_TAG "v2.15.1"
+	EXCLUDE_FROM_ALL
+)
+
 set(SOURCEPP_LIBS_START_ENABLED OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_USE_KVPP ON CACHE BOOL "" FORCE) # for VMTs
 set(SOURCEPP_USE_MDLPP ON CACHE BOOL "" FORCE) # for MDLs
@@ -24,7 +31,7 @@ set(SOURCEPP_VTFPP_SUPPORT_EXR OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_VTFPP_SUPPORT_QOI OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_VTFPP_SUPPORT_WEBP OFF CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(sourcepp)
+FetchContent_MakeAvailable(sourcepp libxml2)
 
 # packages
 
@@ -33,7 +40,6 @@ pkg_search_module(GLIB2 REQUIRED glib-2.0)
 pkg_search_module(LIBPNG REQUIRED libpng)
 pkg_search_module(LIBJPEG REQUIRED libjpeg)
 find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Svg REQUIRED)
-find_package(LibXml2 REQUIRED)
 
 # options
 
