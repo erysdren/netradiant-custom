@@ -210,7 +210,7 @@ void cmdMap(){
 #include <pwd.h>
 #include <unistd.h>
 
-#include <glib.h>
+#include <QDir>
 
 const char* LINK_NAME =
 #if defined ( __linux__ )
@@ -260,7 +260,7 @@ void environment_init( int argc, char* argv[] ){
 	}
 
 	if ( !portable_app_setup() ) {
-		home_path = StringStream( DirectoryCleaned( g_get_home_dir() ), ".sourceradiant/" );
+		home_path = StringStream( DirectoryCleaned( qPrintable( QDir::homePath() ) ), ".sourceradiant/" );
 		Q_mkdir( home_path.c_str() );
 	}
 	gamedetect();

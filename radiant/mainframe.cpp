@@ -56,6 +56,7 @@
 #include <QGroupBox>
 #include <QDialogButtonBox>
 #include <QPushButton>
+#include <QDir>
 
 #include "commandlib.h"
 #include "scenelib.h"
@@ -63,7 +64,6 @@
 #include "signal/isignal.h"
 #include "os/path.h"
 #include "os/file.h"
-#include <glib.h>
 #include "moduleobservers.h"
 
 #include "gtkutil/glfont.h"
@@ -168,12 +168,12 @@ void HomePaths_Realise(){
 			StringOutputStream path( 256 );
 
 #if defined( __APPLE__ )
-			path( DirectoryCleaned( g_get_home_dir() ), "Library/Application Support", ( prefix + 1 ), '/' );
+			path( DirectoryCleaned( qPrintable( QDir::homePath() ) ), "Library/Application Support", ( prefix + 1 ), '/' );
 			if ( file_is_directory( path ) ) {
 				g_qeglobals.m_userEnginePath = path;
 				break;
 			}
-			path( DirectoryCleaned( g_get_home_dir() ), prefix, '/' );
+			path( DirectoryCleaned( qPrintable( QDir::homePath() ) ), prefix, '/' );
 #endif
 
 #if defined( WIN32 )
@@ -214,7 +214,7 @@ void HomePaths_Realise(){
 #endif
 
 #if defined( POSIX )
-			path( DirectoryCleaned( g_get_home_dir() ), prefix, '/' );
+			path( DirectoryCleaned( qPrintable( QDir::homePath() ) ), prefix, '/' );
 			g_qeglobals.m_userEnginePath = path;
 			break;
 #endif

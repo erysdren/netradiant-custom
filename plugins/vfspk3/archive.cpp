@@ -76,24 +76,22 @@ public:
 		return file_readable( path.c_str() );
 	}
 	virtual void forEachFile( VisitorFunc visitor, const char* root ) override {
-		std::vector<Directory*> dirs;
 		UnixPath path( m_root.c_str() );
 		path.push( root );
-		dirs.push_back( directory_open( path.c_str() ) );
 
-		while ( !dirs.empty() && directory_good( dirs.back() ) )
-		{
-			const char* name = directory_read_and_increment( dirs.back() );
+		// will construct and check, and also do additional error checks like permissions
+		std::error_code error { };
+		std::filesystem::recursive_directory_iterator directory { std::filesystem::path( path.c_str() ), error };
+		if ( error ) { /* FIXME: handle error */ return; }
+		for ( auto&& entry : directory ) {
+			auto str = entry.path().filename().generic_u8string();
+			const char *name = reinterpret_cast<char const*>(str.c_str());
+			const char *ext = path_get_extension( name );
+			if ( !string_equal( name, "." ) && !string_equal( name, ".." )
+				/* skip .pk3dir / .pk4dir / .dpkdir / .pakdir / .waddir the in root, they are processed as DirectoryArchive */
+				&& !( string_empty( root ) && string_length( ext ) == 6 && string_equal_nocase( ext + 3, "dir" ) )
+			) {
 
-			if ( name == 0 ) {
-				directory_close( dirs.back() );
-				dirs.pop_back();
-				path.pop();
-			}
-			else if ( const char *ext = path_get_extension( name );
-			!string_equal( name, "." ) && !string_equal( name, ".." )
-			/* skip .pk3dir / .pk4dir / .dpkdir / .pakdir / .waddir the in root, they are processed as DirectoryArchive */
-			&& !( string_empty( root ) && string_length( ext ) == 6 && string_equal_nocase( ext + 3, "dir" ) ) ) {
 				path.push_filename( name );
 
 				bool is_directory = file_is_directory( path.c_str() );
@@ -106,12 +104,9 @@ public:
 
 				if ( is_directory ) {
 					path.push( name );
-
-					if ( !visitor.directory( path_make_relative( path.c_str(), m_root.c_str() ), dirs.size() ) ) {
-						dirs.push_back( directory_open( path.c_str() ) );
-					}
-					else{
+					if ( visitor.directory( path_make_relative( path.c_str(), m_root.c_str() ), directory.depth() ) ) {
 						path.pop();
+						directory.disable_recursion_pending();
 					}
 				}
 			}

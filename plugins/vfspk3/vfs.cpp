@@ -45,7 +45,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <glib.h>
 
 #include "qerplugin.h"
 #include "idatastream.h"
@@ -60,6 +59,7 @@ ArchiveModules& FileSystemQ3API_getArchiveModules();
 #include "moduleobservers.h"
 #include "filematch.h"
 #include <list>
+#include <filesystem>
 
 
 
@@ -204,7 +204,7 @@ void InitDirectory( const char* directory, ArchiveModules& archiveModules ){
 
 	const auto path_is_forbidden = [&strForbiddenDirs]( const char *path ){
 		return std::ranges::any_of( strForbiddenDirs, [name = path_get_filename_start( path )]( const CopiedString& forbidden ){
-			return matchpattern( name, forbidden.c_str(), TRUE );
+			return matchpattern( name, forbidden.c_str(), true );
 		} );
 	};
 
@@ -223,7 +223,9 @@ void InitDirectory( const char* directory, ArchiveModules& archiveModules ){
 	const char *path = g_archives.emplace_back( archive_entry_t{ stream.c_str(), OpenArchive( stream ), false } ).name.c_str();
 
 	if ( g_bUsePak ) {
-		if ( GDir* dir = g_dir_open( path, 0, 0 ) ) {
+		std::error_code error { };
+		std::filesystem::directory_iterator dir { std::filesystem::path( path ), error };
+		if ( !error ) {
 			globalOutputStream() << "vfs directory: " << path << '\n';
 
 			const char* ignore_prefix = "";
@@ -244,8 +246,11 @@ void InitDirectory( const char* directory, ArchiveModules& archiveModules ){
 
 			Archives archives;
 			Archives archivesOverride;
-			while ( const char* name = g_dir_read_name( dir ) )
-			{
+
+			for ( auto&& entry : dir ) {
+				auto str = entry.path().filename().generic_u8string();
+				const char *name = reinterpret_cast<char const*>(str.c_str());
+
 				if ( path_is_forbidden( name ) ) {
 					continue;
 				}
@@ -272,8 +277,6 @@ void InitDirectory( const char* directory, ArchiveModules& archiveModules ){
 
 				archives.insert( name );
 			}
-
-			g_dir_close( dir );
 
 			// add the entries to the vfs
 			for ( const auto& archive : archivesOverride )

@@ -35,8 +35,6 @@ FetchContent_MakeAvailable(sourcepp libxml2)
 
 # packages
 
-find_package(PkgConfig REQUIRED)
-pkg_search_module(GLIB2 REQUIRED glib-2.0)
 find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Svg)
 
 # options
@@ -272,8 +270,6 @@ target_include_directories(radiant PRIVATE
 
 target_link_libraries(radiant PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(radiant PRIVATE LibXml2::LibXml2)
-target_link_libraries(radiant PRIVATE ${GLIB2_LIBRARIES})
-target_include_directories(radiant PRIVATE ${GLIB2_INCLUDE_DIRS})
 
 target_link_libraries(radiant PRIVATE commandlib gtkutil l_net xmllib quickhull)
 
@@ -484,8 +480,6 @@ add_module(shaders
 )
 target_link_libraries(shaders PRIVATE commandlib)
 target_link_libraries(shaders PRIVATE LibXml2::LibXml2)
-target_link_libraries(shaders PRIVATE ${GLIB2_LIBRARIES})
-target_include_directories(shaders PRIVATE ${GLIB2_INCLUDE_DIRS})
 target_link_libraries(shaders PRIVATE sourcepp::kvpp)
 set_target_properties(sourcepp_kvpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -496,9 +490,7 @@ add_module(vfspk3
 		${PROJECT_SOURCE_DIR}/plugins/vfspk3/vfspk3.cpp
 )
 target_link_libraries(vfspk3 PRIVATE LibXml2::LibXml2)
-target_link_libraries(vfspk3 PRIVATE ${GLIB2_LIBRARIES})
 target_link_libraries(vfspk3 PRIVATE filematch)
-target_include_directories(vfspk3 PRIVATE ${GLIB2_INCLUDE_DIRS})
 
 # plugins
 

@@ -24,41 +24,19 @@
 /// \file
 /// \brief OS directory-listing object.
 
-#include <glib.h>
+#include <filesystem>
+#include <concepts>
+#include <functional>
 
-typedef GDir Directory;
-
-inline bool directory_good( Directory* directory ){
-	return directory != 0;
-}
-
-inline Directory* directory_open( const char* name ){
-	return g_dir_open( name, 0, 0 );
-}
-
-inline void directory_close( Directory* directory ){
-	g_dir_close( directory );
-}
-
-inline const char* directory_read_and_increment( Directory* directory ){
-	return g_dir_read_name( directory );
-}
-
-template<typename Functor>
-void Directory_forEach( const char* path, const Functor& functor ){
-	Directory* dir = directory_open( path );
-
-	if ( directory_good( dir ) ) {
-		for (;; )
-		{
-			const char* name = directory_read_and_increment( dir );
-			if ( name == 0 ) {
-				break;
-			}
-
-			functor( name );
-		}
-
-		directory_close( dir );
+void Directory_forEach(char const* path, std::invocable<char const*> auto const& functor) {
+	std::error_code error { };
+	// will construct and check, and also do additional error checks like permissions
+	std::filesystem::directory_iterator directory { path, error };
+	if (error) { /* handle error here, or just return */ return; }
+	for (auto&& entry : directory) {
+		// On Windows, .filename().c_str() will return a wchar_t*,
+		// not a char const*, which is what the glib libraries do.
+		// This also keeps the name with a valid forward slash
+		std::invoke(functor, reinterpret_cast<char const*>(entry.path().filename().generic_u8string().c_str()));
 	}
 }
