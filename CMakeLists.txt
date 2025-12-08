@@ -272,8 +272,10 @@ target_include_directories(radiant PRIVATE
 
 target_link_libraries(radiant PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(radiant PRIVATE LibXml2::LibXml2)
-
 target_link_libraries(radiant PRIVATE commandlib gtkutil l_net xmllib quickhull)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	target_link_libraries(radiant PRIVATE ws2_32)
+endif()
 
 set_target_properties(radiant commandlib gtkutil xmllib PROPERTIES CXX_STANDARD_REQUIRED ON CXX_STANDARD 20)
 
