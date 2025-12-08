@@ -44,7 +44,7 @@ find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Svg)
 set(RADIANT_VERSION "1.6.0n" CACHE STRING "")
 set(RADIANT_MAJOR_VERSION "6" CACHE STRING "")
 set(RADIANT_MINOR_VERSION "0" CACHE STRING "")
-set(RADIANT_ABOUTMSG "Custom build" CACHE STRING "")
+set(RADIANT_ABOUTMSG "trans rights are human rights" CACHE STRING "")
 
 # commandlib
 
