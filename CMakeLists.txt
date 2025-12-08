@@ -37,8 +37,6 @@ FetchContent_MakeAvailable(sourcepp libxml2)
 
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLIB2 REQUIRED glib-2.0)
-pkg_search_module(LIBPNG REQUIRED libpng)
-pkg_search_module(LIBJPEG REQUIRED libjpeg)
 find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Svg)
 
 # options
