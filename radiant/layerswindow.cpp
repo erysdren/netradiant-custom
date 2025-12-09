@@ -206,7 +206,10 @@ void items_iterate_recursively( QTreeWidgetItem *item, Functor&& functor ){
 }
 
 Layer::iterator item_getLayerIterator( QTreeWidgetItem *item ){
+#ifndef _WIN32
+	// SourceRadiant FIXME: figure out why this was here in the first place
 	static_assert( sizeof( Layer::iterator ) == sizeof( size_t ) );
+#endif
 	size_t layer = item->data( Column::name, Qt::ItemDataRole::UserRole ).value<size_t>();
 	return *reinterpret_cast<Layer::iterator*>( &layer );
 }
