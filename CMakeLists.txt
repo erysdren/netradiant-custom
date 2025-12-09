@@ -14,13 +14,6 @@ FetchContent_Declare(
 	EXCLUDE_FROM_ALL
 )
 
-FetchContent_Declare(
-	libxml2
-	GIT_REPOSITORY https://gitlab.gnome.org/GNOME/libxml2.git
-	GIT_TAG "v2.15.1"
-	EXCLUDE_FROM_ALL
-)
-
 set(SOURCEPP_LIBS_START_ENABLED OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_USE_KVPP ON CACHE BOOL "" FORCE) # for VMTs
 set(SOURCEPP_USE_MDLPP ON CACHE BOOL "" FORCE) # for MDLs
@@ -31,9 +24,35 @@ set(SOURCEPP_VTFPP_SUPPORT_EXR OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_VTFPP_SUPPORT_QOI OFF CACHE BOOL "" FORCE)
 set(SOURCEPP_VTFPP_SUPPORT_WEBP OFF CACHE BOOL "" FORCE)
 
-set(LIBXML2_WITH_ICONV OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(sourcepp)
 
-FetchContent_MakeAvailable(sourcepp libxml2)
+find_package(LibXml2)
+if(NOT LibXml2_FOUND)
+	FetchContent_Declare(
+		libxml2
+		GIT_REPOSITORY https://gitlab.gnome.org/GNOME/libxml2.git
+		GIT_TAG "v2.15.1"
+		EXCLUDE_FROM_ALL
+	)
+	set(LIBXML2_WITH_ICONV OFF CACHE BOOL "" FORCE)
+	FetchContent_MakeAvailable(libxml2)
+endif()
+
+find_package(PNG)
+if(NOT PNG_FOUND)
+	FetchContent_Declare(
+		libpng
+		GIT_REPOSITORY https://github.com/pnggroup/libpng.git
+		GIT_TAG "v1.6.53"
+		EXCLUDE_FROM_ALL
+	)
+	set(PNG_SHARED OFF CACHE BOOL "" FORCE)
+	set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
+	set(PNG_TESTS OFF CACHE BOOL "" FORCE)
+	set(PNG_STATIC ON CACHE BOOL "" FORCE)
+	FetchContent_MakeAvailable(libpng)
+	add_library(PNG::PNG ALIAS png_static)
+endif()
 
 # packages
 
@@ -370,6 +389,7 @@ add_module(imagepng
 	SOURCES
 		${PROJECT_SOURCE_DIR}/plugins/imagepng/plugin.cpp
 )
+target_link_libraries(imagepng PRIVATE PNG::PNG)
 
 add_module(imagevtf
 	SOURCES
