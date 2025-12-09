@@ -517,12 +517,6 @@ add_plugin(prtview
 )
 target_link_libraries(prtview PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 
-add_plugin(shaderplug
-	SOURCES
-		${PROJECT_SOURCE_DIR}/contrib/shaderplug/shaderplug.cpp
-)
-target_link_libraries(shaderplug PRIVATE LibXml2::LibXml2)
-
 add_plugin(sunplug
 	SOURCES
 		${PROJECT_SOURCE_DIR}/contrib/sunplug/sunplug.cpp
