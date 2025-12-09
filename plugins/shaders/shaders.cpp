@@ -1465,7 +1465,7 @@ void ParseSourceShaderFile( ArchiveFile* file, const char* filename ){
 	for (auto v : kv1[0]) {
 		auto key = v.getKey();
 		auto value = v.getValue();
-		if (string_equal_nocase(key.begin(), "%tooltexture") || string_equal_nocase(key.begin(), "$basetexture")) {
+		if (string_equal_nocase(key.data(), "%tooltexture") || string_equal_nocase(key.data(), "$basetexture")) {
 			foundBaseTexture = true;
 			baseTextureName = value;
 			break;

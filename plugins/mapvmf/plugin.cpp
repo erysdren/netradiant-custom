@@ -117,41 +117,41 @@ public:
 
 		for ( auto elem : kv1 ) {
 			auto key = elem.getKey();
-			if (string_equal_nocase(key.begin(), "versioninfo")) {
+			if (string_equal_nocase(key.data(), "versioninfo")) {
 				// FIXME: do we care about any of this?
-			} else if (string_equal_nocase(key.begin(), "cameras")) {
+			} else if (string_equal_nocase(key.data(), "cameras")) {
 				// FIXME: do we care about any of this?
-			} else if (string_equal_nocase(key.begin(), "cordon")) {
+			} else if (string_equal_nocase(key.data(), "cordon")) {
 				// FIXME: do we care about any of this?
-			} else if (string_equal_nocase(key.begin(), "world") || string_equal_nocase(key.begin(), "entity")) {
+			} else if (string_equal_nocase(key.data(), "world") || string_equal_nocase(key.data(), "entity")) {
 				bool hasSolids = false;
 				EntityClass* entityClass;
 				for ( auto e : elem ) {
-					if (string_equal_nocase(e.getKey().begin(), "solid")) {
+					if (string_equal_nocase(e.getKey().data(), "solid")) {
 						hasSolids = true;
 						break;
 					}
 				}
 				for ( auto e : elem ) {
-					if (string_equal_nocase(e.getKey().begin(), "classname")) {
-						entityClass = GlobalEntityClassManager().findOrInsert( e.getValue().begin(), hasSolids );
+					if (string_equal_nocase(e.getKey().data(), "classname")) {
+						entityClass = GlobalEntityClassManager().findOrInsert( e.getValue().data(), hasSolids );
 					}
 				}
 				scene::Node& entity( entityTable.createEntity( entityClass ) );
 				for ( auto e : elem ) {
-					if (string_equal_nocase(e.getKey().begin(), "id")) {
+					if (string_equal_nocase(e.getKey().data(), "id")) {
 						// FIXME: do we need to keep track of this?
-					} else if (string_equal_nocase(e.getKey().begin(), "solid")) {
+					} else if (string_equal_nocase(e.getKey().data(), "solid")) {
 						scene::Node& solid( GlobalBrushCreator().createBrush() );
 						for ( auto solidelem : e ) {
-							if (string_equal_nocase(solidelem.getKey().begin(), "side")) {
+							if (string_equal_nocase(solidelem.getKey().data(), "side")) {
 
 								float uvaxis[2][4];
 								float scale[2];
 								auto uaxis = solidelem["uaxis"];
 								auto vaxis = solidelem["vaxis"];
-								sscanf(uaxis.getValue().begin(), "[%f %f %f %f] %f", &uvaxis[0][0], &uvaxis[0][1], &uvaxis[0][2], &uvaxis[0][3], &scale[0]);
-								sscanf(vaxis.getValue().begin(), "[%f %f %f %f] %f", &uvaxis[1][0], &uvaxis[1][1], &uvaxis[1][2], &uvaxis[1][3], &scale[1]);
+								sscanf(uaxis.getValue().data(), "[%f %f %f %f] %f", &uvaxis[0][0], &uvaxis[0][1], &uvaxis[0][2], &uvaxis[0][3], &scale[0]);
+								sscanf(vaxis.getValue().data(), "[%f %f %f %f] %f", &uvaxis[1][0], &uvaxis[1][1], &uvaxis[1][2], &uvaxis[1][3], &scale[1]);
 
 								std::string faceData = std::format("{} {} [{} {} {} {}] [{} {} {} {}] {} {} {}\n}}\n",
 									solidelem["plane"].getValue(), solidelem["material"].getValue(),
@@ -168,10 +168,10 @@ public:
 						}
 						NodeSmartReference solidnode( solid );
 						Node_getTraversable( entity )->insert( solidnode );
-					} else if (string_equal_nocase(e.getKey().begin(), "editor")) {
+					} else if (string_equal_nocase(e.getKey().data(), "editor")) {
 						// FIXME: do we care about any of this?
 					} else {
-						Node_getEntity( entity )->setKeyValue( e.getKey().begin(), e.getValue().begin() );
+						Node_getEntity( entity )->setKeyValue( e.getKey().data(), e.getValue().data() );
 					}
 				}
 				NodeSmartReference node( entity );
