@@ -521,7 +521,7 @@ add_plugin(shaderplug
 	SOURCES
 		${PROJECT_SOURCE_DIR}/contrib/shaderplug/shaderplug.cpp
 )
-target_link_libraries(shaderplug PRIVATE xmllib LibXml2::LibXml2)
+target_link_libraries(shaderplug PRIVATE LibXml2::LibXml2)
 
 add_plugin(sunplug
 	SOURCES
