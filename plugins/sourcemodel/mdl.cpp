@@ -107,7 +107,7 @@ static void processMesh(mdlpp::StudioModel& mdl, mdlpp::BakedModel& baked, mdlpp
 #if !defined(MAX_PATH) && defined(PATH_MAX)
 #define MAX_PATH PATH_MAX
 #else
-#error MAX_PATH not defined!
+#define MAX_PATH 260
 #endif
 
 scene::Node& loadSourceModel( ArchiveFile& mdlFile ) {
