@@ -104,11 +104,17 @@ static void processMesh(mdlpp::StudioModel& mdl, mdlpp::BakedModel& baked, mdlpp
 	model.updateAABB();
 }
 
+#if !defined(MAX_PATH) && defined(PATH_MAX)
+#define MAX_PATH PATH_MAX
+#else
+#error MAX_PATH not defined!
+#endif
+
 scene::Node& loadSourceModel( ArchiveFile& mdlFile ) {
 	auto modelNode = new ModelNode();
 
-	char vtxFilename[PATH_MAX];
-	char vvdFilename[PATH_MAX];
+	char vtxFilename[MAX_PATH];
+	char vvdFilename[MAX_PATH];
 	const char *mdlFilename = mdlFile.getName();
 
 	// glean base filename
