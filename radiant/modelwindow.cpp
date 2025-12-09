@@ -235,7 +235,7 @@ public:
 	}
 	/// \brief \copydoc scene::Traversable::insert()
 	void insert( scene::Node& node ) override {
-		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableModelNodeSet::insert: sanity check failed" );
+		ASSERT_MESSAGE( (intptr_t)&node != 0, "TraversableModelNodeSet::insert: sanity check failed" );
 
 		ASSERT_MESSAGE( m_children.find( NodeSmartReference( node ) ) == m_children.end(), "TraversableModelNodeSet::insert - element already exists" );
 
@@ -247,7 +247,7 @@ public:
 	}
 	/// \brief \copydoc scene::Traversable::erase()
 	void erase( scene::Node& node ) override {
-		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableModelNodeSet::erase: sanity check failed" );
+		ASSERT_MESSAGE( (intptr_t)&node != 0, "TraversableModelNodeSet::erase: sanity check failed" );
 
 		ASSERT_MESSAGE( m_children.find( NodeSmartReference( node ) ) != m_children.end(), "TraversableModelNodeSet::erase - failed to find element" );
 
