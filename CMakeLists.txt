@@ -259,7 +259,7 @@ set_target_properties(radiant commandlib gtkutil xmllib PROPERTIES CXX_STANDARD_
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	target_compile_options(radiant PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
-	target_compile_options(radiant PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+	target_compile_options(radiant PRIVATE -Wreorder -fno-exceptions -fno-rtti -fpermissive)
 endif()
 
 set_target_properties(radiant

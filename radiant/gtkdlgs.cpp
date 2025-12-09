@@ -2044,7 +2044,7 @@ private:
 			void insert( const char *name ) const {
 				m_texTree.insert( m_stringStream( m_dirstring, PathExtensionless( name ) ) );
 			}
-			typedef ConstMemberCaller<LoadTexturesByTypeVisitor, void(const char*), &LoadTexturesByTypeVisitor::insert> InsertCaller;
+			typedef ConstMemberCaller<LoadTexturesByTypeVisitor, void(const char*), &insert> InsertCaller;
 			LoadTexturesByTypeVisitor( const char* dirstring, TexTree& texTree ) :
 				m_dirstring( dirstring ), m_texTree( texTree ), m_stringStream( 64 )
 			{}
