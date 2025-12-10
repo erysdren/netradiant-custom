@@ -1459,20 +1459,15 @@ void ParseSourceShaderFile( ArchiveFile* file, const char* filename ){
 
 	kvpp::KV1 kv1(kv1Data);
 
-	bool foundBaseTexture = false;
 	std::string baseTextureName = "";
+	auto& vmtToolTexture = kv1[0]["%tooltexture"];
+	auto& vmtBaseTexture = kv1[0]["$basetexture"];
 
-	for (auto v : kv1[0]) {
-		auto key = v.getKey();
-		auto value = v.getValue();
-		if (string_equal_nocase(key.data(), "%tooltexture") || string_equal_nocase(key.data(), "$basetexture")) {
-			foundBaseTexture = true;
-			baseTextureName = value;
-			break;
-		}
-	}
-
-	if (!foundBaseTexture) {
+	if ( vmtToolTexture ) {
+		baseTextureName = vmtToolTexture.getValue();
+	} else if ( vmtBaseTexture ) {
+		baseTextureName = vmtBaseTexture.getValue();
+	} else {
 		globalWarningStream() << "Failed to determine basetexture in " << filename << '\n';
 		return;
 	}
@@ -1486,9 +1481,49 @@ void ParseSourceShaderFile( ArchiveFile* file, const char* filename ){
 	g_shaders.insert( ShaderTemplateMap::value_type( shaderTemplate->getName(), shaderTemplate ) );
 
 	shaderTemplate->m_textureName = std::format("materials/{}", string_to_lowercase(baseTextureNameCleaned.c_str()));
-	shaderTemplate->m_AlphaFunc = IShader::eGEqual;
-	shaderTemplate->m_AlphaRef = 0.5;
-	shaderTemplate->m_nFlags |= QER_ALPHATEST;
+
+	auto& vmtAlphaTest = kv1[0]["$alphatest"];
+	auto& vmfAlphaTestReference = kv1[0]["$alphatestreference"];
+	auto& vmtTranslucent = kv1[0]["$translucent"];
+	auto& vmtAlpha = kv1[0]["$alpha"];
+
+	if ( vmtAlphaTest && vmtAlphaTest.getValue<bool>() )  {
+		shaderTemplate->m_AlphaFunc = IShader::eGEqual;
+		shaderTemplate->m_AlphaRef = vmfAlphaTestReference ? vmfAlphaTestReference.getValue<float>() : 0.5;
+		shaderTemplate->m_nFlags |= QER_ALPHATEST;
+	} else if ( vmtAlpha || ( vmtTranslucent && vmtTranslucent.getValue<bool>() ) ) {
+		shaderTemplate->m_fTrans = vmtAlpha ? vmtAlpha.getValue<float>() : 1;
+		shaderTemplate->m_nFlags |= QER_TRANS;
+	}
+
+	if ( kv1[0]["%compiledetail"] ) {
+		shaderTemplate->m_nFlags |= QER_NOCARVE;
+	}
+
+	if ( kv1[0]["%compileclip"] || kv1[0]["%compilenpcclip"] || kv1[0]["%playerclip"] ) {
+		shaderTemplate->m_nFlags |= QER_CLIP;
+	}
+
+	if ( kv1[0]["%compilesky"] || kv1[0]["%compile2dsky"] ) {
+		shaderTemplate->m_nFlags |= QER_SKY;
+	}
+
+	if ( kv1[0]["%compilefog"] ) {
+		shaderTemplate->m_nFlags |= QER_FOG;
+	}
+
+	if ( kv1[0]["%compilewater"] ) {
+		shaderTemplate->m_nFlags |= QER_LIQUID;
+	}
+
+	if ( kv1[0]["%compilenodraw"] || kv1[0]["%compileskip"] ) {
+		shaderTemplate->m_nFlags |= QER_NODRAW;
+	}
+
+	if ( kv1[0]["$nocull"] ) {
+		shaderTemplate->m_Cull = IShader::eCullNone;
+		shaderTemplate->m_nFlags |= QER_CULL;
+	}
 
 	g_shaderDefinitions.insert( ShaderDefinitionMap::value_type( shaderTemplate->getName(), ShaderDefinition( shaderTemplate.get(), ShaderArguments(), filename ) ) );
 }
