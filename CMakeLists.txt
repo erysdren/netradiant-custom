@@ -486,6 +486,7 @@ function(add_plugin name)
 	)
 endfunction()
 
+if(0)
 add_plugin(bobtoolz
 	SOURCES
 		${PROJECT_SOURCE_DIR}/contrib/bobtoolz/bobToolz-GTK.cpp
@@ -514,6 +515,7 @@ add_plugin(bobtoolz
 )
 target_link_libraries(bobtoolz PRIVATE commandlib mathlib)
 target_link_libraries(bobtoolz PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
+endif()
 
 add_plugin(brushexport
 	SOURCES
