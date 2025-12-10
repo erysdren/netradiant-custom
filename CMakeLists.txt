@@ -303,9 +303,7 @@ file(WRITE ${PROJECT_SOURCE_DIR}/install/RADIANT_MINOR ${RADIANT_MINOR_VERSION})
 file(WRITE ${PROJECT_SOURCE_DIR}/install/RADIANT_MAJOR ${RADIANT_MAJOR_VERSION})
 
 file(GLOB RADIANT_DATA_FILES "${PROJECT_SOURCE_DIR}/setup/data/tools/*")
-file(GLOB RADIANT_GAMEPACKS "${PROJECT_SOURCE_DIR}/gamepacks/*")
 file(COPY ${RADIANT_DATA_FILES} DESTINATION ${PROJECT_SOURCE_DIR}/install/)
-file(COPY ${RADIANT_GAMEPACKS} DESTINATION ${PROJECT_SOURCE_DIR}/install/gamepacks/)
 
 string(CONCAT RADIANT_STATIC_RUNTIME $<
 	$<CXX_COMPILER_LINKER_FRONTEND_VARIANT:GCC>:
@@ -351,6 +349,115 @@ else()
 		target_compile_definitions(radiant PRIVATE RADIANT_EXECUTABLE=\"unknown\")
 	endif()
 endif()
+
+# gamepacks
+
+function(add_gamepack name)
+	cmake_parse_arguments(PARSE_ARGV 1 ARG "HAS_BASEGAME" "PREFIX;TITLE;TITLE_BASEGAME;GAMEDIR;GAMEDIR_BASEGAME;PATH_WIN32;PATH_LINUX;PATH_MACOS;EXECUTABLE_WIN32;EXECUTABLE_LINUX;EXECUTABLE_MACOS" "")
+	file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/install/gamepacks/games/")
+	file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/install/gamepacks/${name}.game/")
+	file(COPY "${PROJECT_SOURCE_DIR}/cmake/default_build_menu.xml" DESTINATION "${PROJECT_SOURCE_DIR}/install/gamepacks/${name}.game/")
+	if(ARG_HAS_BASEGAME)
+		configure_file("${PROJECT_SOURCE_DIR}/cmake/gamepack-multi.xml.in" "${PROJECT_SOURCE_DIR}/install/gamepacks/games/${name}.game" @ONLY)
+	else()
+		configure_file("${PROJECT_SOURCE_DIR}/cmake/gamepack-single.xml.in" "${PROJECT_SOURCE_DIR}/install/gamepacks/games/${name}.game" @ONLY)
+	endif()
+endfunction()
+
+add_gamepack(cstrike
+	HAS_BASEGAME
+	TITLE_BASEGAME "Half-Life 2"
+	GAMEDIR_BASEGAME "hl2"
+	TITLE "Counter-Strike: Source"
+	GAMEDIR "cstrike"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Counter-Strike Source/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Counter-Strike Source/"
+	EXECUTABLE_WIN32 "cstrike.exe"
+	EXECUTABLE_LINUX "cstrike.sh"
+	EXECUTABLE_MACOS "cstrike.sh"
+	PREFIX ".cstrike"
+)
+
+add_gamepack(ep2
+	HAS_BASEGAME
+	TITLE_BASEGAME "Half-Life 2"
+	GAMEDIR_BASEGAME "hl2"
+	TITLE "Half-Life 2: Episode Two"
+	GAMEDIR "ep2"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Half-Life 2/"
+	EXECUTABLE_WIN32 "hl2.exe"
+	EXECUTABLE_LINUX "hl2.sh"
+	EXECUTABLE_MACOS "hl2.sh"
+	PREFIX ".ep2"
+)
+
+add_gamepack(episodic
+	HAS_BASEGAME
+	TITLE_BASEGAME "Half-Life 2"
+	GAMEDIR_BASEGAME "hl2"
+	TITLE "Half-Life 2: Episode One"
+	GAMEDIR "episodic"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Half-Life 2/"
+	EXECUTABLE_WIN32 "hl2.exe"
+	EXECUTABLE_LINUX "hl2.sh"
+	EXECUTABLE_MACOS "hl2.sh"
+	PREFIX ".episodic"
+)
+
+add_gamepack(garrysmod
+	HAS_BASEGAME
+	TITLE_BASEGAME "sourceengine"
+	GAMEDIR_BASEGAME "Source Engine Base Content"
+	TITLE "Garry's Mod"
+	GAMEDIR "garrysmod"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/GarrysMod/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/GarrysMod/"
+	EXECUTABLE_WIN32 "hl2.exe"
+	EXECUTABLE_LINUX "hl2.sh"
+	EXECUTABLE_MACOS "hl2.sh"
+	PREFIX ".garrysmod"
+)
+
+add_gamepack(hl2
+	TITLE "Half-Life 2"
+	GAMEDIR "hl2"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Half-Life 2/"
+	EXECUTABLE_WIN32 "hl2.exe"
+	EXECUTABLE_LINUX "hl2.sh"
+	EXECUTABLE_MACOS "hl2.sh"
+	PREFIX ".hl2"
+)
+
+add_gamepack(portal
+	HAS_BASEGAME
+	TITLE_BASEGAME "Half-Life 2"
+	GAMEDIR_BASEGAME "hl2"
+	TITLE "Portal"
+	GAMEDIR "portal"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Portal/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Portal/"
+	EXECUTABLE_WIN32 "hl2.exe"
+	EXECUTABLE_LINUX "hl2.sh"
+	EXECUTABLE_MACOS "hl2.sh"
+	PREFIX ".portal"
+)
+
+add_gamepack(tf2
+	HAS_BASEGAME
+	TITLE_BASEGAME "Half-Life 2"
+	GAMEDIR_BASEGAME "hl2"
+	TITLE "Team Fortress 2"
+	GAMEDIR "tf"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Team Fortress 2/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Team Fortress 2/"
+	EXECUTABLE_WIN32 "tf.exe"
+	EXECUTABLE_LINUX "tf.sh"
+	EXECUTABLE_MACOS "tf.sh"
+	PREFIX ".tf"
+)
 
 # modules
 
