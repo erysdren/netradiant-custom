@@ -60,6 +60,8 @@ feasible.
 	- Mostly a UI issue. In the short term it will be better to just document the plaintext format of I/O strings, and make sure they don't get merged in the saved VMF.
 - Visgroups
 	- May require some restructuring of Radiant internals to achieve. Radiant's "layers" system doesn't seem to be the same.
+- Decals
+	- Probably should look at [TrenchBroom](https://github.com/TrenchBroom/TrenchBroom/)'s implementation for reference.
 
 ### Random feature highlights
 
