@@ -7,6 +7,18 @@ cmake_policy(SET CMP0077 NEW)
 
 include(FetchContent)
 
+### THIS IS TEMPORARY!
+FetchContent_Declare(
+	CMP_Compressonator
+	GIT_REPOSITORY https://github.com/craftablescience/compressonator
+	GIT_TAG 7b3532c36e974a42850af123dcd65dacdacc9f47
+	EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(CMP_Compressonator)
+set_target_properties(CMP_Compressonator PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(CMP_Core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+###
+
 FetchContent_Declare(
 	sourcepp
 	GIT_REPOSITORY https://github.com/craftablescience/sourcepp.git
@@ -294,6 +306,12 @@ file(GLOB RADIANT_DATA_FILES "${PROJECT_SOURCE_DIR}/setup/data/tools/*")
 file(GLOB RADIANT_GAMEPACKS "${PROJECT_SOURCE_DIR}/gamepacks/*")
 file(COPY ${RADIANT_DATA_FILES} DESTINATION ${PROJECT_SOURCE_DIR}/install/)
 file(COPY ${RADIANT_GAMEPACKS} DESTINATION ${PROJECT_SOURCE_DIR}/install/gamepacks/)
+
+string(CONCAT RADIANT_STATIC_RUNTIME $<
+	$<CXX_COMPILER_LINKER_FRONTEND_VARIANT:GCC>:
+	LINKER:SHELL:-static-libstdc++ -static-libgcc
+>)
+target_link_options(radiant PRIVATE ${RADIANT_STATIC_RUNTIME})
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	target_compile_definitions(radiant PRIVATE WIN32)
