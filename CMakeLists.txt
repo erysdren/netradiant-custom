@@ -266,6 +266,7 @@ add_executable(radiant WIN32
 	${PROJECT_SOURCE_DIR}/radiant/xywindow.cpp
 )
 
+target_compile_definitions(radiant PRIVATE SOURCERADIANT)
 target_compile_definitions(radiant PRIVATE QT_NO_KEYWORDS)
 target_compile_definitions(radiant PRIVATE
 	RADIANT_VERSION=\"${RADIANT_VERSION}\"
