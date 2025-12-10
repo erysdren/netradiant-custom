@@ -167,6 +167,33 @@ typedef SingletonModule<EntityDoom3API, EntityDependencies> EntityDoom3Module;
 EntityDoom3Module g_EntityDoom3Module;
 
 
+class EntitySourceAPI : public TypeSystemRef
+{
+	EntityCreator* m_entitysource;
+public:
+	typedef EntityCreator Type;
+	STRING_CONSTANT( Name, "source" );
+
+	EntitySourceAPI(){
+		Entity_Construct( eGameTypeSource );
+
+		m_entitysource = &GetEntityCreator();
+
+		GlobalReferenceCache().setEntityCreator( *m_entitysource );
+	}
+	~EntitySourceAPI(){
+		Entity_Destroy();
+	}
+	EntityCreator* getTable(){
+		return m_entitysource;
+	}
+};
+
+typedef SingletonModule<EntitySourceAPI, EntityDependencies> EntitySourceModule;
+
+EntitySourceModule g_EntitySourceModule;
+
+
 extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server ){
 	initialiseModule( server );
 
@@ -174,5 +201,6 @@ extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server 
 	g_EntityQ1Module.selfRegister();
 	g_EntityWolfModule.selfRegister();
 	g_EntityDoom3Module.selfRegister();
+	g_EntitySourceModule.selfRegister();
 	Doom3ModelSkinCacheModule_selfRegister( server );
 }

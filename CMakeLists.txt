@@ -359,7 +359,7 @@ endif()
 # gamepacks
 
 function(add_gamepack name)
-	cmake_parse_arguments(PARSE_ARGV 1 ARG "HAS_BASEGAME" "PREFIX;TITLE;TITLE_BASEGAME;GAMEDIR;GAMEDIR_BASEGAME;PATH_WIN32;PATH_LINUX;PATH_MACOS;EXECUTABLE_WIN32;EXECUTABLE_LINUX;EXECUTABLE_MACOS" "")
+	cmake_parse_arguments(PARSE_ARGV 1 ARG "HAS_BASEGAME" "ENTITIES;PREFIX;TITLE;TITLE_BASEGAME;GAMEDIR;GAMEDIR_BASEGAME;PATH_WIN32;PATH_LINUX;PATH_MACOS;EXECUTABLE_WIN32;EXECUTABLE_LINUX;EXECUTABLE_MACOS" "")
 	file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/install/gamepacks/games/")
 	file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/install/gamepacks/${name}.game/")
 	file(COPY "${PROJECT_SOURCE_DIR}/cmake/default_build_menu.xml" DESTINATION "${PROJECT_SOURCE_DIR}/install/gamepacks/${name}.game/")
@@ -382,6 +382,7 @@ add_gamepack(cstrike
 	EXECUTABLE_LINUX "cstrike.sh"
 	EXECUTABLE_MACOS "cstrike.sh"
 	PREFIX ".cstrike"
+	ENTITIES "cstrike.fgd"
 )
 
 add_gamepack(ep2
@@ -396,6 +397,7 @@ add_gamepack(ep2
 	EXECUTABLE_LINUX "hl2.sh"
 	EXECUTABLE_MACOS "hl2.sh"
 	PREFIX ".ep2"
+	ENTITIES "halflife2.fgd"
 )
 
 add_gamepack(episodic
@@ -410,6 +412,7 @@ add_gamepack(episodic
 	EXECUTABLE_LINUX "hl2.sh"
 	EXECUTABLE_MACOS "hl2.sh"
 	PREFIX ".episodic"
+	ENTITIES "halflife2.fgd"
 )
 
 add_gamepack(garrysmod
@@ -424,6 +427,7 @@ add_gamepack(garrysmod
 	EXECUTABLE_LINUX "hl2.sh"
 	EXECUTABLE_MACOS "hl2.sh"
 	PREFIX ".garrysmod"
+	ENTITIES "garrysmod.fgd"
 )
 
 add_gamepack(hl2
@@ -435,6 +439,7 @@ add_gamepack(hl2
 	EXECUTABLE_LINUX "hl2.sh"
 	EXECUTABLE_MACOS "hl2.sh"
 	PREFIX ".hl2"
+	ENTITIES "halflife2.fgd"
 )
 
 add_gamepack(portal
@@ -449,6 +454,7 @@ add_gamepack(portal
 	EXECUTABLE_LINUX "hl2.sh"
 	EXECUTABLE_MACOS "hl2.sh"
 	PREFIX ".portal"
+	ENTITIES "portal.fgd"
 )
 
 add_gamepack(tf2
@@ -463,6 +469,7 @@ add_gamepack(tf2
 	EXECUTABLE_LINUX "tf.sh"
 	EXECUTABLE_MACOS "tf.sh"
 	PREFIX ".tf"
+	ENTITIES "tf.fgd"
 )
 
 # TODO: support unofficial patch directory
@@ -475,6 +482,7 @@ add_gamepack(vampire
 	EXECUTABLE_LINUX "Vampire.sh"
 	EXECUTABLE_MACOS "Vampire.sh"
 	PREFIX ".vampire"
+	ENTITIES "vampire.fgd"
 )
 
 # modules

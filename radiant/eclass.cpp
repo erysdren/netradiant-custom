@@ -186,13 +186,16 @@ void EntityClassQuake3_Construct(){
 	const auto baseDirectory = StringStream( GlobalRadiant().getGameToolsPath(), GlobalRadiant().getRequiredGameDescriptionKeyValue( "basegame" ), '/' );
 	const auto gameDirectory = StringStream( GlobalRadiant().getGameToolsPath(), GlobalRadiant().getGameName(), '/' );
 
+	const char *entitiesFilename = GlobalRadiant().getGameDescriptionKeyValue( "entitiesfilename" );
+
 	class LoadEntityDefinitionsVisitor : public EClassModules::Visitor
 	{
 		const char* baseDirectory;
 		const char* gameDirectory;
+		const char* entitiesFilename;
 	public:
-		LoadEntityDefinitionsVisitor( const char* baseDirectory, const char* gameDirectory )
-			: baseDirectory( baseDirectory ), gameDirectory( gameDirectory ){
+		LoadEntityDefinitionsVisitor( const char* baseDirectory, const char* gameDirectory, const char* entitiesFilename )
+			: baseDirectory( baseDirectory ), gameDirectory( gameDirectory ), entitiesFilename( entitiesFilename ){
 		}
 		void visit( const char* name, const EntityClassScanner& table ) const override {
 			Paths paths;
@@ -203,6 +206,11 @@ void EntityClassQuake3_Construct(){
 
 			for ( const auto& [ name, path ] : paths )
 			{
+				if ( entitiesFilename && !string_equal_nocase( entitiesFilename, name.c_str() ) ) {
+					globalOutputStream() << "EntityClass: skipping " << Quoted( name.c_str() ) << '\n';
+					continue;
+				}
+
 				EntityClassesLoadFile( table, path ) ( name.c_str() );
 			}
 
@@ -210,7 +218,7 @@ void EntityClassQuake3_Construct(){
 		}
 	};
 
-	EntityClassManager_getEClassModules().foreachModule( LoadEntityDefinitionsVisitor( baseDirectory, gameDirectory ) );
+	EntityClassManager_getEClassModules().foreachModule( LoadEntityDefinitionsVisitor( baseDirectory, gameDirectory, entitiesFilename ) );
 }
 
 EntityClass *Eclass_ForName( const char *name, bool has_brushes ){
