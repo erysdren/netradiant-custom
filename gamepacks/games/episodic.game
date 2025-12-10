@@ -3,6 +3,8 @@
   type="source"
   index="1"
   name="Half-Life 2: Episode One"
+  enginepath_win32="C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/"
+  enginepath_linux="~/.steam/steam/steamapps/common/Half-Life 2/"
   engine_win32="hl2.exe"
   engine_linux="hl2.sh"
   engine_macos="hl2.sh"

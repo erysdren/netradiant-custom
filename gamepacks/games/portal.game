@@ -3,6 +3,8 @@
   type="source"
   index="1"
   name="Portal"
+  enginepath_win32="C:/Program Files (x86)/Steam/steamapps/common/Portal/"
+  enginepath_linux="~/.steam/steam/steamapps/common/Portal/"
   engine_win32="hl2.exe"
   engine_linux="hl2.sh"
   engine_macos="hl2.sh"
