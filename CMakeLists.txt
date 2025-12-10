@@ -302,6 +302,23 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	target_compile_definitions(l_net PRIVATE WIN32)
 	target_compile_definitions(xmllib PRIVATE WIN32)
 	target_compile_definitions(radiant PRIVATE RADIANT_EXECUTABLE=\"exe\")
+	install(CODE [[
+		file(GET_RUNTIME_DEPENDENCIES
+			RESOLVED_DEPENDENCIES_VAR RADIANT_RESOLVED_DEPENDENCIES
+			UNRESOLVED_DEPENDENCIES_VAR RADIANT_UNRESOLVED_DEPENDENCIES
+			EXECUTABLES
+				$<TARGET_FILE:radiant>
+			LIBRARIES
+				$<TARGET_RUNTIME_DLLS:radiant>
+			PRE_EXCLUDE_REGEXES
+				"^api-ms-win-crt-.*"
+			DIRECTORIES
+				$<TARGET_RUNTIME_DLL_DIRS:radiant>
+		)
+		message(WARNING "unresolved dependencies: ${RADIANT_UNRESOLVED_DEPENDENCIES}")
+		file(COPY ${RADIANT_RESOLVED_DEPENDENCIES} DESTINATION $<TARGET_FILE_DIR:radiant>)
+		file(COPY $<TARGET_RUNTIME_DLLS:radiant> DESTINATION $<TARGET_FILE_DIR:radiant>)
+	]])
 else()
 	target_compile_definitions(radiant PRIVATE POSIX XWINDOWS)
 	target_compile_definitions(commandlib PRIVATE POSIX XWINDOWS)
