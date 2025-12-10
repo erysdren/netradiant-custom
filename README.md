@@ -62,6 +62,8 @@ feasible.
 	- May require some restructuring of Radiant internals to achieve. Radiant's "layers" system doesn't seem to be the same.
 - Decals
 	- Probably should look at [TrenchBroom](https://github.com/TrenchBroom/TrenchBroom/)'s implementation for reference.
+- Compile Maps
+	- The Source map compiler tools cannot be included with this tool due to license issues. Need to figure out a way to automatically find them from the Source SDK and then write a build configuration for each gamepack.
 
 ### Random feature highlights
 
