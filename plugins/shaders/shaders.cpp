@@ -1486,6 +1486,9 @@ void ParseSourceShaderFile( ArchiveFile* file, const char* filename ){
 	g_shaders.insert( ShaderTemplateMap::value_type( shaderTemplate->getName(), shaderTemplate ) );
 
 	shaderTemplate->m_textureName = std::format("materials/{}", string_to_lowercase(baseTextureNameCleaned.c_str()));
+	shaderTemplate->m_AlphaFunc = IShader::eGEqual;
+	shaderTemplate->m_AlphaRef = 0.5;
+	shaderTemplate->m_nFlags |= QER_ALPHATEST;
 
 	g_shaderDefinitions.insert( ShaderDefinitionMap::value_type( shaderTemplate->getName(), ShaderDefinition( shaderTemplate.get(), ShaderArguments(), filename ) ) );
 }
