@@ -13,7 +13,7 @@
   basegamename="@ARG_TITLE@"
   unknowngamename="Unknown @ARG_TITLE@ Mod"
   shaderpath="materials"
-  archivetypes="vpk"
+  archivetypes="vpk gma gcf"
   texturetypes="vtf"
   modeltypes="mdl"
   soundtypes="wav"

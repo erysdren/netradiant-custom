@@ -56,10 +56,10 @@ feasible.
 - Load VMT materials
 	- FIXME: Doesn't prioritize loading the `%tooltexture` VTF before `$basetexture`.
 - Load VTF textures
-- Load files from VPKs
+- Load files from VPKs, GMAs and GCFs
 	- FIXME: Doesn't support "old style" VPK layouts, like from Source SDK 2006.
-	- TODO: Support VTMB VPKs. They can already be loaded by sourcepp, but my code assumes that the filenames end with `_dir.vpk`, which the VTMB ones don't.
-	- TODO: Support Garry's Mod GMAs. They can already be loaded by sourcepp, but my code needs some adjustments for it to work right.
+	- ~~TODO: Support VTMB VPKs. They can already be loaded by sourcepp, but my code assumes that the filenames end with `_dir.vpk`, which the VTMB ones don't.~~
+	- ~~TODO: Support Garry's Mod GMAs. They can already be loaded by sourcepp, but my code needs some adjustments for it to work right.~~
 - Load MDL models
 	- FIXME: Only loads the first MDL surface, so some models are missing chunks.
 
