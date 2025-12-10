@@ -285,6 +285,9 @@ public:
 		}
 	};
 	void writeGraph( scene::Node& root, GraphTraversalFunc traverse, TextOutputStream& outputStream ) const override {
+
+		GlobalBrushCreator().toggleFormat(eBrushTypeValve220);
+
 		kvpp::KV1Writer writer;
 
 		// make up some shit
