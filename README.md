@@ -54,7 +54,7 @@ feasible.
 	- FIXME: Sometimes solids are saved incorrectly and then the map won't compile.
 	- FIXME: Needs to have a special case for not merging entity keys that start with "On", which are **always** Source Engine I/O outputs.
 - Load VMT materials
-	- FIXME: Doesn't prioritize loading the `%tooltexture` VTF before `$basetexture`.
+	- ~~FIXME: Doesn't prioritize loading the `%tooltexture` VTF before `$basetexture`.~~
 - Load VTF textures
 - Load files from VPKs, GMAs and GCFs
 	- FIXME: Doesn't support "old style" VPK layouts, like from Source SDK 2006.
