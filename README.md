@@ -34,6 +34,7 @@ The main focus is on the Source Engine games of the Half-Life 2 era:
 - Half-Life 2: Episode Two (2007)
 - Portal (2007)
 - Team Fortress 2 (2007)
+- Garry's Mod (2006)
 
 But if the [sourcepp](https://github.com/craftablescience/sourcepp) library can
 load the assets, then supporting a lot more Source Engine games is probably
@@ -44,11 +45,23 @@ feasible.
 ### Can Do
 
 - Load VMF maps
+	- FIXME: Discards Displacements.
+	- FIXME: Discards Visgroups.
+	- FIXME: Discards some metadata, like `viewsettings` and `mapversion`.
+	- FIXME: Discards Cordons.
+	- FIXME: Discards Cameras.
 - Save VMF maps
+	- FIXME: Sometimes solids are saved incorrectly and then the map won't compile.
+	- FIXME: Needs to have a special case for not merging entuty keys that start with "On", which are **always** Source Engine I/O outputs.
 - Load VMT materials
+	- FIXME: Doesn't prioritize loading the `%tooltexture` VTF before `$basetexture`.
 - Load VTF textures
 - Load files from VPKs
+	- FIXME: Doesn't support "old style" VPK layouts, like from Source SDK 2006.
+	- TODO: Support VTMB VPKs. They can already be loaded by sourcepp, but my code assumes that the filenames end with `_dir.vpk`, which the VTMB ones don't.
+	- TODO: Support Garry's Mod GMAs. They can already be loaded by sourcepp, but my code needs some adjustments for it to work right.
 - Load MDL models
+	- FIXME: Only loads the first MDL surface, so some models are missing chunks.
 
 ### Can't Do (yet):
 
@@ -58,12 +71,14 @@ feasible.
 	- Might be a tough challenge to modify Patch support into Displacement support. I was told that [FTEQW](https://github.com/fte-team/fteqw) has code for converting Displacements into Q3-style bezier curves.
 - Source Entity I/O
 	- Mostly a UI issue. In the short term it will be better to just document the plaintext format of I/O strings, and make sure they don't get merged in the saved VMF.
+	- **NOTE**: All Source Entity I/O strings have the following format: `target,inputName,dataString,delayinSeconds,numUses`, so you could enter them manually as entity keys.
 - Visgroups
 	- May require some restructuring of Radiant internals to achieve. Radiant's "layers" system doesn't seem to be the same.
 - Decals
 	- Probably should look at [TrenchBroom](https://github.com/TrenchBroom/TrenchBroom/)'s implementation for reference.
 - Compile Maps
 	- The Source map compiler tools cannot be included with this tool due to license issues. Need to figure out a way to automatically find them from the Source SDK and then write a build configuration for each gamepack.
+	- TODO: Write some helper shell scripts to launch the tools with Wine and with the proper arguments on non-Windows platforms.
 
 ### Random feature highlights
 
