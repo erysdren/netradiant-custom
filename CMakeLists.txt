@@ -463,6 +463,18 @@ add_gamepack(tf2
 	PREFIX ".tf"
 )
 
+# TODO: support unofficial patch directory
+add_gamepack(vampire
+	TITLE "Vampire: The Masquerade - Bloodlines"
+	GAMEDIR "Vampire"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Vampire The Masquerade - Bloodlines/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Vampire The Masquerade - Bloodlines/"
+	EXECUTABLE_WIN32 "Vampire.exe"
+	EXECUTABLE_LINUX "Vampire.sh"
+	EXECUTABLE_MACOS "Vampire.sh"
+	PREFIX ".vampire"
+)
+
 # modules
 
 function(add_module name)
