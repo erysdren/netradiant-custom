@@ -22,7 +22,7 @@
   entityclass="quake3"
   entityclasstype="xml"
   entities="quake3"
-  brushtypes="quake3"
+  brushtypes="halflife"
   patchtypes="quake3"
   default_scale="0.25"
   no_patch="0"
