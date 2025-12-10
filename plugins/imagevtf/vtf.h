@@ -25,3 +25,4 @@ class Image;
 class ArchiveFile;
 
 Image* LoadVtf( ArchiveFile& file );
+Image* LoadTth( ArchiveFile& file );

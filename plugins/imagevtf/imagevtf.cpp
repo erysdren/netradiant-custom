@@ -52,10 +52,30 @@ typedef SingletonModule<ImageVtfAPI, ImageDependencies> ImageVtfModule;
 
 ImageVtfModule g_ImageVtfModule;
 
+class ImageTthAPI
+{
+	_QERPlugImageTable m_imagetth;
+public:
+	typedef _QERPlugImageTable Type;
+	STRING_CONSTANT( Name, "tth" );
+
+	ImageTthAPI(){
+		m_imagetth.loadImage = LoadTth;
+	}
+	_QERPlugImageTable* getTable(){
+		return &m_imagetth;
+	}
+};
+
+typedef SingletonModule<ImageTthAPI, ImageDependencies> ImageTthModule;
+
+ImageTthModule g_ImageTthModule;
+
 ////////////////////////////////////////////////////////
 
 extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server ){
 	initialiseModule( server );
 
 	g_ImageVtfModule.selfRegister();
+	g_ImageTthModule.selfRegister();
 }

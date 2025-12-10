@@ -14,7 +14,7 @@
   unknowngamename="Unknown @ARG_TITLE@ Mod"
   shaderpath="materials"
   archivetypes="vpk gma gcf"
-  texturetypes="vtf"
+  texturetypes="vtf tth"
   modeltypes="mdl"
   soundtypes="wav"
   maptypes="mapvmf"

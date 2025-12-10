@@ -30,11 +30,7 @@
 
 #include <vtfpp/vtfpp.h>
 
-Image* LoadVtf( ArchiveFile& file ){
-	ScopedArchiveBuffer buffer( file );
-
-	auto vtf = vtfpp::VTF({reinterpret_cast<const std::byte *>(buffer.buffer), buffer.length});
-
+Image* ProcessVtf( vtfpp::VTF& vtf ) {
 	if (!vtf.hasImageData())
 		return NULL;
 
@@ -58,4 +54,39 @@ Image* LoadVtf( ArchiveFile& file ){
 	}
 
 	return image;
+}
+
+Image* LoadVtf( ArchiveFile& file ){
+	ScopedArchiveBuffer buffer( file );
+	auto vtf = vtfpp::VTF({reinterpret_cast<const std::byte *>(buffer.buffer), buffer.length});
+	return ProcessVtf(vtf);
+}
+
+#if !defined(MAX_PATH) && defined(PATH_MAX)
+#define MAX_PATH PATH_MAX
+#else
+#define MAX_PATH 260
+#endif
+
+Image* LoadTth( ArchiveFile& file ){
+	const char *tthFilename = file.getName();
+	const char *tthFilenameExtPtr = std::strrchr( tthFilename, '.' );
+	size_t tthFilenameExtPos = tthFilenameExtPtr - tthFilename;
+
+	char ttzFilename[MAX_PATH];
+	std::strncpy( ttzFilename, tthFilename, sizeof(ttzFilename) );
+	std::strncpy( ttzFilename + tthFilenameExtPos, ".ttz", sizeof(ttzFilename) - tthFilenameExtPos );
+
+	ArchiveFile *ttzFile = GlobalFileSystem().openFile( ttzFilename );
+	if ( ttzFile ) {
+		ScopedArchiveBuffer tthBuffer( file );
+		ScopedArchiveBuffer ttzBuffer( *ttzFile );
+		auto ttx = vtfpp::TTX({reinterpret_cast<const std::byte *>(tthBuffer.buffer), tthBuffer.length}, {reinterpret_cast<const std::byte *>(ttzBuffer.buffer), ttzBuffer.length});
+		ttzFile->release();
+		return ProcessVtf(ttx.getVTF());
+	} else {
+		ScopedArchiveBuffer tthBuffer( file );
+		auto ttx = vtfpp::TTX({reinterpret_cast<const std::byte *>(tthBuffer.buffer), tthBuffer.length});
+		return ProcessVtf(ttx.getVTF());
+	}
 }
