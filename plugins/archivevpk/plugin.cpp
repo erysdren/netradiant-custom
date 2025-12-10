@@ -48,8 +48,50 @@ typedef SingletonModule<ArchiveVpkAPI> ArchiveVpkModule;
 ArchiveVpkModule g_ArchiveVpkModule;
 
 
+class ArchiveGmaAPI
+{
+	_QERArchiveTable m_archivegma;
+public:
+	typedef _QERArchiveTable Type;
+	STRING_CONSTANT( Name, "gma" );
+
+	ArchiveGmaAPI(){
+		m_archivegma.m_pfnOpenArchive = &OpenArchive;
+	}
+	_QERArchiveTable* getTable(){
+		return &m_archivegma;
+	}
+};
+
+typedef SingletonModule<ArchiveGmaAPI> ArchiveGmaModule;
+
+ArchiveGmaModule g_ArchiveGmaModule;
+
+
+class ArchiveGcfAPI
+{
+	_QERArchiveTable m_archivegcf;
+public:
+	typedef _QERArchiveTable Type;
+	STRING_CONSTANT( Name, "gcf" );
+
+	ArchiveGcfAPI(){
+		m_archivegcf.m_pfnOpenArchive = &OpenArchive;
+	}
+	_QERArchiveTable* getTable(){
+		return &m_archivegcf;
+	}
+};
+
+typedef SingletonModule<ArchiveGcfAPI> ArchiveGcfModule;
+
+ArchiveGcfModule g_ArchiveGcfModule;
+
+
 extern "C" void RADIANT_DLLEXPORT Radiant_RegisterModules( ModuleServer& server ){
 	initialiseModule( server );
 
 	g_ArchiveVpkModule.selfRegister();
+	g_ArchiveGmaModule.selfRegister();
+	g_ArchiveGcfModule.selfRegister();
 }

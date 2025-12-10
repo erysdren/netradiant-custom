@@ -134,10 +134,22 @@ class VpkArchive final : public Archive
 public:
 
 	VpkArchive( const char* name ) : m_name( name ) {
-		if (!strstr(name, "_dir.vpk")) {
-			return;
+		if ( string_equal_suffix_nocase( name, "_dir.vpk" ) ) {
+			m_vpk = vpkpp::VPK::open(name);
+		} else if ( string_equal_suffix_nocase( name, ".vpk" ) ) {
+			const char *filename = name + string_length(name) - 11; // string_length("pack000.vpk");
+			if ( string_equal_nocase_n( filename, "pack", 4 /* string_length("pack") */ )
+				&& std::isdigit( filename[4] )
+				&& std::isdigit( filename[5] )
+				&& std::isdigit( filename[6] )
+			) {
+				m_vpk = vpkpp::VPK_VTMB::open(name);
+			}
+		} else if ( string_equal_suffix_nocase( name, ".gma" ) ) {
+			m_vpk = vpkpp::GMA::open(name);
+		} else if ( string_equal_suffix_nocase( name, ".gcf" ) ) {
+			m_vpk = vpkpp::GCF::open(name);
 		}
-		m_vpk = vpkpp::VPK::open(name);
 	}
 
 	~VpkArchive() { }
