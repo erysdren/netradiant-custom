@@ -446,6 +446,18 @@ add_gamepack(portal
 	ENTITIES "portal.fgd"
 )
 
+add_gamepack(portal2
+	TITLE "Portal 2"
+	GAMEDIR "portal2"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Portal 2/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Portal 2/"
+	EXECUTABLE_WIN32 "portal2.exe"
+	EXECUTABLE_LINUX "portal2.sh"
+	EXECUTABLE_MACOS "portal2.sh"
+	PREFIX ".portal2"
+	ENTITIES "portal2.fgd"
+)
+
 add_gamepack(tf2
 	HAS_BASEGAME
 	TITLE_BASEGAME "Half-Life 2"
