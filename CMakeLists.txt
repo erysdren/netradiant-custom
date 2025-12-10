@@ -186,7 +186,7 @@ add_executable(radiant WIN32
 	${PROJECT_SOURCE_DIR}/radiant/dialog.cpp
 	${PROJECT_SOURCE_DIR}/radiant/eclass_def.cpp
 	${PROJECT_SOURCE_DIR}/radiant/eclass_doom3.cpp
-	${PROJECT_SOURCE_DIR}/radiant/eclass_fgd.cpp
+	${PROJECT_SOURCE_DIR}/radiant/eclass_fgd_sourcepp.cpp
 	${PROJECT_SOURCE_DIR}/radiant/eclass.cpp
 	${PROJECT_SOURCE_DIR}/radiant/eclass_xml.cpp
 	${PROJECT_SOURCE_DIR}/radiant/entityinspector.cpp
@@ -272,6 +272,7 @@ target_include_directories(radiant PRIVATE
 target_link_libraries(radiant PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Svg)
 target_link_libraries(radiant PRIVATE LibXml2::LibXml2)
 target_link_libraries(radiant PRIVATE commandlib gtkutil l_net xmllib quickhull)
+target_link_libraries(radiant PRIVATE sourcepp::toolpp)
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	target_link_libraries(radiant PRIVATE ws2_32)
 endif()
@@ -280,7 +281,7 @@ set_target_properties(radiant commandlib gtkutil xmllib PROPERTIES CXX_STANDARD_
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	target_compile_options(radiant PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
-	target_compile_options(radiant PRIVATE -Wreorder -fno-exceptions -fno-rtti -fpermissive)
+	target_compile_options(radiant PRIVATE -Wreorder -fno-rtti -fpermissive)
 endif()
 
 set_target_properties(radiant
