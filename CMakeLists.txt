@@ -7,18 +7,6 @@ cmake_policy(SET CMP0077 NEW)
 
 include(FetchContent)
 
-### THIS IS TEMPORARY!
-FetchContent_Declare(
-	CMP_Compressonator
-	GIT_REPOSITORY https://github.com/craftablescience/compressonator
-	GIT_TAG 7b3532c36e974a42850af123dcd65dacdacc9f47
-	EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(CMP_Compressonator)
-set_target_properties(CMP_Compressonator PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(CMP_Core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-###
-
 FetchContent_Declare(
 	sourcepp
 	GIT_REPOSITORY https://github.com/craftablescience/sourcepp.git
