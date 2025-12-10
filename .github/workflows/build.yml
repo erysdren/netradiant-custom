@@ -76,7 +76,7 @@ jobs:
     - name: Build
       run: |
         cmake --build --preset DefaultNinja
-        7z a Linux-${{ matrix.arch }}.zip ./install/*
+        7z a Linux-${{ matrix.arch }}.7z ./install/*
 
     - uses: actions/upload-artifact@v4
       with:
