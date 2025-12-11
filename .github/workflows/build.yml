@@ -25,7 +25,8 @@ jobs:
         shell: msys2 {0}
 
     steps:
-    - uses: msys2/setup-msys2@v2
+    - name: Install MSYS2
+      uses: msys2/setup-msys2@v2
       with:
         install: base-devel ${{ matrix.prefix }}-toolchain ${{ matrix.prefix }}-cmake ${{ matrix.prefix }}-ninja ${{ matrix.prefix }}-qt6-base ${{ matrix.prefix }}-qt6-svg ${{ matrix.prefix }}-libxml2 git unzip p7zip
         msystem: ${{ matrix.msystem }}
@@ -33,7 +34,8 @@ jobs:
         release: false
         update: false
 
-    - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -44,12 +46,12 @@ jobs:
     - name: Build
       run: |
         cmake --build --preset DefaultNinja
-        7z a Windows-${{ matrix.arch }}.zip ./install/*
 
-    - uses: actions/upload-artifact@v4
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
       with:
-        name: Windows-${{ matrix.arch }}
-        path: Windows-${{ matrix.arch }}.zip
+        name: SourceRadiant-Windows-${{ matrix.arch }}
+        path: install/*
         if-no-files-found: error
 
   linux:
@@ -61,11 +63,20 @@ jobs:
         arch: [x86_64]
 
     steps:
-    - name: Install tools
+    - name: Install Dependencies
       run: |
           sudo apt-get -qq update
-          sudo apt-get -y install mesa-common-dev qt6-base-dev libqt6svg6-dev libjpeg-dev libpng-dev
-    - uses: actions/checkout@v4
+          sudo apt-get -y install mesa-common-dev libjpeg-dev libpng-dev
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: '6.4.2'
+        host: 'linux'
+        target: 'desktop'
+        arch: 'gcc_64'
+        cache: true
+    - name: Checkout Repository
+      uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -76,10 +87,10 @@ jobs:
     - name: Build
       run: |
         cmake --build --preset DefaultNinja
-        7z a Linux-${{ matrix.arch }}.7z ./install/*
 
-    - uses: actions/upload-artifact@v4
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
       with:
-        name: Linux-${{ matrix.arch }}
-        path: Linux-${{ matrix.arch }}.7z
+        name: SourceRadiant-Linux-${{ matrix.arch }}
+        path: install/*
         if-no-files-found: error
