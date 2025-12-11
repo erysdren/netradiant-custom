@@ -311,7 +311,7 @@ class KeyValue final : public EntityKeyValue
 	CopiedString m_string;
 	const char* m_empty;
 	ObservedUndoableObject<CopiedString> m_undo;
-	static EntityCreator::KeyValueChangedFunc m_entityKeyValueChanged;
+	static inline EntityCreator::KeyValueChangedFunc m_entityKeyValueChanged = 0;
 public:
 
 	KeyValue( const char* string, const char* empty )

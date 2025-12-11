@@ -107,8 +107,8 @@ inline scene::Node& node_for_eclass( EntityClass* eclass ){
 	return node;
 }
 
-EntityCreator::KeyValueChangedFunc EntityKeyValues::m_entityKeyValueChanged = 0;
-EntityCreator::KeyValueChangedFunc KeyValue::m_entityKeyValueChanged = 0;
+// EntityCreator::KeyValueChangedFunc EntityKeyValues::m_entityKeyValueChanged = 0;
+// EntityCreator::KeyValueChangedFunc KeyValue::m_entityKeyValueChanged = 0;
 Counter* EntityKeyValues::m_counter = 0;
 
 bool g_showNames = true;
