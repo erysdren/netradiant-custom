@@ -266,6 +266,7 @@ target_compile_definitions(radiant PRIVATE
 	RADIANT_MINOR_VERSION=\"${RADIANT_MINOR_VERSION}\"
 	RADIANT_ABOUTMSG=\"${RADIANT_ABOUTMSG}\"
 	RADIANT_DEFAULT_MAP_EXTENSION=\".vmf\"
+	RADIANT_DEFAULT_MAP_BACKUP_EXTENSION=\".vmx\"
 )
 
 target_include_directories(radiant PRIVATE

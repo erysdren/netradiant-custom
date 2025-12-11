@@ -111,7 +111,7 @@ bool MapResource_saveFile( const MapFormat& format, scene::Node& root, GraphTrav
 }
 
 bool file_saveBackup( const char* path ){
-	const auto backup = StringStream( PathExtensionless( path ), ".bak" );
+	const auto backup = StringStream( PathExtensionless( path ), RADIANT_DEFAULT_MAP_BACKUP_EXTENSION );
 
 	if ( file_move( path, backup ) ) {
 		return true;
