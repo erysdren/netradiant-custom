@@ -98,7 +98,7 @@ class SpinBoxLabel : public QLabel
 protected:
 	SpinBoxT *m_spin;
 	bool m_isInDrag{};
-	QPoint m_dragStart;
+	QPointF m_dragStart;
 	int m_dragOccured;
 	int m_dragAccum;
 public:
@@ -112,7 +112,7 @@ protected:
 			m_spin->setFocus();
 			m_spin->selectAll();
 			m_isInDrag = true;
-			m_dragStart = event->globalPos();
+			m_dragStart = event->globalPosition();
 			m_dragOccured = false;
 			m_dragAccum = 0;
 			setCursor( Qt::CursorShape::BlankCursor );
@@ -120,7 +120,7 @@ protected:
     }
     void mouseMoveEvent( QMouseEvent* event ) override {
 		if( m_isInDrag && event->buttons() == Qt::MouseButton::LeftButton ){
-			m_dragAccum += event->globalPos().x() - m_dragStart.x();
+			m_dragAccum += event->globalPosition().x() - m_dragStart.x();
 			const int delta = m_dragAccum / 20;
 			if( delta != 0 ){
 				m_dragOccured = true;
@@ -134,7 +134,7 @@ protected:
 				}
 				else
 					m_spin->stepBy( event->modifiers().testFlag( Qt::KeyboardModifier::ControlModifier )? delta * 10 : delta );
-				QCursor::setPos( m_dragStart );
+				QCursor::setPos( m_dragStart.toPoint() );
 			}
 		}
     }

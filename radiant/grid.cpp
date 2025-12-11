@@ -35,6 +35,7 @@
 #include "commands.h"
 #include "preferences.h"
 
+#include <QActionGroup>
 
 
 Signal0 g_gridChange_callbacks;
