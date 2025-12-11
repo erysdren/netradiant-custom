@@ -77,6 +77,8 @@ target_include_directories(commandlib PRIVATE
 	${PROJECT_SOURCE_DIR}/libs
 )
 
+set_property(TARGET commandlib PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 # gtkutil
 
 add_library(gtkutil STATIC
@@ -149,6 +151,8 @@ target_include_directories(filematch PRIVATE
 	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_SOURCE_DIR}/libs
 )
+
+set_property(TARGET filematch PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # mathlib
 
