@@ -671,18 +671,118 @@ static std::vector<toolpp::FGD::Entity::ClassProperty>::const_iterator findClass
 	return last;
 }
 
+static void addFieldsToEntity( EntityClass* entityClass, const std::vector<toolpp::FGD::Entity::Field>& fields ) {
+
+	for ( const auto& field : fields ) {
+		EntityClassAttribute attribute;
+		attribute.m_name = field.name;
+		attribute.m_displayName = field.displayName;
+		if ( field.valueType == "studio" ) {
+			attribute.m_type = "model";
+		} else if ( field.valueType == "color255" ) {
+			attribute.m_type = "color";
+		} else {
+			attribute.m_type = field.valueType;
+		}
+		attribute.m_value = field.valueDefault;
+		attribute.m_description = field.description;
+		EntityClass_insertAttribute( *entityClass, field.name.data(), attribute );
+	}
+}
+
+static void addColorToEntity( EntityClass* entityClass, const toolpp::FGD::Entity& entity ) {
+	if ( entityClass->colorSpecified ) {
+		return;
+	}
+	if ( auto colorProperty = findClassProperty( entity, "color" ); colorProperty != entity.classProperties.end() ) {
+		if ( std::sscanf( (*colorProperty).arguments.data(), "%f%f%f", &entityClass->color.x(), &entityClass->color.y(), &entityClass->color.z() ) == 3 ) {
+			entityClass->colorSpecified = true;
+			entityClass->color.x() /= 255.0;
+			entityClass->color.y() /= 255.0;
+			entityClass->color.z() /= 255.0;
+		}
+	}
+}
+
+static void addSizeToEntity( EntityClass* entityClass, const toolpp::FGD::Entity& entity ) {
+	if ( entityClass->sizeSpecified || !entityClass->fixedsize ) {
+		return;
+	}
+	if ( auto sizeProperty = findClassProperty( entity, "size" ); sizeProperty != entity.classProperties.end() ) {
+		if ( std::sscanf( (*sizeProperty).arguments.data(), "%f%f%f,%f%f%f", &entityClass->mins.x(), &entityClass->mins.y(), &entityClass->mins.z(), &entityClass->maxs.x(), &entityClass->maxs.y(), &entityClass->maxs.z() ) == 6 ) {
+			entityClass->sizeSpecified = true;
+		} else if ( std::sscanf( (*sizeProperty).arguments.data(), "%f%f%f", &entityClass->mins.x(), &entityClass->mins.y(), &entityClass->mins.z() ) == 3 ) {
+			entityClass->maxs = entityClass->mins;
+			vector3_negate( entityClass->mins );
+			entityClass->sizeSpecified = true;
+			// globalWarningStream() << "had to guess maxs in " << Quoted( entityName ) << '\n';
+		} else {
+			// globalErrorStream() << "failed to parse size property in entity " << Quoted( entityName ) << '\n';
+		}
+	}
+}
+
+static void addModelToEntity( EntityClass* entityClass, const toolpp::FGD::Entity& entity ) {
+	if ( !entityClass->m_modelpath.empty() || entityClass->miscmodel_is ) {
+		return;
+	}
+	if ( auto studioProperty = findClassProperty( entity, "studio" ); studioProperty != entity.classProperties.end() ) {
+		if ( !(*studioProperty).arguments.empty() ) {
+			entityClass->m_modelpath = (*studioProperty).arguments.data();
+			entityClass->miscmodel_is = true;
+			globalOutputStream() << entityClass->m_modelpath << '\n';
+		}
+	}
+}
+
+class FGDTextInputStream : public TextInputStream
+{
+	std::string m_string;
+	std::size_t m_pos;
+public:
+	FGDTextInputStream( const std::string_view& string ) : m_string( string ), m_pos( 0 ) {
+	}
+	virtual std::size_t read( char* buffer, std::size_t length ) {
+		for ( std::size_t i = 0; i < length; i++ ) {
+			if ( m_pos >= m_string.length() ) {
+				return i;
+			}
+			buffer[i] = m_string[m_pos++];
+		}
+		return length;
+	}
+};
+
+static void addBaseAttributes( EntityClass* entityClass, const std::unordered_map<std::string_view, toolpp::FGD::Entity>& entities, const toolpp::FGD::Entity& entity ) {
+	if ( auto baseProperty = findClassProperty( entity, "base" ); baseProperty != entity.classProperties.end() ) {
+		FGDTextInputStream istream( (*baseProperty).arguments );
+		Tokeniser& tokeniser = GlobalScriptLibrary().m_pfnNewScriptTokeniser( istream );
+		while ( const char *baseClassName = tokeniser.getToken() ) {
+			if ( string_equal( baseClassName, "," ) ) {
+				continue;
+			}
+			if ( auto baseClass = entities.find( baseClassName ); baseClass != entities.end() ) {
+				addModelToEntity( entityClass, entity );
+				addSizeToEntity( entityClass, entity );
+				addColorToEntity( entityClass, baseClass->second );
+				addFieldsToEntity( entityClass, baseClass->second.fields );
+				addBaseAttributes( entityClass, entities, baseClass->second );
+			}
+		}
+	}
+}
+
 void Eclass_ScanFile_fgd( EntityClassCollector& collector, const char *filename ){
-#if 0
-	EntityClassFGD_loadUniqueFile( filename );
-#endif
 	toolpp::FGD fgd = toolpp::FGD(filename);
 
-	if ( !fgd.getEntities().size() ) {
+	const auto& entities = fgd.getEntities();
+
+	if ( !entities.size() ) {
 		globalWarningStream() << "failed to load any entities from " << Quoted( filename ) << '\n';
 		return;
 	}
 
-	for ( const auto & [ entityName, entity ] : fgd.getEntities() ) {
+	for ( const auto & [ entityName, entity ] : entities ) {
 		if ( entity.classType == "BaseClass" ) {
 			// base types
 			continue;
@@ -690,35 +790,27 @@ void Eclass_ScanFile_fgd( EntityClassCollector& collector, const char *filename 
 
 		EntityClass* entityClass = Eclass_Alloc();
 		entityClass->free = &Eclass_Free;
-		entityClass->fixedsize = true;
+		entityClass->sizeSpecified = false;
+		entityClass->colorSpecified = false;
 		entityClass->inheritanceResolved = false;
 		entityClass->mins = Vector3( -8, -8, -8 );
 		entityClass->maxs = Vector3( 8, 8, 8 );
 		entityClass->name_set( entityName.data() );
+		entityClass->m_comments = entity.description;
 
 		if ( entity.classType == "SolidClass" ) {
 			// solid types
 			entityClass->fixedsize = false;
 		} else if ( string_equal_suffix( entity.classType.data(), "Class" ) ) {
 			// all other class types are assumed to be point sized
-			if ( auto sizeProperty = findClassProperty( entity, "size" ); sizeProperty != entity.classProperties.end() ) {
-				if ( std::sscanf( (*sizeProperty).arguments.data(), "%f%f%f,%f%f%f", &entityClass->mins.x(), &entityClass->mins.y(), &entityClass->mins.z(), &entityClass->maxs.x(), &entityClass->maxs.y(), &entityClass->maxs.z() ) == 6 ) {
-					// ??
-				} else if ( std::sscanf( (*sizeProperty).arguments.data(), "%f%f%f", &entityClass->mins.x(), &entityClass->mins.y(), &entityClass->mins.z() ) == 3 ) {
-					entityClass->maxs = entityClass->mins;
-					vector3_negate( entityClass->mins );
-					globalWarningStream() << "had to guess maxs in " << Quoted( entityName ) << '\n';
-				} else {
-					globalErrorStream() << "failed to parse size property in entity " << Quoted( entityName ) << '\n';
-				}
-			}
-
-#if 0
-			for ( const auto& classProperty : entity.classProperties ) {
-				globalOutputStream() << entityName << ": " << Quoted( classProperty.name ) << "  " << Quoted( classProperty.arguments ) << '\n';
-			}
-#endif
+			entityClass->fixedsize = true;
 		}
+
+		addModelToEntity( entityClass, entity );
+		addSizeToEntity( entityClass, entity );
+		addColorToEntity( entityClass, entity );
+		addFieldsToEntity( entityClass, entity.fields );
+		addBaseAttributes( entityClass, entities, entity );
 
 		g_EntityClassFGD_classes.insert( EntityClasses::value_type( entityClass->name(), entityClass ) );
 	}
