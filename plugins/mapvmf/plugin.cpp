@@ -167,7 +167,12 @@ public:
 							}
 						}
 						NodeSmartReference solidnode( solid );
-						Node_getTraversable( entity )->insert( solidnode );
+
+						if ( !Node_getTraversable( entity ) ) {
+							globalWarningStream() << "FIXME: bad solid data in " << Node_getEntity( entity )->getClassName() << '\n';
+						} else {
+							Node_getTraversable( entity )->insert( solidnode );
+						}
 					} else if (string_equal_nocase(e.getKey().data(), "editor")) {
 						// FIXME: do we care about any of this?
 					} else {
