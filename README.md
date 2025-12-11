@@ -28,15 +28,18 @@ SourceRadiant is a fork of NetRadiant-custom ([GtkRadiant](https://icculus.org/g
 
 ## Supported games
 
-The main focus is on the Source Engine games of the Half-Life 2 era:
+There are also gamepacks for the following Source Engine titles:
 
 - Half-Life 2 (2004)
+- Vampire: The Masquerade - Bloodlines (2004)
 - Counter-Strike: Source (2004)
+- Day of Defeat: Source (2005)
+- Garry's Mod (2006)
 - Half-Life 2: Episode One (2006)
 - Half-Life 2: Episode Two (2007)
 - Portal (2007)
 - Team Fortress 2 (2007)
-- Garry's Mod (2006)
+- Portal 2 (2011)
 
 But if the [sourcepp](https://github.com/craftablescience/sourcepp) library can
 load the assets, then supporting a lot more Source Engine games is probably
