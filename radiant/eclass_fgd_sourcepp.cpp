@@ -762,6 +762,7 @@ static void addBaseAttributes( EntityClass* entityClass, const std::unordered_ma
 				continue;
 			}
 			if ( auto baseClass = entities.find( baseClassName ); baseClass != entities.end() ) {
+				entityClass->m_parent.push_back( baseClassName );
 				addModelToEntity( entityClass, entity );
 				addSizeToEntity( entityClass, entity );
 				addColorToEntity( entityClass, baseClass->second );
@@ -795,6 +796,7 @@ void Eclass_ScanFile_fgd( EntityClassCollector& collector, const char *filename 
 		entityClass->inheritanceResolved = false;
 		entityClass->mins = Vector3( -8, -8, -8 );
 		entityClass->maxs = Vector3( 8, 8, 8 );
+		entityClass->color = Vector3( 0.7, 0.7, 0.7 );
 		entityClass->name_set( entityName.data() );
 		entityClass->m_comments = entity.description;
 
