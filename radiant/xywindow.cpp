@@ -442,10 +442,10 @@ class XYGLWidget : public QOpenGLWidget
 public:
 	XYGLWidget( XYWnd& xywnd ) : QOpenGLWidget(), m_xywnd( xywnd ),
 		m_deferred_motion( [this]( const QMouseEvent& event ){
-				if ( m_xywnd.chaseMouseMotion( event.x() * m_scale, event.y() * m_scale ) ) {
+				if ( m_xywnd.chaseMouseMotion( event.position().x() * m_scale, event.position().y() * m_scale ) ) {
 					return;
 				}
-				m_xywnd.XY_MouseMoved( event.x() * m_scale, event.y() * m_scale, buttons_for_state( event ) );
+				m_xywnd.XY_MouseMoved( event.position().x() * m_scale, event.position().y() * m_scale, buttons_for_state( event ) );
 			} )
 	{
 		setMouseTracking( true );
@@ -504,17 +504,17 @@ protected:
 
 		m_xywnd.ButtonState_onMouseDown( buttons_for_event_button( event ) );
 
-		m_xywnd.onMouseDown( WindowVector( event->x(), event->y() ) * m_scale, button_for_button( event->button() ), modifiers_for_state( event->modifiers() ) );
+		m_xywnd.onMouseDown( WindowVector( event->position().x(), event->position().y() ) * m_scale, button_for_button( event->button() ), modifiers_for_state( event->modifiers() ) );
 	}
 	void mouseMoveEvent( QMouseEvent *event ) override {
 		m_deferred_motion.motion( event );
 	}
 	void mouseReleaseEvent( QMouseEvent *event ) override {
-		m_xywnd.XY_MouseUp( event->x() * m_scale, event->y() * m_scale, buttons_for_event_button( event ) );
+		m_xywnd.XY_MouseUp( event->position().x() * m_scale, event->position().y() * m_scale, buttons_for_event_button( event ) );
 
 		m_xywnd.ButtonState_onMouseUp( buttons_for_event_button( event ) );
 
-		m_xywnd.chaseMouseMotion( event->x() * m_scale, event->y() * m_scale ); /* stop chaseMouseMotion this way */
+		m_xywnd.chaseMouseMotion( event->position().x() * m_scale, event->position().y() * m_scale ); /* stop chaseMouseMotion this way */
 	}
 	void wheelEvent( QWheelEvent *event ) override {
 		setFocus();
@@ -2270,9 +2270,9 @@ void XYWindow_Construct(){
 	GlobalCommands_insert( "NextView", makeCallbackF( XY_NextView ), QKeySequence( "Ctrl+Tab" ) );
 	GlobalCommands_insert( "ZoomIn", makeCallbackF( XY_ZoomIn ) );
 	GlobalCommands_insert( "ZoomOut", makeCallbackF( XY_ZoomOut ), QKeySequence( "Insert" ) );
-	GlobalCommands_insert( "ViewTop", makeCallbackF( XY_Top ), QKeySequence( +Qt::Key_7 + Qt::KeypadModifier ) );
-	GlobalCommands_insert( "ViewFront", makeCallbackF( XY_Front ), QKeySequence( +Qt::Key_1 + Qt::KeypadModifier ) );
-	GlobalCommands_insert( "ViewSide", makeCallbackF( XY_Side ), QKeySequence( +Qt::Key_3 + Qt::KeypadModifier ) );
+	GlobalCommands_insert( "ViewTop", makeCallbackF( XY_Top ), QKeySequence( Qt::KeypadModifier, Qt::Key_7 ) );
+	GlobalCommands_insert( "ViewFront", makeCallbackF( XY_Front ), QKeySequence( Qt::KeypadModifier, Qt::Key_1 ) );
+	GlobalCommands_insert( "ViewSide", makeCallbackF( XY_Side ), QKeySequence( Qt::KeypadModifier, Qt::Key_3 ) );
 	GlobalCommands_insert( "Zoom100", makeCallbackF( XY_Zoom100 ) );
 	GlobalCommands_insert( "CenterXYView", makeCallbackF( XY_Centralize ), QKeySequence( "Ctrl+Shift+Tab" ) );
 	GlobalCommands_insert( "XYFocusOnSelected", makeCallbackF( XY_Focus ), QKeySequence( "`" ) );

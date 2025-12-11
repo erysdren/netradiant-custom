@@ -532,7 +532,11 @@ void Widget_connectToggleDependency( QWidget* self, QCheckBox* toggleButton ){
 		}
 	};
 	new EnabledTracker( toggleButton, self ); // track graying out for chained dependencies
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 9, 0))
+	QObject::connect( toggleButton, &QCheckBox::checkStateChanged, [self, toggleButton]( Qt::CheckState state ){ // track being checked
+#else
 	QObject::connect( toggleButton, &QCheckBox::stateChanged, [self, toggleButton]( int state ){ // track being checked
+#endif
 		self->setEnabled( state && toggleButton->isEnabled() );
 	} );
 	self->setEnabled( toggleButton->checkState() && toggleButton->isEnabled() ); // apply dependency effect right away

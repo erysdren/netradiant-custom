@@ -43,6 +43,7 @@
 #include "igl.h"
 #include "iscenegraph.h"
 
+#include <QFile>
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -2044,7 +2045,7 @@ private:
 			void insert( const char *name ) const {
 				m_texTree.insert( m_stringStream( m_dirstring, PathExtensionless( name ) ) );
 			}
-			typedef ConstMemberCaller<LoadTexturesByTypeVisitor, void(const char*), &insert> InsertCaller;
+			typedef ConstMemberCaller<LoadTexturesByTypeVisitor, void(const char*), &LoadTexturesByTypeVisitor::insert> InsertCaller;
 			LoadTexturesByTypeVisitor( const char* dirstring, TexTree& texTree ) :
 				m_dirstring( dirstring ), m_texTree( texTree ), m_stringStream( 64 )
 			{}
@@ -2221,7 +2222,7 @@ private:
 			if( list.size() > 3 ){ // try to find long enough common prefix to reduce typing
 				int len = list[0].length();
 				for( int i = 0; i < list.size() && len > 0; ++i ){
-					len = std::min( len, list[i].length() );
+					len = std::min<int>( len, list[i].length() );
 					for( int j = 0; j < len; ++j ){
 						if( list[0][j].toLower() != list[i][j].toLower() ){
 							len = j;

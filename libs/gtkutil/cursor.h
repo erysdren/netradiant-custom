@@ -28,19 +28,51 @@
 
 #include "debugging/debugging.h"
 
+struct MouseMoveEventStorage {
+	QPointF m_mouseMoveEventLocalPos;
+	QPointF m_mouseMoveEventScenePos;
+	QPointF m_mouseMoveEventGlobalPos;
+	Qt::MouseButton m_mouseMoveEventButton;
+	Qt::MouseButtons m_mouseMoveEventButtons;
+	Qt::KeyboardModifiers m_mouseMoveEventKeyboardModifiers;
+
+	MouseMoveEventStorage() = default;
+
+	MouseMoveEventStorage( const QMouseEvent& event ) {
+		m_mouseMoveEventLocalPos = event.position();
+		m_mouseMoveEventScenePos = event.scenePosition();
+		m_mouseMoveEventGlobalPos = event.globalPosition();
+		m_mouseMoveEventButton = event.button();
+		m_mouseMoveEventButtons = event.buttons();
+		m_mouseMoveEventKeyboardModifiers = event.modifiers();
+	}
+
+	operator QMouseEvent() const {
+		return QMouseEvent(
+			QEvent::MouseMove,
+			m_mouseMoveEventLocalPos,
+			m_mouseMoveEventScenePos,
+			m_mouseMoveEventGlobalPos,
+			m_mouseMoveEventButton,
+			m_mouseMoveEventButtons,
+			m_mouseMoveEventKeyboardModifiers
+		);
+	}
+};
 
 class DeferredMotion
 {
-	QMouseEvent m_mouseMoveEvent;
+	MouseMoveEventStorage m_mouseMoveEvent;
 	QTimer m_timer;
 public:
 	template<class Functor>
-	DeferredMotion( Functor func ) :
-		m_mouseMoveEvent( QEvent::MouseMove, QPointF(), Qt::MouseButton::NoButton, Qt::MouseButtons(), Qt::KeyboardModifiers() )
+	DeferredMotion( Functor func )
+		: m_mouseMoveEvent()
 	{
 		m_timer.setSingleShot( true );
 		m_timer.callOnTimeout( [this, func](){ func( m_mouseMoveEvent ); } );
 	}
+
 	void motion( const QMouseEvent *event ){
 		m_mouseMoveEvent = *event;
 		if( !m_timer.isActive() )
@@ -50,12 +82,12 @@ public:
 
 class DeferredMotion2
 {
-	QMouseEvent m_mouseMoveEvent;
+	MouseMoveEventStorage m_mouseMoveEvent;
 	const std::function<void( const QMouseEvent& )> m_func;
 public:
 	template<class Functor>
 	DeferredMotion2( Functor func ) :
-		m_mouseMoveEvent( QEvent::MouseMove, QPointF(), Qt::MouseButton::NoButton, Qt::MouseButtons(), Qt::KeyboardModifiers() ),
+		m_mouseMoveEvent(),
 		m_func( func )
 	{
 	}
@@ -70,14 +102,13 @@ public:
 
 class DeferredMotionDelta
 {
-	QMouseEvent m_mouseMoveEvent;
+	MouseMoveEventStorage m_mouseMoveEvent;
 	QTimer m_timer;
 	int m_delta_x = 0;
 	int m_delta_y = 0;
 public:
 	template<class Functor>
-	DeferredMotionDelta( Functor func ) :
-		m_mouseMoveEvent( QEvent::MouseMove, QPointF(), Qt::MouseButton::NoButton, Qt::MouseButtons(), Qt::KeyboardModifiers() )
+	DeferredMotionDelta( Functor func )
 	{
 		m_timer.setSingleShot( true );
 		m_timer.callOnTimeout( [this, func](){
@@ -101,14 +132,14 @@ public:
 
 class DeferredMotionDelta2
 {
-	QMouseEvent m_mouseMoveEvent;
+	MouseMoveEventStorage m_mouseMoveEvent;
 	std::function<void( int, int, const QMouseEvent& )> m_func;
 	int m_delta_x = 0;
 	int m_delta_y = 0;
 public:
 	template<class Functor>
 	DeferredMotionDelta2( Functor func ) :
-		m_mouseMoveEvent( QEvent::MouseMove, QPointF(), Qt::MouseButton::NoButton, Qt::MouseButtons(), Qt::KeyboardModifiers() ),
+		m_mouseMoveEvent(),
 		m_func( func )
 	{
 	}
@@ -135,7 +166,7 @@ class FreezePointer : public QObject
 	QPoint m_initial_pos;
 	bool m_trackingEstablished;
 
-	std::function<void(int, int, const QMouseEvent*)> m_motion_delta_function;
+	std::function<void(qreal, qreal, const QMouseEvent*)> m_motion_delta_function;
 	std::function<void()> m_focus_out_function;
 	QTimer m_rescueTimer;
 	QPoint getCenter() const {
@@ -148,11 +179,11 @@ protected:
 			const QPoint center = getCenter();
 			/* QCursor::setPos( center ) effect may happen not immediately; suspend processing till then, otherwise start dash will happen */
 			if( !m_trackingEstablished ){
-				m_trackingEstablished = mouseEvent->globalPos() == center;
+				m_trackingEstablished = mouseEvent->globalPosition() == center;
 				QCursor::setPos( center );
 			}
-			else if( mouseEvent->globalPos() != center ){
-				const QPoint delta = mouseEvent->globalPos() - center;
+			else if( mouseEvent->globalPosition() != center ){
+				const QPointF delta = mouseEvent->globalPosition() - center;
 				m_motion_delta_function( delta.x(), delta.y(), mouseEvent );
 				QCursor::setPos( center );
 			}

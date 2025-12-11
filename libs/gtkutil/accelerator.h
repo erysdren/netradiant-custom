@@ -28,7 +28,7 @@
 // technically this should also check if sequence has keys, not just modifiers
 // but this works with current shortcuts providers ( QKeySequence( string ) & QKeySequenceEdit )
 inline bool QKeySequence_valid( const QKeySequence& accelerator ){
-	return !accelerator.isEmpty() && accelerator[0] != Qt::Key_unknown;
+	return !accelerator.isEmpty() && accelerator[0] != QKeyCombination();
 }
 
 QKeySequence accelerator_for_event_key( const class QKeyEvent* event );

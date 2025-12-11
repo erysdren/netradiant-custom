@@ -188,7 +188,7 @@ inline bool qt_keyvalue_is_known( int keyvalue ){
         case Qt::Key::Key_twosuperior :
         case Qt::Key::Key_threesuperior :
         case Qt::Key::Key_acute :
-        case Qt::Key::Key_mu :
+        case Qt::Key::Key_micro :
         case Qt::Key::Key_paragraph :
         case Qt::Key::Key_periodcentered :
         case Qt::Key::Key_cedilla :

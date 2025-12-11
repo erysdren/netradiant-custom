@@ -1651,7 +1651,7 @@ void TextureBrowser_SetNotex(){
 class Filter_QLineEdit : public QLineEdit
 {
 protected:
-	void enterEvent( QEvent *event ) override {
+	void enterEvent( QEnterEvent *event ) override {
 		setFocus();
 	}
 	void leaveEvent( QEvent *event ) override {
