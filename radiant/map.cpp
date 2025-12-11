@@ -334,7 +334,7 @@ const char* Map_Name( const Map& map ){
 }
 
 bool Map_Unnamed( const Map& map ){
-	return string_equal( Map_Name( map ), "unnamed"RADIANT_DEFAULT_MAP_EXTENSION );
+	return string_equal( Map_Name( map ), "unnamed" RADIANT_DEFAULT_MAP_EXTENSION );
 }
 
 inline const MapFormat& MapFormat_forFile( const char* filename ){
@@ -1264,7 +1264,7 @@ bool Map_Save(){
 void Map_New(){
 	//globalOutputStream() << "Map_New\n";
 
-	g_map.m_name = "unnamed"RADIANT_DEFAULT_MAP_EXTENSION;
+	g_map.m_name = "unnamed" RADIANT_DEFAULT_MAP_EXTENSION;
 	Map_UpdateTitle( g_map );
 
 	{
@@ -1597,7 +1597,7 @@ tryDecompile:
 		Q_Exec( nullptr, str.c_str(), nullptr, false, true );
 
 		// rebuild filename as "filenamewithoutext_converted.map"
-		str( PathExtensionless( filename ), "_converted"RADIANT_DEFAULT_MAP_EXTENSION );
+		str( PathExtensionless( filename ), "_converted" RADIANT_DEFAULT_MAP_EXTENSION );
 		filename = str.c_str();
 
 		const EBrushType brush_type = GlobalBrushCreator().getFormat();
@@ -2157,7 +2157,7 @@ void map_autocaulk_selected(){
 
 	ScopeDisableScreenUpdates disableScreenUpdates( "processing", "autocaulk" );
 
-	auto filename = StringStream( PathExtensionless( g_map.m_name.c_str() ), "_ac"RADIANT_DEFAULT_MAP_EXTENSION );
+	auto filename = StringStream( PathExtensionless( g_map.m_name.c_str() ), "_ac" RADIANT_DEFAULT_MAP_EXTENSION );
 
 	{	// write .map
 		const Vector3 spawn( Camera_getOrigin( *g_pParentWnd->GetCamWnd() ) );

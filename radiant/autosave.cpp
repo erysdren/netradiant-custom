@@ -143,7 +143,7 @@ void QE_CheckAutoSave(){
 				if ( Map_Unnamed( g_map ) ) {
 					auto autosave = StringStream( g_qeglobals.m_userGamePath, "maps/" );
 					Q_mkdir( autosave );
-					autosave << "autosave"RADIANT_DEFAULT_MAP_EXTENSION;
+					autosave << "autosave" RADIANT_DEFAULT_MAP_EXTENSION;
 					Map_SaveFile( autosave );
 				}
 				else
