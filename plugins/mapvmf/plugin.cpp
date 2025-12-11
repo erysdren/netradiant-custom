@@ -176,7 +176,11 @@ public:
 					} else if (string_equal_nocase(e.getKey().data(), "editor")) {
 						// FIXME: do we care about any of this?
 					} else {
-						Node_getEntity( entity )->setKeyValue( e.getKey().data(), e.getValue().data() );
+						if (hasSolids && string_equal_nocase(e.getKey().data(), "origin")) {
+							// do nothing
+						} else {
+							Node_getEntity( entity )->setKeyValue( e.getKey().data(), e.getValue().data() );
+						}
 					}
 				}
 				NodeSmartReference node( entity );
