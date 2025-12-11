@@ -28,7 +28,7 @@ SourceRadiant is a fork of NetRadiant-custom ([GtkRadiant](https://icculus.org/g
 
 ## Supported games
 
-There are also gamepacks for the following Source Engine titles:
+There are gamepacks for the following Source Engine titles:
 
 - Half-Life 2 (2004)
 - Vampire: The Masquerade - Bloodlines (2004)
