@@ -374,6 +374,21 @@ add_gamepack(cstrike
 	ENTITIES "cstrike.fgd"
 )
 
+add_gamepack(dod
+	HAS_BASEGAME
+	TITLE_BASEGAME "Half-Life 2"
+	GAMEDIR_BASEGAME "hl2"
+	TITLE "Day of Defeat: Source"
+	GAMEDIR "dod"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Day of Defeat Source/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Day of Defeat Source/"
+	EXECUTABLE_WIN32 "dod.exe"
+	EXECUTABLE_LINUX "dod.sh"
+	EXECUTABLE_MACOS "dod.sh"
+	PREFIX ".dod"
+	ENTITIES "dod.fgd"
+)
+
 add_gamepack(ep2
 	HAS_BASEGAME
 	TITLE_BASEGAME "Half-Life 2"
