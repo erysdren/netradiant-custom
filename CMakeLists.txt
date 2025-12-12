@@ -632,3 +632,57 @@ add_module(vfspk3
 )
 target_link_libraries(vfspk3 PRIVATE LibXml2::LibXml2)
 target_link_libraries(vfspk3 PRIVATE filematch)
+
+# plugins
+
+function(add_plugin name)
+	cmake_parse_arguments(PARSE_ARGV 1 ARG "" "" "SOURCES")
+	add_library(${name} SHARED ${ARG_SOURCES})
+	set_target_properties(${name}
+		PROPERTIES
+			CXX_STANDARD_REQUIRED ON
+			CXX_STANDARD 20
+			LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/plugins
+			RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/install/plugins
+			PREFIX ""
+	)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		target_compile_definitions(${name} PRIVATE WIN32)
+	else()
+		target_compile_definitions(${name} PRIVATE POSIX XWINDOWS)
+	endif()
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		target_compile_options(${name} PRIVATE -MMD -W -Wall -Wcast-align -Wcast-qual -Wno-unused-parameter -Wno-unused-function -fno-strict-aliasing)
+		target_compile_options(${name} PRIVATE -Wreorder -fno-exceptions -fno-rtti)
+	endif()
+	target_include_directories(${name} PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+		${PROJECT_SOURCE_DIR}/libs
+	)
+	target_compile_definitions(${name} PRIVATE QT_NO_KEYWORDS)
+	target_compile_definitions(${name} PRIVATE
+		RADIANT_VERSION=\"${RADIANT_VERSION}\"
+		RADIANT_MAJOR_VERSION=\"${RADIANT_MAJOR_VERSION}\"
+		RADIANT_MINOR_VERSION=\"${RADIANT_MINOR_VERSION}\"
+		RADIANT_ABOUTMSG=\"${RADIANT_ABOUTMSG}\"
+	)
+endfunction()
+
+add_plugin(brushexport
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/callbacks.cpp
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/export.cpp
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/interface.cpp
+		${PROJECT_SOURCE_DIR}/contrib/brushexport/plugin.cpp
+)
+target_link_libraries(brushexport PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::OpenGL Qt6::OpenGLWidgets)
+
+add_plugin(prtview
+	SOURCES
+		${PROJECT_SOURCE_DIR}/contrib/prtview/AboutDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/ConfigDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/LoadPortalFileDialog.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/portals.cpp
+		${PROJECT_SOURCE_DIR}/contrib/prtview/prtview.cpp
+)
+target_link_libraries(prtview PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::OpenGL Qt6::OpenGLWidgets)
