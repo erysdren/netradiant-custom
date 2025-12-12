@@ -107,6 +107,7 @@ public:
 		size_t len = 0;
 		std::string kv1Data = "";
 
+		// FIXME: should this be hardcoded?
 		GlobalBrushCreator().toggleFormat(eBrushTypeValve220);
 
 		while ( ( len = inputStream.read(buffer, sizeof(buffer)) ) > 0 ) {
@@ -125,11 +126,12 @@ public:
 				// FIXME: do we care about any of this?
 			} else if (string_equal_nocase(key.data(), "world") || string_equal_nocase(key.data(), "entity")) {
 				bool hasSolids = false;
-				EntityClass* entityClass;
+				EntityClass* entityClass = NULL;
 				for ( auto e : elem ) {
 					if (string_equal_nocase(e.getKey().data(), "solid")) {
-						hasSolids = true;
-						break;
+						if ( e.hasChild("side") ) {
+							hasSolids = true;
+						}
 					}
 				}
 				for ( auto e : elem ) {
@@ -137,11 +139,19 @@ public:
 						entityClass = GlobalEntityClassManager().findOrInsert( e.getValue().data(), hasSolids );
 					}
 				}
+				if ( !entityClass ) {
+					globalWarningStream() << "no classname in entity" << '\n';
+					continue;
+				}
 				scene::Node& entity( entityTable.createEntity( entityClass ) );
 				for ( auto e : elem ) {
 					if (string_equal_nocase(e.getKey().data(), "id")) {
 						// FIXME: do we need to keep track of this?
 					} else if (string_equal_nocase(e.getKey().data(), "solid")) {
+						if ( !e.hasChild("side") ) {
+							Node_getEntity( entity )->setKeyValue( e.getKey().data(), e.getValue().data() );
+							continue;
+						}
 						scene::Node& solid( GlobalBrushCreator().createBrush() );
 						for ( auto solidelem : e ) {
 							if (string_equal_nocase(solidelem.getKey().data(), "side")) {
@@ -167,7 +177,6 @@ public:
 							}
 						}
 						NodeSmartReference solidnode( solid );
-
 						if ( !Node_getTraversable( entity ) ) {
 							globalWarningStream() << "FIXME: bad solid data in " << Node_getEntity( entity )->getClassName() << '\n';
 						} else {
@@ -295,6 +304,7 @@ public:
 	};
 	void writeGraph( scene::Node& root, GraphTraversalFunc traverse, TextOutputStream& outputStream ) const override {
 
+		// FIXME: should this be hardcoded?
 		GlobalBrushCreator().toggleFormat(eBrushTypeValve220);
 
 		kvpp::KV1Writer writer;
