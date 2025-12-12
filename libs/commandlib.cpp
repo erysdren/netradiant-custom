@@ -24,11 +24,55 @@
 //
 
 #include "commandlib.h"
+#include "stream/textstream.h"
+#include "itextstream.h"
 
 #include <cstring>
 #include <cstdio>
 
+#include <QProcess>
 
+bool Q_Exec( const char *cmd, char *cmdline, const char *execdir, bool bCreateConsole, bool waitfor ){
+	QProcess *process = new QProcess();
+
+	QObject::connect(process, &QProcess::readyReadStandardOutput, [process](){
+		QString output = process->readAllStandardOutput();
+		globalOutputStream() << qUtf8Printable(output);
+	});
+
+	QObject::connect(process, &QProcess::readyReadStandardError, [process](){
+		QString output = process->readAllStandardOutput();
+		globalErrorStream() << qUtf8Printable(output);
+	});
+
+	QObject::connect(process, &QProcess::finished, [process](int exitCode){
+		globalOutputStream() << qUtf8Printable(process->program()) << " exited with status " << exitCode << '\n';
+		delete process;
+	});
+
+	if ( bCreateConsole ) {
+#ifdef WIN32
+		process->setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args)
+		{
+			args->flags |= CREATE_NEW_CONSOLE;
+		});
+#endif
+	}
+
+	if ( execdir ) {
+		process->setWorkingDirectory(execdir);
+	}
+
+	process->start(cmd, QStringList() << cmdline);
+
+	while ( waitfor ) {
+		process->waitForFinished();
+	}
+
+	return true;
+}
+
+#if 0
 #if defined ( POSIX )
 
 #include <cstdlib>
@@ -145,6 +189,7 @@ bool Q_Exec( const char *cmd, char *cmdline, const char *execdir, bool bCreateCo
 	return false;
 }
 
+#endif
 #endif
 
 #include <filesystem>
