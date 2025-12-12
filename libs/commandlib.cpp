@@ -67,6 +67,7 @@ bool Q_Exec( const char *cmd, char *cmdline, const char *execdir, bool bCreateCo
 
 	while ( waitfor ) {
 		process->waitForFinished();
+		delete process;
 	}
 
 	return true;
