@@ -679,6 +679,10 @@ static void addFieldsToEntity( EntityClass* entityClass, const std::vector<toolp
 		attribute.m_displayName = field.displayName;
 		if ( field.valueType == "studio" ) {
 			attribute.m_type = "model";
+			if ( !entityClass->m_modelpath.empty() && !field.valueDefault.empty() ) {
+				entityClass->miscmodel_is = true;
+				entityClass->m_modelpath = field.valueDefault;
+			}
 		} else if ( field.valueType == "color255" ) {
 			attribute.m_type = "color";
 		} else {
@@ -722,19 +726,6 @@ static void addSizeToEntity( EntityClass* entityClass, const toolpp::FGD::Entity
 	}
 }
 
-static void addModelToEntity( EntityClass* entityClass, const toolpp::FGD::Entity& entity ) {
-	if ( !entityClass->m_modelpath.empty() || entityClass->miscmodel_is ) {
-		return;
-	}
-	if ( auto studioProperty = findClassProperty( entity, "studio" ); studioProperty != entity.classProperties.end() ) {
-		if ( !(*studioProperty).arguments.empty() ) {
-			entityClass->m_modelpath = (*studioProperty).arguments.data();
-			entityClass->miscmodel_is = true;
-			globalOutputStream() << entityClass->m_modelpath << '\n';
-		}
-	}
-}
-
 class FGDTextInputStream : public TextInputStream
 {
 	std::string m_string;
@@ -752,6 +743,22 @@ public:
 		return length;
 	}
 };
+
+static void addModelToEntity( EntityClass* entityClass, const toolpp::FGD::Entity& entity ) {
+	if ( !entityClass->m_modelpath.empty() || entityClass->miscmodel_is ) {
+		return;
+	}
+	if ( auto studioProperty = findClassProperty( entity, "studio" ); studioProperty != entity.classProperties.end() ) {
+		if ( (*studioProperty).arguments.empty() ) {
+			entityClass->miscmodel_is = true;
+		} else {
+			FGDTextInputStream istream( (*studioProperty).arguments );
+			Tokeniser& tokeniser = GlobalScriptLibrary().m_pfnNewScriptTokeniser( istream );
+			auto modelNameCleaned = StringStream<64>( PathCleaned( tokeniser.getToken() ) );
+			entityClass->m_modelpath = string_to_lowercase( modelNameCleaned.c_str() );
+		}
+	}
+}
 
 static void addBaseAttributes( EntityClass* entityClass, const std::unordered_map<std::string_view, toolpp::FGD::Entity>& entities, const toolpp::FGD::Entity& entity ) {
 	if ( auto baseProperty = findClassProperty( entity, "base" ); baseProperty != entity.classProperties.end() ) {
