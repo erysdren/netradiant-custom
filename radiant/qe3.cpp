@@ -162,6 +162,16 @@ void build_init_variables(){
 	build_set_variable( "ExtraResourcePaths", stream );
 	build_set_variable( "MonitorAddress", ( g_WatchBSP_Enabled ) ? RADIANT_MONITOR_ADDRESS : "" );
 	build_set_variable( "GameName", gamename_get() );
+	build_set_variable( "GamePath", stream( EnginePath_get(), "/", gamename_get(), "/" ) );
+	build_set_variable( "MapsPath", stream( EnginePath_get(), "/", gamename_get(), "/maps/" ) );
+
+#if defined( POSIX )
+	build_set_variable( "CopyCommand", "cp" );
+#elif defined( WIN32 )
+	build_set_variable( "CopyCommand", "copy" );
+#else
+#error "unsupported platform"
+#endif
 
 	const char* mapname = Map_Name( g_map );
 

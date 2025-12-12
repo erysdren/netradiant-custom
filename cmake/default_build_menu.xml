@@ -1,3 +1,53 @@
 <?xml version="1.0"?>
+<!--
+build variables
+[RadiantPath]: path to Radiant .. C:/Projects/Source/Tools/SourceRadiant
+[CopyCommand]: copy command .. copy
+[EnginePath]: path to the engine .. C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/
+[ExecutableType]: Radiant executable suffix .. exe
+[GamePath]: game folder path .. C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/hl2/
+[GameName]: game folder name .. hl2
+[MapsPath]: game maps path .. C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/hl2/maps/
+[MapFile]: vmf file path .. C:/Projects/Source/Maps/mymap.vmf
+[BspFile]: bsp file path .. C:/Projects/Source/Maps/mymap.bsp
+[MapName]: vmf file name .. mymap.vmf
+-->
 <project version="2.0">
+  <var name="BspExecutable">"[EnginePath]/bin/vbsp"</var>
+  <var name="VisExecutable">"[EnginePath]/bin/vvis"</var>
+  <var name="RadExecutable">"[EnginePath]/bin/vrad"</var>
+  <build name="Default">
+       <command>[BspExecutable] -game "[GamePath]" "[MapFile]"</command>
+       <command>[VisExecutable] -game "[GamePath]" "[BspFile]"</command>
+       <command>[RadExecutable] -game "[GamePath]" "[BspFile]"</command>
+       <command>[CopyCommand] "[BspFile]" "[MapsPath]"</command>
+  </build>
+  <build name="Fast">
+       <command>[BspExecutable] -game "[GamePath]" "[MapFile]"</command>
+       <command>[VisExecutable] -fast -game "[GamePath]" "[BspFile]"</command>
+       <command>[RadExecutable] -fast -game "[GamePath]" "[BspFile]"</command>
+       <command>[CopyCommand] "[BspFile]" "[MapsPath]"</command>
+  </build>
+  <build name="HDR Fast Compile">
+       <command>[BspExecutable] -game "[GamePath]" "[MapFile]"</command>
+       <command>[VisExecutable] -fast -game "[GamePath]" "[BspFile]"</command>
+       <command>[RadExecutable] -fast -hdr -game "[GamePath]" "[BspFile]"</command>
+       <command>[CopyCommand] "[BspFile]" "[MapsPath]"</command>
+  </build>
+  <build name="HDR Full Compile">
+       <command>[BspExecutable] -game "[GamePath]" "[MapFile]"</command>
+       <command>[VisExecutable] -game "[GamePath]" "[BspFile]"</command>
+       <command>[RadExecutable] -hdr -game "[GamePath]" "[BspFile]"</command>
+       <command>[CopyCommand] "[BspFile]" "[MapsPath]"</command>
+  </build>
+  <build name="HDR Final Compile (slow!)">
+       <command>[BspExecutable] -game "[GamePath]" "[MapFile]"</command>
+       <command>[VisExecutable] -game "[GamePath]" "[BspFile]"</command>
+       <command>[RadExecutable] -final -hdr -game "[GamePath]" "[BspFile]"</command>
+       <command>[CopyCommand] "[BspFile]" "[MapsPath]"</command>
+  </build>
+  <build name="Only Entities">
+       <command>[BspExecutable] -onlyents -game "[GamePath]" "[MapFile]"</command>
+       <command>[CopyCommand] "[BspFile]" "[MapsPath]"</command>
+  </build>
 </project>
