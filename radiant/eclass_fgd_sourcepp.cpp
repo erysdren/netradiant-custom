@@ -749,14 +749,14 @@ static void addModelToEntity( EntityClass* entityClass, const toolpp::FGD::Entit
 		return;
 	}
 	if ( auto studioProperty = findClassProperty( entity, "studio" ); studioProperty != entity.classProperties.end() ) {
-		if ( (*studioProperty).arguments.empty() ) {
-			entityClass->miscmodel_is = true;
-		} else {
+		if ( !(*studioProperty).arguments.empty() ) {
 			FGDTextInputStream istream( (*studioProperty).arguments );
 			Tokeniser& tokeniser = GlobalScriptLibrary().m_pfnNewScriptTokeniser( istream );
 			auto modelNameCleaned = StringStream<64>( PathCleaned( tokeniser.getToken() ) );
 			entityClass->m_modelpath = string_to_lowercase( modelNameCleaned.c_str() );
 		}
+	} else if ( auto studioProperty = findClassProperty( entity, "studioprop" ); studioProperty != entity.classProperties.end() ) {
+		entityClass->miscmodel_is = true;
 	}
 }
 
