@@ -26,7 +26,7 @@
   brushtypes="halflife"
   patchtypes="quake3"
   default_scale="0.25"
-  no_patch="0"
+  no_patch="1"
   no_bsp_monitor="1"
   shader_caulk = "tools/toolsskip"
   shader_trigger = "tools/toolstrigger"
