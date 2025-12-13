@@ -162,6 +162,7 @@ scene::Node& loadSourceModel( ArchiveFile& mdlFile ) {
 	}
 	ArchiveFile *vvdFile = GlobalFileSystem().openFile( vvdFilename );
 	if ( !vvdFile ) {
+		vtxFile->release();
 		Model_constructNull( modelNode->model() );
 		return modelNode->node();
 	}
@@ -191,6 +192,10 @@ scene::Node& loadSourceModel( ArchiveFile& mdlFile ) {
 		processMesh( mdl, baked, baked.meshes[i], modelNode->model() );
 	}
 #endif
+
+	// clean up
+	vtxFile->release();
+	vvdFile->release();
 
 	return modelNode->node();
 }
