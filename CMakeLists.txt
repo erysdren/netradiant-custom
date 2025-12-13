@@ -390,6 +390,21 @@ add_gamepack(cstrike
 	ENTITIES "cstrike.fgd"
 )
 
+add_gamepack(diprip
+	HAS_BASEGAME
+	TITLE_BASEGAME "Source SDK Base 2007"
+	GAMEDIR_BASEGAME "vpks"
+	TITLE "D.I.P.R.I.P. Warm Up"
+	GAMEDIR "diprip"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Source SDK Base 2007/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Source SDK Base 2007/"
+	EXECUTABLE_WIN32 "hl2.exe"
+	EXECUTABLE_LINUX "hl2.sh"
+	EXECUTABLE_MACOS "hl2.sh"
+	PREFIX ".diprip"
+	ENTITIES "diprip.fgd"
+)
+
 add_gamepack(dod
 	HAS_BASEGAME
 	TITLE_BASEGAME "Half-Life 2"
