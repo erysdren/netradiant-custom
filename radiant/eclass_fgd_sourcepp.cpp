@@ -685,8 +685,12 @@ static void addFieldsToEntity( EntityClass* entityClass, const std::vector<toolp
 			}
 		} else if ( field.valueType == "color255" ) {
 			attribute.m_type = "color";
+		} else if ( field.valueType == "material" ) {
+			attribute.m_type = "shader";
 		} else {
-			attribute.m_type = field.valueType;
+			// FIXME: add proper handlers for more Source-specific types in entityinspector.cpp
+			// attribute.m_type = field.valueType;
+			attribute.m_type = "string";
 		}
 		attribute.m_value = field.valueDefault;
 		attribute.m_description = field.description;
