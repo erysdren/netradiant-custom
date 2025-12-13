@@ -477,6 +477,21 @@ add_gamepack(hl2
 	ENTITIES "halflife2.fgd"
 )
 
+add_gamepack(hl2mp
+	HAS_BASEGAME
+	TITLE_BASEGAME "Half-Life 2"
+	GAMEDIR_BASEGAME "hl2"
+	TITLE "Half-Life 2: Deathmatch"
+	GAMEDIR "hl2mp"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2 Deathmatch/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/Half-Life 2 Deathmatch/"
+	EXECUTABLE_WIN32 "hl2mp.exe"
+	EXECUTABLE_LINUX "hl2mp.sh"
+	EXECUTABLE_MACOS "hl2mp.sh"
+	PREFIX ".hl2mp"
+	ENTITIES "hl2mp.fgd"
+)
+
 add_gamepack(portal
 	HAS_BASEGAME
 	TITLE_BASEGAME "Half-Life 2"

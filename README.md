@@ -31,6 +31,7 @@ SourceRadiant is a fork of NetRadiant-custom ([GtkRadiant](https://icculus.org/g
 There are gamepacks for the following Source Engine titles:
 
 - Half-Life 2 (2004)
+- Half-Life 2: Deathmatch (2004)
 - Vampire: The Masquerade - Bloodlines (2004)
 - Counter-Strike: Source (2004)
 - Day of Defeat: Source (2005)
