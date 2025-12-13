@@ -34,11 +34,13 @@ There are gamepacks for the following Source Engine titles:
 - Vampire: The Masquerade - Bloodlines (2004)
 - Counter-Strike: Source (2004)
 - Day of Defeat: Source (2005)
+- SiN Episodes: Emergence (2006)
 - Garry's Mod (2006)
 - Half-Life 2: Episode One (2006)
 - Half-Life 2: Episode Two (2007)
 - Portal (2007)
 - Team Fortress 2 (2007)
+- D.I.P.R.I.P. Warm Up (2008)
 - Portal 2 (2011)
 
 But if the [sourcepp](https://github.com/craftablescience/sourcepp) library can
