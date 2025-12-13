@@ -67,6 +67,7 @@ feasible.
 	- ~~TODO: Support Garry's Mod GMAs. They can already be loaded by sourcepp, but my code needs some adjustments for it to work right.~~
 - Load MDL models
 	- FIXME: Only loads the first MDL surface, so some models are missing chunks.
+- Compile Maps
 
 ### Can't Do (yet):
 
@@ -81,9 +82,6 @@ feasible.
 	- May require some restructuring of Radiant internals to achieve. Radiant's "layers" system doesn't seem to be the same.
 - Decals
 	- Probably should look at [TrenchBroom](https://github.com/TrenchBroom/TrenchBroom/)'s implementation for reference.
-- Compile Maps
-	- The Source map compiler tools cannot be included with this tool due to license issues. Need to figure out a way to automatically find them from the Source SDK and then write a build configuration for each gamepack.
-	- TODO: Write some helper shell scripts to launch the tools with Wine and with the proper arguments on non-Windows platforms.
 
 ### Random feature highlights
 
