@@ -504,6 +504,21 @@ add_gamepack(portal2
 	ENTITIES "portal2.fgd"
 )
 
+add_gamepack(sinepisodes
+	HAS_BASEGAME
+	TITLE_BASEGAME "SiN Episodes: Emergence Base Content"
+	GAMEDIR_BASEGAME "vpks"
+	TITLE "SiN Episodes: Emergence"
+	GAMEDIR "SE1"
+	PATH_WIN32 "C:/Program Files (x86)/Steam/steamapps/common/SiN Episodes Emergence/"
+	PATH_LINUX "~/.steam/steam/steamapps/common/SiN Episodes Emergence/"
+	EXECUTABLE_WIN32 "SinEpisodes.exe"
+	EXECUTABLE_LINUX "SinEpisodes.sh"
+	EXECUTABLE_MACOS "SinEpisodes.sh"
+	PREFIX ".sinepisodes"
+	ENTITIES "SinEpisodes.fgd"
+)
+
 add_gamepack(tf2
 	HAS_BASEGAME
 	TITLE_BASEGAME "Half-Life 2"
