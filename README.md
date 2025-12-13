@@ -85,6 +85,7 @@ feasible.
 	- May require some restructuring of Radiant internals to achieve. Radiant's "layers" system doesn't seem to be the same.
 - Decals
 	- Probably should look at [TrenchBroom](https://github.com/TrenchBroom/TrenchBroom/)'s implementation for reference.
+- Instances
 
 ### Random feature highlights
 
